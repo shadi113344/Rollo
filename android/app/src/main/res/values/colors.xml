@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rollo_bg">#0A0A0A</color>
+    <color name="rollo_card">#161616</color>
+    <color name="rollo_accent">#7C5CFF</color>
+    <color name="rollo_text">#F2F2F2</color>
+    <color name="rollo_muted">#A0A0A0</color>
+    <color name="rollo_success">#4ADE80</color>
+    <color name="rollo_error">#F87171</color>
+</resources>

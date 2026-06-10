@@ -12,6 +12,7 @@ object AssetInstaller {
 
         if (!force && marker.exists() && marker.readText() == versionCode.toString() && File(dest, "main.js").exists()) {
             RolloConfig.writeNodeConfig(context)
+            verifyInstall(dest)?.let { throw IllegalStateException(it) }
             return
         }
 
@@ -22,6 +23,21 @@ object AssetInstaller {
         copyAssetFolder(context, "nodejs-project", dest.absolutePath)
         marker.writeText(versionCode.toString())
         RolloConfig.writeNodeConfig(context)
+        verifyInstall(dest)?.let { throw IllegalStateException(it) }
+    }
+
+    fun verifyInstall(dest: File): String? {
+        val required = listOf(
+            "main.js",
+            "server.js",
+            "node_modules/express/package.json"
+        )
+        for (path in required) {
+            if (!File(dest, path).exists()) {
+                return "Missing $path in server bundle. Rebuild APK after running: npm run sync:android"
+            }
+        }
+        return null
     }
 
     private fun copyAssetFolder(context: Context, assetPath: String, destPath: String) {
