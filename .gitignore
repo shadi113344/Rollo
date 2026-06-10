@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# User media and runtime data (never commit)
+videos/*
+!videos/.gitkeep
+data/*.json
+
+# Built launcher binary
+Rollo.exe
+launcher/**/bin/
+launcher/**/obj/
+
+# Secrets
+.env
+.env.*
+
+# One-off restore / migration scripts
+_restore_*.py
+_extract_key_edits.py
+_restore_debug/
+
+# Local editor settings
+.vscode/
+
+# OS / editor
+.DS_Store
+Thumbs.db

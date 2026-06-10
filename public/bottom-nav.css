@@ -1,0 +1,162 @@
+:root {
+  --tab-bar-height: 49px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-lift: 10px;
+  /* Dock = tab-bar content + the home-indicator safe-area strip. Pure CSS (the env() terms
+     cancel in the lvh top-anchor below), so no JS measurement and no staleness. */
+  --bottom-dock-height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  --bottom-ui-inset: calc(var(--bottom-dock-height) + var(--bottom-lift));
+}
+
+#bottom-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--bottom-lift); /* fallback for browsers without lvh; overridden below */
+  height: var(--bottom-dock-height);
+  z-index: 30;
+  background: transparent;
+  /* Capture touches in the home-indicator strip; pointer-events:none let grid links underneath
+     receive long-press and show Safari's link menu (Copy Link, etc.). */
+  pointer-events: auto;
+  -webkit-touch-callout: none;
+}
+
+.page-profile #bottom-dock {
+  bottom: 0;
+  height: calc(var(--bottom-dock-height) + var(--bottom-lift));
+  background: #000;
+  border-top: 1px solid #1a1a1a;
+}
+
+/* iOS standalone PWA reports a too-short viewport at first paint, so `position: fixed; bottom: 0`
+   lands ~34-59px above the physical screen bottom until a swipe forces a recompute. Only `lvh`
+   (large-viewport height) knows the true screen height without waiting for a gesture. Anchor the
+   dock from the TOP so its bottom edge lands at 100lvh = physical bottom. The env() terms cancel
+   (top subtracts it, height adds it), keeping the bottom pinned regardless of safe-area changes. */
+@supports (height: 100lvh) {
+  .ios-standalone #bottom-dock {
+    top: calc(100lvh - var(--bottom-dock-height) - var(--bottom-lift));
+    bottom: auto;
+  }
+
+  .ios-standalone.page-profile #bottom-dock,
+  .ios-standalone .page-profile #bottom-dock {
+    top: calc(100lvh - var(--bottom-dock-height) - var(--bottom-lift));
+    height: calc(var(--bottom-dock-height) + var(--bottom-lift));
+  }
+}
+
+#tab-bar {
+  display: flex;
+  height: var(--tab-bar-height);
+  background: transparent;
+  pointer-events: auto;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1px;
+  padding: 6px 0 2px;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-item.active {
+  color: #fff;
+}
+
+.tab-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab-profile-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tab-profile-wrap > .tab-item {
+  flex: 1;
+  width: 100%;
+}
+
+button.tab-item {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.tab-item.pressing {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.profile-switch-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 148px;
+  max-width: min(240px, 52vw);
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 40;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.profile-switch-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: #ccc;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-switch-item:active {
+  background: #2a2a2a;
+}

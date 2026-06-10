@@ -1,0 +1,128 @@
+.heart-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.heart-filled path {
+  fill: #ff4d6d;
+}
+
+.heart-outline path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+}
+
+.heart-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.heart-wrap.lg { font-size: 22px; }
+.heart-wrap.md { font-size: 16px; }
+.heart-wrap.sm { font-size: 13px; }
+
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.38); }
+  100% { transform: scale(1); }
+}
+
+.heart-pop {
+  animation: heart-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fav-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(255, 77, 109, 0.35);
+  font-size: 14px;
+}
+
+.fav-badge .heart-icon {
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 0 4px rgba(255, 77, 109, 0.55));
+}
+
+.filter-btn.fav-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-btn.fav-filter .heart-wrap {
+  font-size: 13px;
+  color: #888;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.filter-btn.fav-filter.active .heart-wrap {
+  color: #ff4d6d;
+}
+
+.filter-btn.fav-filter.active .heart-filled path {
+  fill: #ff4d6d;
+}
+
+.menu-item.fav-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-item.fav-sort .heart-wrap {
+  font-size: 14px;
+  color: #ff4d6d;
+}
+
+.btn.fav-btn {
+  font-size: 0;
+}
+
+.btn.fav-btn .heart-wrap {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.btn.fav-btn.favorited .heart-wrap {
+  color: #ff4d6d;
+}
+
+.btn.fav-btn.favorited .heart-filled path {
+  fill: #ff4d6d;
+  filter: drop-shadow(0 0 6px rgba(255, 77, 109, 0.65));
+}
+
+.mode-btn.fav-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mode-btn.fav-mode .heart-wrap {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.mode-btn.fav-mode.active .heart-wrap {
+  color: #ff8fa3;
+}

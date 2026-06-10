@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rollo">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>Rollo</title>
+  <link rel="stylesheet" href="/heart.css">
+  <link rel="stylesheet" href="/bottom-nav.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      /* Media should meet the seek line (no extra black band). */
+      --video-bottom-inset: var(--bottom-ui-inset);
+    }
+
+    html {
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      touch-action: pan-y;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    #feed {
+      position: fixed;
+      inset: 0;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+    }
+
+    /* Footer/seek use 100lvh on iOS standalone; feed must match or a black band shows
+       between the video and the dock (looks like a dark overlay behind the footer). */
+    @supports (height: 100lvh) {
+      .ios-standalone #feed {
+        inset: auto;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100lvh;
+      }
+
+      .ios-standalone .video-card {
+        height: 100lvh;
+        min-height: 100lvh;
+      }
+    }
+
+    #chrome-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 25;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: calc(8px + env(safe-area-inset-top)) 12px 10px;
+      background: transparent;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    #chrome-top.hidden {
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
+
+    .mode-menu {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+      flex: 0 1 auto;
+      max-width: min(148px, 42vw);
+    }
+
+    .mode-toggle {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 8px 4px 10px;
+      font-size: 11px;
+      line-height: 1.2;
+      cursor: pointer;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .mode-toggle:active { background: rgba(255,255,255,0.18); }
+
+    .mode-menu.open .mode-toggle {
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    .mode-toggle-chev {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 12px;
+      height: 12px;
+      transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mode-toggle-chev svg {
+      width: 11px;
+      height: 11px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .mode-menu.open .mode-toggle-chev {
+      transform: rotate(180deg);
+    }
+
+    .mode-panel-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      width: auto;
+      max-width: 100%;
+      transition: grid-template-rows 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mode-menu.open .mode-panel-wrap {
+      grid-template-rows: 1fr;
+    }
+
+    .mode-panel {
+      overflow: hidden;
+      min-height: 0;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition:
+        opacity 0.28s ease 0.04s,
+        transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mode-menu.open .mode-panel {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #video-counter {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      font-variant-numeric: tabular-nums;
+      padding-top: 8px;
+    }
+
+    .mode-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      width: auto;
+      max-width: 100%;
+      padding-top: 4px;
+    }
+
+    .mode-btn {
+      width: auto;
+      max-width: 100%;
+      text-align: left;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .mode-btn .heart-wrap.sm {
+      transform: scale(0.85);
+      transform-origin: left center;
+    }
+
+    .mode-btn.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .tag-filter-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      width: auto;
+      max-width: 100%;
+      transition: grid-template-rows 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tag-filter-wrap.open {
+      grid-template-rows: 1fr;
+    }
+
+    .tag-filter {
+      overflow: hidden;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      width: auto;
+      max-width: 100%;
+      padding-top: 4px;
+      scrollbar-width: none;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition:
+        opacity 0.28s ease 0.04s,
+        transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tag-filter-wrap.open .tag-filter {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 22dvh;
+      overflow-y: auto;
+    }
+
+    .tag-filter::-webkit-scrollbar { display: none; }
+
+    .tag-filter-empty {
+      font-size: 10px;
+      color: rgba(255,255,255,0.45);
+      padding: 2px 0;
+      line-height: 1.3;
+      max-width: 132px;
+    }
+
+    .tag-chip {
+      width: auto;
+      max-width: 100%;
+      text-align: left;
+      flex-shrink: 0;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #ddd;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 11px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .tag-chip.active {
+      font-weight: 600;
+    }
+
+    #feed::-webkit-scrollbar { display: none; }
+
+    #feed.no-snap { scroll-snap-type: none; }
+
+    .video-card {
+      position: relative;
+      height: 100%;
+      min-height: 100%;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      overflow: hidden;
+      background: #000;
+      touch-action: pan-y;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Hard clip: media lives only above the seek bar (top of seek track). */
+    .media-slot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: var(--video-bottom-inset);
+      overflow: hidden;
+      background: #000;
+    }
+
+    .media-slot video,
+    .media-slot img.card-media {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      background: #000;
+    }
+
+    /* Portrait: bottom of picture sits on the seek bar top in every aspect mode. */
+    .video-card.fit-portrait .media-slot video,
+    .video-card.fit-portrait .media-slot img.card-media {
+      object-position: center bottom;
+    }
+
+    body.aspect-fill .video-card.fit-portrait .media-slot video,
+    body.aspect-fill .video-card.fit-portrait .media-slot img.card-media {
+      object-fit: cover;
+    }
+
+    .media-slot img.card-media {
+      pointer-events: none;
+    }
+
+    .video-card.is-image .play-hint,
+    .video-card.is-image .speed-hint,
+    .video-card.is-image .speed-overlay,
+    .video-card.is-image .progress,
+    .video-card.is-image .time-label,
+    .video-card.is-image .mute-btn-hide { display: none !important; }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 16px 72px calc(var(--bottom-ui-inset) + 10px) 16px;
+      transition: opacity 0.35s ease;
+    }
+
+    .overlay.hidden { opacity: 0; }
+
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.35;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      word-break: break-word;
+    }
+
+    .time-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .card-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+
+    .controls {
+      position: absolute;
+      right: 12px;
+      bottom: calc(var(--bottom-ui-inset) + 10px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: auto;
+      z-index: 10;
+      transition: opacity 0.35s ease;
+    }
+
+    .controls.hidden { opacity: 0; pointer-events: none; }
+
+    .btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+    }
+
+    .btn:active { background: rgba(255,255,255,0.3); }
+
+    .aspect-btn .aspect-icon {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      display: block;
+    }
+
+    .aspect-btn svg {
+      position: absolute;
+      inset: 0;
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    .aspect-btn .aspect-icon-fill {
+      opacity: 0;
+      transform: scale(0.88) rotate(-10deg);
+    }
+
+    .aspect-btn.mode-fill .aspect-icon-original {
+      opacity: 0;
+      transform: scale(0.88) rotate(10deg);
+    }
+
+    .aspect-btn.mode-fill .aspect-icon-fill {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+
+    .play-hint {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: var(--video-bottom-inset);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .play-hint.visible { opacity: 1; }
+
+    .play-hint span {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .progress {
+      display: none;
+    }
+
+    #seek-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--bottom-ui-inset); /* fallback; overridden below for lvh */
+      z-index: 31;
+      height: 0;
+      pointer-events: none;
+    }
+
+    /* Same iOS-standalone fix as #bottom-dock: anchor from the top via lvh so the seek bar
+       sits exactly on the dock's top edge from first paint, no swipe required. */
+    @supports (height: 100lvh) {
+      .ios-standalone #seek-bar { top: calc(100lvh - var(--bottom-ui-inset)); bottom: auto; }
+    }
+
+    #seek-bar.hidden {
+      display: none;
+    }
+
+    #seek-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 22px;
+      touch-action: none;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    #seek-track-bg {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.35);
+      pointer-events: none;
+      transition: height 0.15s ease;
+    }
+
+    #seek-track-fill {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 2px;
+      background: #fff;
+      width: 0%;
+      pointer-events: none;
+      transition: height 0.15s ease;
+    }
+
+    #seek-bar.visible #seek-track-bg,
+    #seek-bar.dragging #seek-track-bg {
+      background: rgba(255,255,255,0.25);
+    }
+
+    #seek-bar.dragging #seek-track-bg,
+    #seek-bar.dragging #seek-track-fill {
+      height: 3px;
+    }
+
+    #seek-thumb {
+      position: absolute;
+      bottom: 0;
+      width: 12px;
+      height: 12px;
+      margin-left: -6px;
+      margin-bottom: -5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+
+    #seek-bar.dragging #seek-thumb { opacity: 1; }
+
+    .speed-overlay {
+      position: absolute;
+      top: 0;
+      bottom: var(--video-bottom-inset);
+      width: 38%;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .speed-overlay.left {
+      left: 0;
+      background: linear-gradient(to right, rgba(0,0,0,0.4), transparent);
+    }
+
+    .speed-overlay.right {
+      right: 0;
+      background: linear-gradient(to left, rgba(0,0,0,0.4), transparent);
+    }
+
+    .speed-overlay.visible { opacity: 1; }
+
+    .speed-zones {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      z-index: 5;
+    }
+
+    .speed-zone-left,
+    .speed-zone-right { flex: 4; }
+    .speed-zone-center { flex: 2; }
+
+    .speed-hint {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.55);
+      font-size: 15px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .speed-hint.left { left: 16px; }
+    .speed-hint.right { right: 16px; }
+    .speed-hint.visible { opacity: 1; }
+
+    #empty, #loading, #filtered-empty {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      color: #888;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    #empty, #filtered-empty { display: none; }
+
+    /* Tag editor sheet */
+    #sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 30;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    #sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #tag-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 31;
+      background: #1a1a1a;
+      border-radius: 16px 16px 0 0;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      max-height: 70dvh;
+      overflow-y: auto;
+    }
+
+    #tag-sheet.open { transform: translateY(0); }
+
+    #tag-sheet h2 {
+      margin: 0 0 4px;
+      font-size: 16px;
+    }
+
+    #tag-sheet .filename {
+      margin: 0 0 14px;
+      font-size: 12px;
+      color: #888;
+      word-break: break-all;
+    }
+
+    .sheet-section { margin-bottom: 14px; }
+
+    .sheet-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .editable-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .editable-chip button {
+      border: none;
+      background: none;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .add-row input {
+      flex: 1;
+      border: 1px solid #444;
+      background: #111;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .add-row button, .sheet-close {
+      border: none;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .sheet-close {
+      width: 100%;
+      margin-top: 8px;
+      background: #333;
+      color: #fff;
+    }
+
+    .suggest-chip {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #ccc;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    #unlock-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    #unlock-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #unlock-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 41;
+      background: #1a1a1a;
+      border-radius: 16px 16px 0 0;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+    }
+
+    #unlock-sheet.open { transform: translateY(0); }
+
+    #unlock-sheet h2 { margin: 0 0 4px; font-size: 16px; }
+    #unlock-sheet .subtitle { margin: 0 0 14px; font-size: 12px; color: #888; }
+
+    #unlock-password {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: #fff;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    #unlock-submit, #unlock-cancel {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    #unlock-submit { background: #fff; color: #000; }
+    #unlock-cancel { background: #333; color: #fff; }
+
+    #toast {
+      position: fixed;
+      bottom: calc(var(--bottom-ui-inset) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(40,40,40,0.95);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      z-index: 50;
+      pointer-events: none;
+      max-width: min(90vw, 360px);
+      text-align: center;
+    }
+
+    #toast:empty { display: none; }
+  </style>
+</head>
+<body>
+  <header id="chrome-top">
+    <div class="mode-menu" id="mode-menu">
+      <button class="mode-toggle" id="mode-toggle" type="button" aria-expanded="false" aria-controls="mode-row">
+        <span id="mode-toggle-label">In order</span>
+        <span class="mode-toggle-chev" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </button>
+      <div class="mode-panel-wrap">
+        <div class="mode-panel">
+          <div class="mode-row" id="mode-row">
+            <button class="mode-btn active" data-mode="order">In order</button>
+            <button class="mode-btn" data-mode="shuffle">Shuffle</button>
+            <button class="mode-btn fav-mode" data-mode="favorites" type="button">
+              <span class="heart-wrap sm" id="fav-mode-heart"></span> Favorites
+            </button>
+            <button class="mode-btn" data-mode="tag">By tag</button>
+          </div>
+          <div class="tag-filter-wrap" id="tag-filter-wrap" aria-hidden="true">
+            <div class="tag-filter" id="tag-filter"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span id="video-counter"></span>
+  </header>
+
+  <div id="loading">Loading videos…</div>
+  <div id="empty">No media found.<br>Add files to the <code>videos</code> folder.</div>
+  <div id="filtered-empty"></div>
+  <div id="feed"></div>
+
+  <div id="seek-bar" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0">
+    <div id="seek-track">
+      <div id="seek-track-bg"></div>
+      <div id="seek-track-fill"></div>
+      <div id="seek-thumb"></div>
+    </div>
+  </div>
+
+  <footer id="bottom-dock">
+    <nav id="tab-bar" aria-label="Main">
+      <div class="tab-profile-wrap">
+        <button type="button" class="tab-item" id="profile-tab">
+          <span class="tab-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.6-6 7-6s7 2 7 6"/></svg>
+          </span>
+          <span class="tab-label">Profile</span>
+        </button>
+        <div class="profile-switch-menu" id="profile-switch-menu" hidden role="menu" aria-label="Switch profile"></div>
+      </div>
+      <a href="/watch.html" class="tab-item active" id="feed-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="tab-label">Feed</span>
+      </a>
+    </nav>
+  </footer>
+
+  <div id="toast"></div>
+
+  <div id="unlock-backdrop"></div>
+  <div id="unlock-sheet">
+    <h2 id="unlock-title">Unlock library</h2>
+    <p class="subtitle" id="unlock-subtitle">This library is password protected.</p>
+    <input id="unlock-password" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="unlock-submit" type="button">Unlock</button>
+    <button id="unlock-cancel" type="button">Cancel</button>
+  </div>
+
+  <div id="sheet-backdrop"></div>
+  <div id="tag-sheet">
+    <h2>Edit tags</h2>
+    <p class="filename" id="sheet-filename"></p>
+    <div class="sheet-section">
+      <div class="sheet-label">Current tags</div>
+      <div class="chip-row" id="sheet-current-tags"></div>
+    </div>
+    <div class="sheet-section">
+      <div class="sheet-label">Add tag</div>
+      <div class="add-row">
+        <input id="tag-input" type="text" placeholder="e.g. excel, ai, cars" autocomplete="off">
+        <button id="tag-add-btn" type="button">Add</button>
+      </div>
+    </div>
+    <div class="sheet-section" id="suggest-section">
+      <div class="sheet-label">Existing tags</div>
+      <div class="chip-row" id="sheet-suggest-tags"></div>
+    </div>
+    <button class="sheet-close" id="sheet-close" type="button">Done</button>
+  </div>
+
+  <script src="/layout-metrics.js"></script>
+  <script src="/toast.js"></script>
+  <script src="/media.js"></script>
+  <script src="/tag-colors.js"></script>
+  <script src="/hearts.js"></script>
+  <script src="/groups.js"></script>
+  <script src="/bottom-nav.js"></script>
+  <script>
+    const feed = document.getElementById("feed");
+    const loading = document.getElementById("loading");
+    const empty = document.getElementById("empty");
+    const filteredEmpty = document.getElementById("filtered-empty");
+    const chromeTop = document.getElementById("chrome-top");
+    const videoCounter = document.getElementById("video-counter");
+    const modeRow = document.getElementById("mode-row");
+    const modeMenu = document.getElementById("mode-menu");
+    const modeToggle = document.getElementById("mode-toggle");
+    const modeToggleLabel = document.getElementById("mode-toggle-label");
+    const tagFilter = document.getElementById("tag-filter");
+    const tagFilterWrap = document.getElementById("tag-filter-wrap");
+    const sheetBackdrop = document.getElementById("sheet-backdrop");
+    const tagSheet = document.getElementById("tag-sheet");
+    const sheetFilename = document.getElementById("sheet-filename");
+    const sheetCurrentTags = document.getElementById("sheet-current-tags");
+    const sheetSuggestTags = document.getElementById("sheet-suggest-tags");
+    const tagInput = document.getElementById("tag-input");
+    const tagAddBtn = document.getElementById("tag-add-btn");
+    const sheetClose = document.getElementById("sheet-close");
+    const seekBar = document.getElementById("seek-bar");
+    const seekTrack = document.getElementById("seek-track");
+    const seekTrackFill = document.getElementById("seek-track-fill");
+    const seekThumb = document.getElementById("seek-thumb");
+
+    const profileTab = document.getElementById("profile-tab");
+    const feedTab = document.getElementById("feed-tab");
+    const unlockBackdrop = document.getElementById("unlock-backdrop");
+    const unlockSheet = document.getElementById("unlock-sheet");
+    const unlockTitle = document.getElementById("unlock-title");
+    const unlockSubtitle = document.getElementById("unlock-subtitle");
+    const unlockPassword = document.getElementById("unlock-password");
+    const unlockSubmit = document.getElementById("unlock-submit");
+    const unlockCancel = document.getElementById("unlock-cancel");
+
+    let allVideos = [];
+    let allTags = [];
+    let allGroups = [];
+    let pendingUnlockGroup = null;
+    let cards = [];
+    let activeIndex = 0;
+    let globalMuted = localStorage.getItem("watchMuted") === "1";
+    let shuffleOrder = null;
+    let shuffleSourceKey = "";
+    let observer = null;
+    let editingVideo = null;
+    let seekHideTimer = null;
+    let isSeeking = false;
+    let chromeHideTimer = null;
+    let ignoreObserver = false;
+    let speedMode = null;
+    let rewindTimer = null;
+
+    const HOLD_MS = 300;
+    const TAP_MAX_MS = 320;
+    const MOVE_THRESHOLD = 14;
+
+    let viewMode = localStorage.getItem("viewMode") || "order";
+    let selectedTag = localStorage.getItem("selectedTag") || "";
+    let aspectMode = localStorage.getItem("feedAspectMode") || "original";
+    const startVideo = new URLSearchParams(location.search).get("video");
+    const urlGroup = new URLSearchParams(location.search).get("group");
+    if (urlGroup) VideoGroups.setActive(urlGroup);
+    BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
+
+    const MODE_LABELS = {
+      order: "In order",
+      shuffle: "Shuffle",
+      favorites: "Favorites",
+      tag: "By tag",
+    };
+
+    function updateNavLinks() {
+      const q = VideoGroups.query();
+      const profileHref = q ? `/?${q}` : "/";
+      const feedHref = q ? `/watch.html?${q}` : "/watch.html";
+      BottomNav.setProfileHref(profileHref);
+      feedTab.href = feedHref;
+    }
+
+    function updateModeToggleLabel() {
+      modeToggleLabel.textContent = MODE_LABELS[viewMode] || "Sort";
+    }
+
+    function setModeMenuOpen(open) {
+      modeMenu.classList.toggle("open", open);
+      modeToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      updateTagFilterPanel();
+    }
+
+    function closeModeMenu() {
+      setModeMenuOpen(false);
+    }
+
+    function updateTagFilterPanel() {
+      const show = viewMode === "tag" && modeMenu.classList.contains("open");
+      tagFilterWrap.classList.toggle("open", show);
+      tagFilterWrap.setAttribute("aria-hidden", show ? "false" : "true");
+    }
+
+    function openUnlockSheet(group) {
+      pendingUnlockGroup = group;
+      unlockTitle.textContent = `Unlock ${group.displayName || group.name || group.id}`;
+      unlockSubtitle.textContent = "Enter the library password to continue.";
+      unlockPassword.value = "";
+      unlockBackdrop.classList.add("open");
+      unlockSheet.classList.add("open");
+      loading.style.display = "none";
+      unlockPassword.focus();
+    }
+
+    function closeUnlockSheet() {
+      unlockBackdrop.classList.remove("open");
+      unlockSheet.classList.remove("open");
+      pendingUnlockGroup = null;
+    }
+
+    async function tryUnlock() {
+      const group = pendingUnlockGroup || allGroups.find((g) => g.id === VideoGroups.getActive());
+      if (!group) return;
+      const groupId = group.id;
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: unlockPassword.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) return Toast.show(data.error || "Wrong password");
+      if (data.token) VideoGroups.setUnlockToken(groupId, data.token);
+      VideoGroups.setActive(groupId);
+      VideoGroups.syncUrlGroup(groupId);
+      closeUnlockSheet();
+      loading.style.display = "block";
+      loading.textContent = "Loading videos…";
+      await init();
+    }
+
+    async function selectGroup(groupId) {
+      const group = allGroups.find((g) => g.id === groupId);
+      if (!group) return;
+      if (group.locked && !group.unlocked) {
+        openUnlockSheet(group);
+        return;
+      }
+      VideoGroups.setActive(groupId);
+      VideoGroups.syncUrlGroup(groupId);
+      updateNavLinks();
+      loading.style.display = "block";
+      loading.textContent = "Loading videos…";
+      await init();
+    }
+
+    unlockSubmit.addEventListener("click", tryUnlock);
+    unlockPassword.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+    unlockCancel.addEventListener("click", closeUnlockSheet);
+    unlockBackdrop.addEventListener("click", closeUnlockSheet);
+
+    function escapeHtml(text) {
+      const d = document.createElement("div");
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function stripExt(name) {
+      return MediaHelpers.stripMediaExt(name);
+    }
+
+    function isImageItem(item) {
+      return item.mediaType === "image" || MediaHelpers.isImageFile(item.name);
+    }
+
+    function formatTime(sec) {
+      if (!Number.isFinite(sec)) return "0:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function setChromeVisible(visible, autoHide = false) {
+      chromeTop.classList.toggle("hidden", !visible);
+      if (visible) seekBar.classList.add("visible");
+      else {
+        if (!isSeeking) seekBar.classList.remove("visible");
+        closeModeMenu();
+      }
+      cards.forEach((card) => {
+        card.overlay?.classList.toggle("hidden", !visible);
+        card.controls?.classList.toggle("hidden", !visible);
+      });
+
+      clearTimeout(chromeHideTimer);
+      if (visible && autoHide) {
+        chromeHideTimer = setTimeout(() => {
+          const card = cards[activeIndex];
+          if (card?.isImage) {
+            setChromeVisible(false);
+            return;
+          }
+          const video = card?.video;
+          if (video && !video.paused && !isSeeking && !speedMode) setChromeVisible(false);
+        }, 3000);
+      }
+    }
+
+    function showChrome(autoHide = true) {
+      setChromeVisible(true, autoHide);
+    }
+
+    function updateCounter() {
+      videoCounter.textContent = cards.length ? `${activeIndex + 1} / ${cards.length}` : "";
+    }
+
+    function updateAspectButtons() {
+      const fill = aspectMode === "fill";
+      cards.forEach((card) => {
+        if (!card.aspectBtn) return;
+        card.aspectBtn.classList.toggle("mode-fill", fill);
+        card.aspectBtn.title = fill
+          ? "Fill vertical (tap for original)"
+          : "Original aspect (tap to fill vertical)";
+      });
+    }
+
+    function applyCardAspectFit(card) {
+      const media = card.video;
+      const w = media.videoWidth || media.naturalWidth || 0;
+      const h = media.videoHeight || media.naturalHeight || 0;
+      card.el.classList.toggle("fit-portrait", h > w);
+    }
+
+    function applyAspectMode() {
+      document.body.classList.toggle("aspect-fill", aspectMode === "fill");
+      document.body.classList.toggle("aspect-original", aspectMode === "original");
+      cards.forEach(applyCardAspectFit);
+      updateAspectButtons();
+    }
+
+    function toggleAspectMode() {
+      aspectMode = aspectMode === "original" ? "fill" : "original";
+      localStorage.setItem("feedAspectMode", aspectMode);
+      applyAspectMode();
+      showChrome(false);
+    }
+
+    function createAspectBtn() {
+      const btn = document.createElement("button");
+      btn.className = "btn aspect-btn" + (aspectMode === "fill" ? " mode-fill" : "");
+      btn.type = "button";
+      btn.title = aspectMode === "fill" ? "Fill vertical (tap for original)" : "Original aspect (tap to fill vertical)";
+      btn.setAttribute("aria-label", "Toggle aspect ratio");
+      btn.innerHTML = `<span class="aspect-icon" aria-hidden="true">
+        <svg class="aspect-icon-original" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><rect x="8.5" y="7.5" width="7" height="9" rx="0.75"/></svg>
+        <svg class="aspect-icon-fill" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="1.5"/></svg>
+      </span>`;
+      return btn;
+    }
+
+    function shuffle(list) {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    }
+
+    function getDisplayVideos() {
+      let list = [...allVideos];
+      if (viewMode === "favorites") {
+        list = list.filter((v) => v.favorite);
+      } else if (viewMode === "tag" && allTags.length && selectedTag) {
+        list = list.filter((v) => v.tags.includes(selectedTag));
+      } else if (viewMode === "shuffle") {
+        const key = list.map((v) => v.name).join("\0");
+        if (key !== shuffleSourceKey) {
+          shuffleSourceKey = key;
+          shuffleOrder = shuffle(list.map((v) => v.name));
+        }
+        const rank = new Map(shuffleOrder.map((name, i) => [name, i]));
+        list.sort((a, b) => (rank.get(a.name) ?? 0) - (rank.get(b.name) ?? 0));
+      }
+      return list;
+    }
+
+    function updateVideoInStore(name, meta) {
+      const video = allVideos.find((v) => v.name === name);
+      if (video) {
+        video.tags = meta.tags;
+        video.favorite = meta.favorite;
+      }
+    }
+
+    async function saveMetadata(name, patch) {
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(name)}/metadata`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const meta = await res.json();
+      updateVideoInStore(name, meta);
+      await refreshTags();
+      return meta;
+    }
+
+    async function refreshTags() {
+      const res = await VideoGroups.apiFetch("/api/tags");
+      allTags = await res.json();
+      renderTagFilter();
+      if (editingVideo) renderTagSheet();
+    }
+
+    function renderTagFilter() {
+      tagFilter.innerHTML = "";
+      if (viewMode !== "tag") {
+        updateTagFilterPanel();
+        return;
+      }
+
+      updateTagFilterPanel();
+
+      if (!allTags.length) {
+        selectedTag = "";
+        localStorage.removeItem("selectedTag");
+        const empty = document.createElement("span");
+        empty.className = "tag-filter-empty";
+        empty.textContent = "No tags yet — tap 🏷 on a video to add one";
+        tagFilter.appendChild(empty);
+        return;
+      }
+
+      if (selectedTag && !allTags.includes(selectedTag)) {
+        selectedTag = allTags[0];
+        localStorage.setItem("selectedTag", selectedTag);
+      }
+
+      if (!selectedTag) {
+        selectedTag = allTags[0];
+        localStorage.setItem("selectedTag", selectedTag);
+      }
+
+      allTags.forEach((tag) => {
+        const btn = document.createElement("button");
+        const isActive = tag === selectedTag;
+        btn.className = "tag-chip" + (isActive ? " active" : "");
+        btn.textContent = tag;
+        TagColors.styleTagEl(btn, tag, { active: isActive });
+        btn.addEventListener("click", () => {
+          selectedTag = tag;
+          localStorage.setItem("selectedTag", tag);
+          renderTagFilter();
+          rebuildFeed();
+        });
+        tagFilter.appendChild(btn);
+      });
+    }
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      localStorage.setItem("viewMode", mode);
+      if (mode !== "shuffle") {
+        shuffleOrder = null;
+        shuffleSourceKey = "";
+      }
+      modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === mode);
+      });
+      const favModeHeart = document.getElementById("fav-mode-heart");
+      if (favModeHeart) HeartIcon.update(favModeHeart, mode === "favorites");
+      updateModeToggleLabel();
+      renderTagFilter();
+      rebuildFeed();
+    }
+
+    modeToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setModeMenuOpen(!modeMenu.classList.contains("open"));
+    });
+
+    modeRow.addEventListener("click", (e) => {
+      const btn = e.target.closest(".mode-btn");
+      if (btn) {
+        setViewMode(btn.dataset.mode);
+        if (btn.dataset.mode === "tag") updateTagFilterPanel();
+        else closeModeMenu();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!modeMenu.classList.contains("open")) return;
+      if (!modeMenu.contains(e.target)) closeModeMenu();
+    });
+
+    function showSeekBar() {
+      seekBar.classList.add("visible");
+      clearTimeout(seekHideTimer);
+      seekHideTimer = setTimeout(() => {
+        if (!isSeeking) seekBar.classList.remove("visible");
+      }, 2500);
+    }
+
+    function seekFromClientX(clientX) {
+      const card = cards[activeIndex];
+      const video = card?.video;
+      if (!video?.duration || card?.isImage) return;
+      const rect = seekTrack.getBoundingClientRect();
+      const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      video.currentTime = ratio * video.duration;
+      seekTrackFill.style.width = `${ratio * 100}%`;
+      seekThumb.style.left = `${ratio * 100}%`;
+      seekBar.setAttribute("aria-valuenow", String(Math.round(ratio * 1000)));
+      if (card.timeEl) {
+        card.timeEl.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+      }
+    }
+
+    function syncSeekBar(video) {
+      if (!video?.duration || isSeeking) return;
+      const ratio = video.currentTime / video.duration;
+      seekTrackFill.style.width = `${ratio * 100}%`;
+      seekThumb.style.left = `${ratio * 100}%`;
+      seekBar.setAttribute("aria-valuenow", String(Math.round(ratio * 1000)));
+      if (cards[activeIndex]?.video === video) showSeekBar();
+    }
+
+    function endSeek(e) {
+      if (!isSeeking) return;
+      isSeeking = false;
+      seekBar.classList.remove("dragging");
+      try { seekTrack.releasePointerCapture(e.pointerId); } catch {}
+      showSeekBar();
+    }
+
+    seekTrack.addEventListener("pointerdown", (e) => {
+      if (seekBar.classList.contains("hidden")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      isSeeking = true;
+      seekBar.classList.add("dragging", "visible");
+      clearTimeout(seekHideTimer);
+      try { seekTrack.setPointerCapture(e.pointerId); } catch {}
+      seekFromClientX(e.clientX);
+    });
+
+    seekTrack.addEventListener("pointermove", (e) => {
+      if (!isSeeking) return;
+      e.preventDefault();
+      e.stopPropagation();
+      seekFromClientX(e.clientX);
+    });
+
+    seekTrack.addEventListener("pointerup", endSeek);
+    seekTrack.addEventListener("pointercancel", endSeek);
+
+    seekBar.addEventListener("click", (e) => e.stopPropagation());
+
+    function stopSpeed(card) {
+      if (!card || card.isImage) return;
+      clearInterval(rewindTimer);
+      rewindTimer = null;
+      card.video.playbackRate = 1;
+      card.leftHint?.classList.remove("visible");
+      card.rightHint?.classList.remove("visible");
+      card.leftOverlay?.classList.remove("visible");
+      card.rightOverlay?.classList.remove("visible");
+      speedMode = null;
+    }
+
+    function startForward(card) {
+      if (card.isImage) return;
+      stopSpeed(card);
+      speedMode = "forward";
+      card.video.play()?.catch(() => {});
+      card.video.playbackRate = 2;
+      card.rightHint?.classList.add("visible");
+      card.rightOverlay?.classList.add("visible");
+      showChrome(false);
+    }
+
+    function startRewind(card) {
+      if (card.isImage) return;
+      stopSpeed(card);
+      speedMode = "rewind";
+      card.video.play()?.catch(() => {});
+      card.video.playbackRate = 1;
+      card.leftHint?.classList.add("visible");
+      card.leftOverlay?.classList.add("visible");
+      showChrome(false);
+      rewindTimer = setInterval(() => {
+        if (card.video.currentTime <= 0.05) {
+          card.video.currentTime = 0;
+          stopSpeed(card);
+          return;
+        }
+        card.video.currentTime = Math.max(0, card.video.currentTime - 0.1);
+      }, 50);
+    }
+
+    function attachMediaGestures(card) {
+      const { el } = card;
+
+      const endGesture = (e) => {
+        const g = card._gesture;
+        if (!g || g.pointerId !== e.pointerId) return;
+        clearTimeout(g.holdTimer);
+        const elapsed = performance.now() - g.startTime;
+        if (g.active) {
+          stopSpeed(card);
+        } else if (!g.moved && !g.scrollCancelled && elapsed < TAP_MAX_MS) {
+          if (card.isImage) {
+            const hidden = card.overlay?.classList.contains("hidden");
+            setChromeVisible(hidden, true);
+          } else {
+            togglePlay(card);
+          }
+        }
+        try { el.releasePointerCapture(e.pointerId); } catch {}
+        card._gesture = null;
+      };
+
+      el.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (e.target.closest(".controls") || e.target.closest(".btn")) return;
+        if (e.target.closest("#seek-bar")) return;
+        if (card._gesture) return;
+
+        const side = getTouchZone(card, e.clientX);
+        card._gesture = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          startTime: performance.now(),
+          side,
+          active: false,
+          moved: false,
+          scrollCancelled: false,
+          holdTimer: null,
+        };
+
+        if (side !== "center" && !card.isImage) {
+          card._gesture.holdTimer = setTimeout(() => {
+            const g = card._gesture;
+            if (!g || g.moved || g.scrollCancelled) return;
+            g.active = true;
+            try { el.setPointerCapture(e.pointerId); } catch {}
+            if (side === "left") startRewind(card);
+            else startForward(card);
+          }, HOLD_MS);
+        }
+      });
+
+      el.addEventListener("pointermove", (e) => {
+        const g = card._gesture;
+        if (!g || g.pointerId !== e.pointerId) return;
+        const dx = Math.abs(e.clientX - g.startX);
+        const dy = Math.abs(e.clientY - g.startY);
+        if (!g.active && (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD)) {
+          g.moved = true;
+          if (g.holdTimer) { clearTimeout(g.holdTimer); g.holdTimer = null; }
+          if (dy > dx && dy > MOVE_THRESHOLD) g.scrollCancelled = true;
+        }
+      });
+
+      el.addEventListener("pointerup", endGesture);
+      el.addEventListener("pointercancel", endGesture);
+    }
+
+    function getTouchZone(card, clientX) {
+      const rect = card.el.getBoundingClientRect();
+      const ratio = (clientX - rect.left) / rect.width;
+      if (ratio < 0.4) return "left";
+      if (ratio > 0.6) return "right";
+      return "center";
+    }
+
+    function scrollToIndex(index) {
+      if (index < 0 || index >= cards.length) return;
+      cards[index].el.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function restoreScrollPosition() {
+      if (!cards.length) return;
+      ignoreObserver = true;
+      feed.classList.add("no-snap");
+      feed.scrollTop = activeIndex * feed.clientHeight;
+      requestAnimationFrame(() => {
+        feed.scrollTop = activeIndex * feed.clientHeight;
+        setTimeout(() => {
+          feed.classList.remove("no-snap");
+          feed.scrollTop = activeIndex * feed.clientHeight;
+          setTimeout(() => { ignoreObserver = false; }, 300);
+        }, 100);
+      });
+    }
+
+    let rotateTimer = null;
+    window.addEventListener("orientationchange", () => {
+      syncLayoutMetrics();
+      clearTimeout(rotateTimer);
+      rotateTimer = setTimeout(restoreScrollPosition, 200);
+    });
+
+    function unloadDistantCards(center) {
+      cards.forEach((card, i) => {
+        if (Math.abs(i - center) <= 3) return;
+        const media = card.video;
+        if (!media?.src) return;
+        if (!card.isImage) {
+          media.pause();
+          media.removeAttribute("src");
+          media.load();
+        } else {
+          media.removeAttribute("src");
+        }
+      });
+    }
+
+    function ensureCardSrc(card, preload) {
+      const media = card.video;
+      if (card.isImage) {
+        if (!media.src && card.videoData?.url) media.src = VideoGroups.mediaUrl(card.videoData.url, card.videoData.group);
+        return;
+      }
+      if (!media.src && card.videoData?.url) {
+        media.preload = preload;
+        media.src = VideoGroups.mediaUrl(card.videoData.url, card.videoData.group);
+      } else if (preload === "auto" && media.preload !== "auto") {
+        media.preload = "auto";
+      }
+    }
+
+    function preloadNearby(index) {
+      for (let i = index - 2; i <= index + 2; i++) {
+        if (i < 0 || i >= cards.length) continue;
+        ensureCardSrc(cards[i], i === index ? "auto" : "metadata");
+      }
+      unloadDistantCards(index);
+    }
+
+    function playCard(index) {
+      if (index < 0 || index >= cards.length) return;
+
+      preloadNearby(index);
+
+      cards.forEach((card, i) => {
+        if (i === index) {
+          stopSpeed(card);
+          if (card.isImage) {
+            ensureCardSrc(card);
+            card.hint.classList.remove("visible");
+          } else {
+            card.video.muted = globalMuted;
+            card.video.play()?.catch(() => {});
+            card.hint.classList.remove("visible");
+          }
+        } else {
+          stopSpeed(card);
+          if (!card.isImage) {
+            card.video.pause();
+            card.video.playbackRate = 1;
+          }
+          card.hint.classList.remove("visible");
+        }
+      });
+
+      activeIndex = index;
+      const active = cards[index];
+      seekBar.classList.toggle("hidden", !!active?.isImage);
+      syncLayoutMetrics();
+      syncSeekBar(active?.isImage ? null : active?.video);
+      updateCounter();
+      showChrome(true);
+      requestAnimationFrame(() => restoreScrollPosition());
+    }
+
+    function toggleMute(btn) {
+      globalMuted = !globalMuted;
+      localStorage.setItem("watchMuted", globalMuted ? "1" : "0");
+      btn.textContent = globalMuted ? "🔇" : "🔊";
+      const card = cards[activeIndex];
+      if (card && !card.isImage) card.video.muted = globalMuted;
+    }
+
+    function togglePlay(card) {
+      if (card.isImage) {
+        const hidden = card.overlay?.classList.contains("hidden");
+        setChromeVisible(hidden, true);
+        return;
+      }
+      const { video, hint } = card;
+      const icon = hint.querySelector("span");
+
+      if (video.ended) {
+        video.currentTime = 0;
+        icon.textContent = "▶";
+      }
+
+      if (video.paused || video.ended) {
+        video.play()?.catch(() => {});
+        hint.classList.remove("visible");
+        showChrome(true);
+      } else {
+        video.pause();
+        icon.textContent = "▶";
+        hint.classList.add("visible");
+        showChrome(false);
+      }
+    }
+
+    async function toggleFavorite(card) {
+      const next = !card.videoData.favorite;
+      try {
+        await saveMetadata(card.videoData.name, { favorite: next });
+        card.videoData.favorite = next;
+        card.favBtn.classList.toggle("favorited", next);
+        const heartEl = card.favBtn.querySelector(".heart-wrap");
+        HeartIcon.update(heartEl, next, { pop: true });
+        if (viewMode === "favorites" && !next) rebuildFeed();
+      } catch {
+        Toast.show("Could not save favorite.");
+      }
+    }
+
+    function renderCardTags(container, tags) {
+      container.innerHTML = "";
+      tags.forEach((t) => {
+        const span = document.createElement("span");
+        span.className = "card-tag";
+        span.textContent = t;
+        TagColors.styleTagEl(span, t);
+        container.appendChild(span);
+      });
+    }
+
+    function createCard(video, index) {
+      const isImage = isImageItem(video);
+      const el = document.createElement("div");
+      el.className = "video-card" + (isImage ? " is-image" : "");
+      el.dataset.index = index;
+
+      const media = isImage ? document.createElement("img") : document.createElement("video");
+      if (isImage) {
+        media.className = "card-media";
+        media.alt = "";
+        media.decoding = "async";
+      } else {
+        media.playsInline = true;
+        media.setAttribute("playsinline", "");
+        media.setAttribute("webkit-playsinline", "");
+        media.preload = "none";
+      }
+
+      const hint = document.createElement("div");
+      hint.className = "play-hint";
+      hint.innerHTML = "<span>▶</span>";
+
+      const leftHint = document.createElement("div");
+      leftHint.className = "speed-hint left";
+      leftHint.textContent = "◀◀  2×";
+
+      const rightHint = document.createElement("div");
+      rightHint.className = "speed-hint right";
+      rightHint.textContent = "2×  ▶▶";
+
+      const leftOverlay = document.createElement("div");
+      leftOverlay.className = "speed-overlay left";
+
+      const rightOverlay = document.createElement("div");
+      rightOverlay.className = "speed-overlay right";
+
+      const progress = document.createElement("div");
+      progress.className = "progress";
+
+      const overlay = document.createElement("div");
+      overlay.className = "overlay";
+      const displayName = video.displayName || stripExt(video.name);
+      overlay.innerHTML = `
+        <div class="title">${escapeHtml(displayName)}</div>
+        <div class="card-tags"></div>
+        <div class="time-label">0:00</div>
+      `;
+      const tagsEl = overlay.querySelector(".card-tags");
+      const timeEl = overlay.querySelector(".time-label");
+      renderCardTags(tagsEl, video.tags);
+
+      const controls = document.createElement("div");
+      controls.className = "controls";
+
+      const aspectBtn = createAspectBtn();
+
+      const favBtn = document.createElement("button");
+      favBtn.className = "btn fav-btn" + (video.favorite ? " favorited" : "");
+      favBtn.title = "Favorite";
+      favBtn.type = "button";
+      const favHeart = document.createElement("span");
+      HeartIcon.mount(favHeart, video.favorite, { size: "lg" });
+      favBtn.appendChild(favHeart);
+
+      const tagBtn = document.createElement("button");
+      tagBtn.className = "btn";
+      tagBtn.textContent = "🏷";
+      tagBtn.title = "Edit tags";
+
+      const muteBtn = document.createElement("button");
+      muteBtn.className = "btn" + (isImage ? " mute-btn-hide" : "");
+      muteBtn.textContent = globalMuted ? "🔇" : "🔊";
+      muteBtn.title = "Mute / unmute";
+      if (isImage) muteBtn.hidden = true;
+
+      const mediaSlot = document.createElement("div");
+      mediaSlot.className = "media-slot";
+      mediaSlot.appendChild(media);
+
+      controls.append(aspectBtn, favBtn, tagBtn, muteBtn);
+      el.append(mediaSlot, leftOverlay, rightOverlay, leftHint, rightHint, hint, progress, overlay, controls);
+      feed.appendChild(el);
+
+      const card = {
+        el, video: media, isImage, hint, progress, muteBtn, favBtn, aspectBtn, tagsEl, timeEl, overlay,
+        leftHint, rightHint, leftOverlay, rightOverlay, videoData: video,
+      };
+
+      aspectBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showChrome(false);
+        toggleAspectMode();
+      });
+      favBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showChrome(false);
+        toggleFavorite(card);
+      });
+      tagBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showChrome(false);
+        openTagSheet(video);
+      });
+      muteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showChrome(true);
+        toggleMute(muteBtn);
+      });
+
+      attachMediaGestures(card);
+
+      if (!isImage) {
+        media.addEventListener("timeupdate", () => {
+          if (cards[activeIndex]?.video !== media) return;
+          syncSeekBar(media);
+          if (media.duration && timeEl) {
+            timeEl.textContent = `${formatTime(media.currentTime)} / ${formatTime(media.duration)}`;
+          }
+        });
+
+        media.addEventListener("loadedmetadata", () => {
+          applyCardAspectFit(card);
+          if (media.duration && timeEl) {
+            timeEl.textContent = `0:00 / ${formatTime(media.duration)}`;
+          }
+        });
+
+        media.addEventListener("ended", () => {
+          stopSpeed(card);
+          if (index < cards.length - 1) {
+            scrollToIndex(index + 1);
+          } else {
+            hint.querySelector("span").textContent = "↻";
+            hint.classList.add("visible");
+            showChrome(false);
+          }
+        });
+      } else {
+        media.addEventListener("load", () => applyCardAspectFit(card));
+      }
+
+      return card;
+    }
+
+    function rebuildFeed() {
+      if (observer) observer.disconnect();
+
+      feed.innerHTML = "";
+      cards = [];
+      filteredEmpty.style.display = "none";
+
+      const videos = getDisplayVideos();
+      if (!allVideos.length) return;
+
+      if (!videos.length) {
+        filteredEmpty.innerHTML = viewMode === "favorites"
+          ? 'No favorites yet.<br>Tap <span class="heart-wrap sm" style="display:inline-flex;vertical-align:middle;color:#ff4d6d">' + HeartIcon.svg(true) + '</span> on a video to save it here.'
+          : viewMode === "tag"
+            ? `No videos tagged “${escapeHtml(selectedTag)}”.<br>Tap 🏷 on a video to add this tag.`
+            : "No videos match this view.";
+        filteredEmpty.style.display = "flex";
+        updateCounter();
+        return;
+      }
+
+      cards = videos.map((video, i) => createCard(video, i));
+      applyAspectMode();
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (ignoreObserver) return;
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting || entry.intersectionRatio < 0.6) return;
+            const index = Number(entry.target.dataset.index);
+            if (index !== activeIndex) playCard(index);
+          });
+        },
+        { root: feed, threshold: [0.6] }
+      );
+
+      cards.forEach((card) => observer.observe(card.el));
+
+      let startIndex = 0;
+      if (startVideo) {
+        const idx = videos.findIndex((v) => v.name === startVideo);
+        if (idx >= 0) startIndex = idx;
+      }
+
+      activeIndex = startIndex;
+      requestAnimationFrame(() => {
+        cards[startIndex].el.scrollIntoView();
+        playCard(startIndex);
+      });
+    }
+
+    function openTagSheet(video) {
+      editingVideo = video;
+      sheetFilename.textContent = video.displayName || stripExt(video.name);
+      tagInput.value = "";
+      renderTagSheet();
+      sheetBackdrop.classList.add("open");
+      tagSheet.classList.add("open");
+    }
+
+    function closeTagSheet() {
+      sheetBackdrop.classList.remove("open");
+      tagSheet.classList.remove("open");
+      editingVideo = null;
+    }
+
+    function renderTagSheet() {
+      if (!editingVideo) return;
+
+      sheetCurrentTags.innerHTML = "";
+      editingVideo.tags.forEach((tag) => {
+        const chip = document.createElement("span");
+        chip.className = "editable-chip";
+        chip.innerHTML = `${escapeHtml(tag)} <button type="button" aria-label="Remove">×</button>`;
+        TagColors.styleTagEl(chip, tag);
+        chip.querySelector("button").addEventListener("click", () => removeTag(tag));
+        sheetCurrentTags.appendChild(chip);
+      });
+
+      sheetSuggestTags.innerHTML = "";
+      const suggestions = allTags.filter((t) => !editingVideo.tags.includes(t));
+      document.getElementById("suggest-section").style.display = suggestions.length ? "" : "none";
+
+      suggestions.forEach((tag) => {
+        const btn = document.createElement("button");
+        btn.className = "suggest-chip";
+        btn.type = "button";
+        btn.textContent = tag;
+        TagColors.styleTagEl(btn, tag);
+        btn.addEventListener("click", () => addTag(tag));
+        sheetSuggestTags.appendChild(btn);
+      });
+    }
+
+    async function addTag(tag) {
+      if (!editingVideo) return;
+      const trimmed = tag.trim();
+      if (!trimmed || editingVideo.tags.includes(trimmed)) return;
+
+      const tags = [...editingVideo.tags, trimmed];
+      try {
+        await saveMetadata(editingVideo.name, { tags });
+        editingVideo.tags = tags;
+        renderTagSheet();
+        syncCardTags(editingVideo.name);
+        if (viewMode === "tag") renderTagFilter();
+      } catch {
+        Toast.show("Could not save tag.");
+      }
+    }
+
+    async function removeTag(tag) {
+      if (!editingVideo) return;
+      const tags = editingVideo.tags.filter((t) => t !== tag);
+      try {
+        await saveMetadata(editingVideo.name, { tags });
+        editingVideo.tags = tags;
+        renderTagSheet();
+        syncCardTags(editingVideo.name);
+        if (viewMode === "tag" && selectedTag === tag) rebuildFeed();
+      } catch {
+        Toast.show("Could not remove tag.");
+      }
+    }
+
+    function syncCardTags(name) {
+      const video = allVideos.find((v) => v.name === name);
+      if (!video) return;
+      cards.forEach((card) => {
+        if (card.videoData.name === name) {
+          card.videoData.tags = video.tags;
+          renderCardTags(card.tagsEl, video.tags);
+        }
+      });
+    }
+
+    tagAddBtn.addEventListener("click", () => addTag(tagInput.value));
+    tagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addTag(tagInput.value);
+    });
+    sheetClose.addEventListener("click", closeTagSheet);
+    sheetBackdrop.addEventListener("click", closeTagSheet);
+
+    document.addEventListener("keydown", (e) => {
+      if (tagSheet.classList.contains("open")) return;
+      if (e.key === "ArrowDown" || e.key === "j") scrollToIndex(activeIndex + 1);
+      if (e.key === "ArrowUp" || e.key === "k") scrollToIndex(activeIndex - 1);
+      if (e.key === " ") {
+        e.preventDefault();
+        if (cards[activeIndex]) togglePlay(cards[activeIndex]);
+      }
+    });
+
+    async function init() {
+      syncLayoutMetrics();
+      updateNavLinks();
+      if (!VideoGroups.getActive()) {
+        loading.textContent = "No group selected. Open from the home page.";
+        return;
+      }
+
+      try {
+        const groupsRes = await fetch("/api/groups", { headers: VideoGroups.headers() });
+        allGroups = await groupsRes.json();
+        VideoGroups.pruneStaleUnlocks(allGroups);
+
+        const videosRes = await VideoGroups.apiFetch("/api/videos");
+        if (videosRes.status === 403) {
+          const group = allGroups.find((g) => g.id === VideoGroups.getActive()) || {
+            id: VideoGroups.getActive(),
+            displayName: VideoGroups.getActive(),
+          };
+          openUnlockSheet(group);
+          return;
+        }
+        if (!videosRes.ok) throw new Error("load failed");
+
+        const tagsRes = await VideoGroups.apiFetch("/api/tags");
+        allVideos = VideoGroups.authVideos(await videosRes.json());
+        allTags = await tagsRes.json();
+
+        loading.style.display = "none";
+        empty.style.display = "none";
+
+        if (!allVideos.length) {
+          empty.style.display = "flex";
+          return;
+        }
+
+        modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.mode === viewMode);
+        });
+        updateModeToggleLabel();
+
+        HeartIcon.mount(document.getElementById("fav-mode-heart"), viewMode === "favorites", { size: "sm" });
+        renderTagFilter();
+        rebuildFeed();
+        syncLayoutMetrics();
+      } catch {
+        loading.textContent = "Could not load videos.";
+      }
+    }
+
+    BottomNav.init({
+      getGroups: () => allGroups,
+      onSelectGroup: (id) => selectGroup(id),
+    });
+
+    init();
+  </script>
+</body>
+</html>

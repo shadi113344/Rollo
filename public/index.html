@@ -1,0 +1,2347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rollo">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>Rollo</title>
+  <link rel="stylesheet" href="/heart.css">
+  <link rel="stylesheet" href="/bottom-nav.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      height: 100%;
+      background: #0a0a0a;
+    }
+
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+
+    #app-scroll {
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: var(--bottom-ui-inset);
+      box-sizing: border-box;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10,10,10,0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid #1f1f1f;
+      padding: calc(10px + env(safe-area-inset-top)) 16px 12px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .header-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .group-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      background: none;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      padding: 0;
+      cursor: pointer;
+      text-align: left;
+      max-width: 100%;
+    }
+
+    .group-picker.no-switch { cursor: default; }
+
+    #group-picker-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .group-chev {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      border: 1px solid #2a2a2a;
+      background: #161616;
+      color: #888;
+      transition: transform 0.22s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .group-chev svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .group-picker.open .group-chev {
+      transform: rotate(180deg);
+      background: rgba(100, 180, 255, 0.15);
+      border-color: rgba(100, 180, 255, 0.45);
+      color: #aad4ff;
+    }
+
+    .group-picker:active .group-chev {
+      background: #222;
+    }
+
+    .group-picker.open:active .group-chev {
+      background: rgba(100, 180, 255, 0.22);
+    }
+
+    .video-count {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .feed-link { display: none; }
+
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #161616;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      padding: 0 12px;
+      white-space: nowrap;
+      width: 36px;
+      padding: 0;
+      font-size: 16px;
+    }
+
+    .icon-btn.active {
+      background: rgba(100,180,255,0.2);
+      border-color: rgba(100,180,255,0.5);
+      color: #aad4ff;
+    }
+
+    .icon-btn:active { background: #252525; }
+
+    .search-wrap {
+      position: relative;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      margin-bottom: 0;
+      transition: max-height 0.22s ease, opacity 0.2s ease, margin-bottom 0.22s ease;
+    }
+
+    header.search-open .search-wrap {
+      max-height: 44px;
+      opacity: 1;
+      margin-bottom: 12px;
+    }
+
+    .search-wrap::before {
+      content: "⌕";
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #666;
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    #search {
+      width: 100%;
+      border: 1px solid #2a2a2a;
+      background: #141414;
+      color: #fff;
+      border-radius: 12px;
+      padding: 10px 14px 10px 36px;
+      font-size: 15px;
+    }
+
+    #search::placeholder { color: #555; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .primary-filters {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .tag-filters {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+      margin-top: 8px;
+    }
+
+    .tag-filters::-webkit-scrollbar { display: none; }
+
+    .tag-filters:empty { display: none; }
+
+    .control-menus {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .menu-wrap {
+      position: relative;
+    }
+
+    .menu-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid #2a2a2a;
+      background: #141414;
+      color: #ccc;
+      border-radius: 9px;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .menu-btn.open {
+      background: rgba(100,180,255,0.2);
+      border-color: rgba(100,180,255,0.5);
+      color: #aad4ff;
+    }
+
+    .menu-btn.non-default:not(.open) {
+      border-color: rgba(100,180,255,0.35);
+      color: #aad4ff;
+    }
+
+    .menu-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 148px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 6px;
+      z-index: 15;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+    }
+
+    .menu-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+      color: #ccc;
+      padding: 10px 12px;
+      font-size: 13px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .menu-item:active { background: #2a2a2a; }
+
+    .menu-item.active {
+      background: rgba(100,180,255,0.15);
+      color: #aad4ff;
+    }
+
+    .filter-btn {
+      flex-shrink: 0;
+      border: 1px solid #2a2a2a;
+      background: #141414;
+      color: #aaa;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .upload-fab {
+      position: fixed;
+      right: 16px;
+      bottom: calc(var(--bottom-ui-inset) + 16px); /* fallback; overridden below for lvh */
+      z-index: 20;
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: #fff;
+      color: #000;
+      font-size: 26px;
+      line-height: 1;
+      font-weight: 300;
+      opacity: 0.5;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+    }
+
+    /* Same iOS-standalone fix as #bottom-dock: anchor the FAB from the top via lvh (its bottom
+       edge = dock top + 16px gap) so it doesn't sit too low/high before a swipe settles the viewport. */
+    @supports (height: 100lvh) {
+      .ios-standalone .upload-fab {
+        top: calc(100lvh - var(--bottom-ui-inset) - 16px - 44px);
+        bottom: auto;
+      }
+    }
+
+    .upload-fab:active { opacity: 0.65; }
+    .upload-fab.uploading { opacity: 0.35; pointer-events: none; }
+
+    #toast {
+      font-size: 12px;
+      color: #7ec8ff;
+      min-height: 0;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    #toast:not(:empty) { min-height: 16px; }
+
+    main {
+      padding: 14px 16px calc(72px + env(safe-area-inset-bottom));
+    }
+
+    #grid { display: grid; gap: 12px; }
+
+    #grid.size-xs { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+    #grid.size-sm { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+    #grid.size-md { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    #grid.size-lg { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+
+    #grid.size-xs .video-item { border-radius: 8px; }
+    #grid.size-xs .info { padding: 6px 7px 8px; }
+    #grid.size-xs .name { font-size: 10px; -webkit-line-clamp: 1; }
+    #grid.size-xs .tags { display: none; }
+    #grid.size-xs .play-badge { font-size: 18px; }
+    #grid.size-xs .fav-badge { width: 22px; height: 22px; top: 4px; right: 4px; font-size: 11px; }
+    #grid.size-xs .fav-badge .heart-icon { width: 11px; height: 11px; }
+
+    .group-header {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      font-weight: 600;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 2px 4px;
+    }
+
+    .group-header:first-child { padding-top: 0; }
+
+    .video-item {
+      border-radius: 12px;
+      overflow: hidden;
+      background: #141414;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .video-item.pressing {
+      opacity: 0.85;
+      transform: scale(0.98);
+      transition: transform 0.1s;
+    }
+
+    .thumb-link {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .thumb-wrap {
+      position: relative;
+      aspect-ratio: 3 / 4;
+      background: #1a1a1a;
+      overflow: hidden;
+    }
+
+    .thumb-wrap .thumb-img,
+    .thumb-wrap .thumb-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      pointer-events: none;
+      display: block;
+    }
+
+    .thumb-placeholder {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #1a1a1a, #252525, #1a1a1a);
+      background-size: 200% 200%;
+      animation: shimmer 1.2s ease infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    .play-badge {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.2);
+      font-size: 28px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+
+    .info { padding: 9px 10px 11px; }
+
+    .name {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 5px;
+    }
+
+    .tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+
+    #loading, #empty, #no-results {
+      text-align: center;
+      padding: 48px 24px;
+      color: #666;
+    }
+
+    #loading { display: none; }
+    #empty, #no-results { display: none; }
+
+    #import-input { display: none; }
+
+    /* Sheets */
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 30;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 31;
+      background: #1a1a1a;
+      border-radius: 16px 16px 0 0;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      max-height: 80dvh;
+      overflow-y: auto;
+    }
+
+    .sheet.open { transform: translateY(0); }
+
+    .sheet h2 { margin: 0 0 4px; font-size: 16px; }
+    .sheet .subtitle { margin: 0 0 14px; font-size: 12px; color: #888; word-break: break-all; }
+
+    .action-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: #252525;
+      color: #fff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 15px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .action-btn:active { background: #333; }
+    .action-btn.danger { color: #ff6b8a; }
+    .action-btn.cancel { background: #333; text-align: center; margin-top: 4px; }
+
+    .sheet-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .editable-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .editable-chip button {
+      border: none;
+      background: none;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+    .add-row input, .rename-input {
+      flex: 1;
+      border: 1px solid #444;
+      background: #111;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    .add-row button, .sheet-primary {
+      border: none;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .sheet-primary { width: 100%; margin-top: 8px; }
+    .sheet-primary.danger { background: #ff4d6d; color: #fff; }
+
+    .suggest-chip {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #ccc;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    #group-sheet {
+      background: #1c1c1e;
+    }
+
+    #group-sheet h2 {
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: -0.02em;
+    }
+
+    #group-sheet .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #8e8e93;
+      margin-bottom: 16px;
+    }
+
+    #group-list {
+      background: #2c2c2e;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .group-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 44px;
+      position: relative;
+      background: #2c2c2e;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    .group-row + .group-row::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 0;
+      top: 0;
+      height: 0.5px;
+      background: rgba(84, 84, 88, 0.65);
+      pointer-events: none;
+    }
+
+    .group-row.dragging {
+      opacity: 0.92;
+      z-index: 2;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .group-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 4px 11px 16px;
+      border: none;
+      background: transparent;
+      color: #fff;
+      font-size: 17px;
+      text-align: left;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .group-main:active { background: rgba(255, 255, 255, 0.06); }
+
+    .group-main-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+    }
+
+    .group-row.is-active .group-main-name { color: #0a84ff; }
+
+    .group-main-meta {
+      flex-shrink: 0;
+      font-size: 15px;
+      color: #8e8e93;
+    }
+
+    .group-star,
+    .group-drag-btn {
+      width: 44px;
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      color: #636366;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .group-star {
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .group-star.is-default { color: #ffd60a; }
+
+    .group-drag-btn {
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .group-drag-btn:active { cursor: grabbing; }
+
+    .group-drag-btn svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .group-add-wrap {
+      margin-top: 20px;
+      background: #2c2c2e;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .group-add-toggle {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: #0a84ff;
+      font-size: 17px;
+      padding: 12px 16px;
+      text-align: left;
+      cursor: pointer;
+      letter-spacing: -0.02em;
+    }
+
+    .group-add-toggle:active { background: rgba(255, 255, 255, 0.06); }
+
+    .group-add-fields {
+      display: none;
+      padding: 0 12px 12px;
+      gap: 8px;
+      border-top: 0.5px solid rgba(84, 84, 88, 0.65);
+    }
+
+    .group-add-wrap.open .group-add-fields {
+      display: flex;
+    }
+
+    #group-close.group-sheet-done {
+      margin-top: 20px;
+      background: #2c2c2e;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 17px;
+      font-weight: 600;
+      color: #0a84ff;
+      padding: 14px;
+    }
+
+    .unlock-input {
+      width: 100%;
+      border: 1px solid #444;
+      background: #111;
+      color: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body class="page-profile">
+  <div id="app-scroll">
+  <header id="header">
+    <div class="header-row">
+      <div class="header-left">
+        <button class="group-picker" id="group-picker" type="button" aria-expanded="false" aria-haspopup="dialog" aria-label="Switch library">
+          <span id="group-picker-label">Rollo</span>
+          <span class="group-chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </button>
+        <div class="video-count" id="video-count"></div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="search-toggle" type="button" title="Search">⌕</button>
+        <button class="icon-btn" id="more-btn" type="button" title="More">⋯</button>
+        <a href="/watch.html" class="feed-link" id="feed-link">Feed ↗</a>
+      </div>
+    </div>
+    <div class="search-wrap" id="search-wrap">
+      <input id="search" type="search" placeholder="Search videos…" autocomplete="off">
+    </div>
+    <div class="toolbar">
+      <div class="primary-filters" id="primary-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn fav-filter" data-filter="favorites" type="button">
+          <span class="heart-wrap sm" id="fav-filter-heart"></span> Favorites
+        </button>
+      </div>
+      <div class="control-menus">
+        <div class="menu-wrap" id="sort-menu-wrap">
+          <button class="menu-btn" id="sort-menu-btn" type="button" title="Sort" aria-label="Sort">⇅</button>
+          <div class="menu-popover" id="sort-menu" hidden>
+            <button class="menu-item sort-btn" data-sort="date-desc" type="button">Newest</button>
+            <button class="menu-item sort-btn" data-sort="date-asc" type="button">Oldest</button>
+            <button class="menu-item sort-btn" data-sort="name" type="button">Name</button>
+            <button class="menu-item sort-btn active" data-sort="tags" type="button">By tag</button>
+            <button class="menu-item sort-btn fav-sort" data-sort="favorites" type="button">
+              <span class="heart-wrap sm"></span> Favorites first
+            </button>
+          </div>
+        </div>
+        <div class="menu-wrap" id="size-menu-wrap">
+          <button class="menu-btn" id="size-menu-btn" type="button" title="Grid size" aria-label="Grid size">▦</button>
+          <div class="menu-popover" id="size-menu" hidden>
+            <button class="menu-item view-btn active" data-size="xs" type="button">XS — extra small</button>
+            <button class="menu-item view-btn" data-size="sm" type="button">S — small</button>
+            <button class="menu-item view-btn" data-size="md" type="button">M — medium</button>
+            <button class="menu-item view-btn" data-size="lg" type="button">L — large</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tag-filters" id="tag-filters"></div>
+    <div id="toast"></div>
+  </header>
+
+  <main>
+    <div id="loading" hidden>Loading videos…</div>
+    <div id="empty">No media yet.<br>Tap <strong>+</strong> to upload, or add files to the <code>videos</code> folder.</div>
+    <div id="no-results">No videos match your search or filter.</div>
+    <div id="grid" class="size-xs"></div>
+  </main>
+  </div>
+
+  <button class="upload-fab" id="upload-fab" type="button" title="Upload video" aria-label="Upload video">+</button>
+  <input id="import-input" type="file" accept=".csv,text/csv" hidden>
+  <input id="upload-input" type="file" accept="image/*,video/*,.gif,.heic,.heif,.png,.jpg,.jpeg,.webp,.bmp,.avif,.mp4,.webm,.mov,.m4v,.mkv,.avi" multiple hidden>
+
+  <!-- Group picker -->
+  <div class="sheet-backdrop" id="group-backdrop"></div>
+  <div class="sheet" id="group-sheet">
+    <h2>Libraries</h2>
+    <p class="subtitle">Tap to switch · ☆ for default · drag ≡ to reorder</p>
+    <div id="group-list"></div>
+    <div class="group-add-wrap" id="group-add-wrap">
+      <button class="group-add-toggle" id="group-add-toggle" type="button">+ Add profile</button>
+      <div class="group-add-fields">
+        <input id="new-group-name" type="text" placeholder="New library name…" autocomplete="off">
+        <button id="new-group-btn" type="button">Create</button>
+      </div>
+    </div>
+    <button class="action-btn cancel group-sheet-done" id="group-close" type="button">Done</button>
+  </div>
+
+  <!-- More menu -->
+  <div class="sheet-backdrop" id="more-backdrop"></div>
+  <div class="sheet" id="more-sheet">
+    <h2>More</h2>
+    <button class="action-btn" id="group-settings-btn" type="button">🔒 Group lock & name</button>
+    <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
+    <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
+    <button class="action-btn cancel" id="more-close" type="button">Close</button>
+  </div>
+
+  <!-- Long-press action menu -->
+  <div class="sheet-backdrop" id="action-backdrop"></div>
+  <div class="sheet" id="action-sheet">
+    <h2 id="action-title">Video</h2>
+    <p class="subtitle" id="action-subtitle"></p>
+    <button class="action-btn" data-action="favorite" type="button" id="action-favorite-btn">♡ Favorite</button>
+    <button class="action-btn" data-action="tag" type="button">🏷 Edit tags</button>
+    <button class="action-btn" data-action="rename" type="button">✎ Edit name</button>
+    <button class="action-btn danger" data-action="delete" type="button">🗑 Delete video</button>
+    <button class="action-btn cancel" data-action="cancel" type="button">Cancel</button>
+  </div>
+
+  <!-- Tag sheet -->
+  <div class="sheet-backdrop" id="tag-backdrop"></div>
+  <div class="sheet" id="tag-sheet">
+    <h2>Edit tags</h2>
+    <p class="subtitle" id="tag-subtitle"></p>
+    <div class="sheet-label">Current tags</div>
+    <div class="chip-row" id="tag-current"></div>
+    <div class="sheet-label">Add tag</div>
+    <div class="add-row">
+      <input id="tag-input" type="text" placeholder="e.g. tutorial, excel" autocomplete="off">
+      <button id="tag-add-btn" type="button">Add</button>
+    </div>
+    <div id="tag-suggest-section">
+      <div class="sheet-label">Existing tags</div>
+      <div class="chip-row" id="tag-suggest"></div>
+    </div>
+    <button class="action-btn cancel" id="tag-done" type="button">Done</button>
+  </div>
+
+  <!-- Rename sheet -->
+  <div class="sheet-backdrop" id="rename-backdrop"></div>
+  <div class="sheet" id="rename-sheet">
+    <h2>Edit name</h2>
+    <p class="subtitle" id="rename-ext-hint"></p>
+    <input class="rename-input" id="rename-input" type="text" autocomplete="off">
+    <button class="sheet-primary" id="rename-save" type="button">Save</button>
+    <button class="action-btn cancel" id="rename-cancel" type="button">Cancel</button>
+  </div>
+
+  <!-- Delete confirm -->
+  <div class="sheet-backdrop" id="delete-backdrop"></div>
+  <div class="sheet" id="delete-sheet">
+    <h2>Delete video?</h2>
+    <p class="subtitle" id="delete-subtitle"></p>
+    <button class="sheet-primary danger" id="delete-confirm" type="button">Delete permanently</button>
+    <button class="action-btn cancel" id="delete-cancel" type="button">Cancel</button>
+  </div>
+
+  <!-- Unlock group -->
+  <div class="sheet-backdrop" id="unlock-backdrop"></div>
+  <div class="sheet" id="unlock-sheet">
+    <h2 id="unlock-title">Unlock group</h2>
+    <p class="subtitle" id="unlock-subtitle"></p>
+    <input class="unlock-input" id="unlock-password" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="sheet-primary" id="unlock-submit" type="button">Unlock</button>
+    <button class="action-btn cancel" id="unlock-cancel" type="button">Cancel</button>
+  </div>
+
+  <!-- Group settings -->
+  <div class="sheet-backdrop" id="group-settings-backdrop"></div>
+  <div class="sheet" id="group-settings-sheet">
+    <h2>Group settings</h2>
+    <p class="subtitle" id="group-settings-subtitle"></p>
+    <div class="sheet-label">Display name</div>
+    <input class="rename-input" id="group-display-name" type="text" autocomplete="off">
+    <div class="sheet-label" style="margin-top:12px">Password (leave blank to keep unchanged)</div>
+    <input class="unlock-input" id="group-new-password" type="password" placeholder="New password" autocomplete="new-password">
+    <div class="sheet-label" style="margin-top:12px">Folder name (rename library)</div>
+    <input class="rename-input" id="group-folder-name" type="text" autocomplete="off" placeholder="Leave blank to keep current">
+    <button class="sheet-primary" id="group-save-btn" type="button">Save</button>
+    <button class="action-btn" id="group-remove-lock-btn" type="button">Remove password</button>
+    <button class="action-btn danger" id="group-delete-btn" type="button">Delete empty library</button>
+    <button class="action-btn cancel" id="group-settings-cancel" type="button">Cancel</button>
+  </div>
+
+  <footer id="bottom-dock">
+    <nav id="tab-bar" aria-label="Main">
+      <div class="tab-profile-wrap">
+        <button type="button" class="tab-item active" id="profile-tab">
+          <span class="tab-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.6-6 7-6s7 2 7 6"/></svg>
+          </span>
+          <span class="tab-label">Profile</span>
+        </button>
+        <div class="profile-switch-menu" id="profile-switch-menu" hidden role="menu" aria-label="Switch profile"></div>
+      </div>
+      <a href="/watch.html" class="tab-item" id="feed-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="tab-label">Feed</span>
+      </a>
+    </nav>
+  </footer>
+
+  <script src="/layout-metrics.js"></script>
+  <script src="/media.js"></script>
+  <script src="/tag-colors.js"></script>
+  <script src="/hearts.js"></script>
+  <script src="/groups.js"></script>
+  <script src="/bottom-nav.js"></script>
+  <script>
+    const grid = document.getElementById("grid");
+    const loading = document.getElementById("loading");
+    const empty = document.getElementById("empty");
+    const noResults = document.getElementById("no-results");
+    const searchInput = document.getElementById("search");
+    const searchToggle = document.getElementById("search-toggle");
+    const searchWrap = document.getElementById("search-wrap");
+    const headerEl = document.getElementById("header");
+    const primaryFiltersEl = document.getElementById("primary-filters");
+    const favFilterHeart = document.getElementById("fav-filter-heart");
+    const favSortHeart = document.querySelector(".fav-sort .heart-wrap");
+    const tagFiltersEl = document.getElementById("tag-filters");
+    const sortMenuBtn = document.getElementById("sort-menu-btn");
+    const sortMenu = document.getElementById("sort-menu");
+    const sizeMenuBtn = document.getElementById("size-menu-btn");
+    const sizeMenu = document.getElementById("size-menu");
+    const videoCountEl = document.getElementById("video-count");
+    const toast = document.getElementById("toast");
+    const groupPicker = document.getElementById("group-picker");
+    const groupPickerLabel = document.getElementById("group-picker-label");
+    const groupListEl = document.getElementById("group-list");
+    const groupBackdrop = document.getElementById("group-backdrop");
+    const groupSheet = document.getElementById("group-sheet");
+    const groupClose = document.getElementById("group-close");
+    const groupAddWrap = document.getElementById("group-add-wrap");
+    const groupAddToggle = document.getElementById("group-add-toggle");
+    const newGroupName = document.getElementById("new-group-name");
+    const newGroupBtn = document.getElementById("new-group-btn");
+    const uploadFab = document.getElementById("upload-fab");
+    const uploadInput = document.getElementById("upload-input");
+    const moreBtn = document.getElementById("more-btn");
+    const moreBackdrop = document.getElementById("more-backdrop");
+    const moreSheet = document.getElementById("more-sheet");
+    const moreClose = document.getElementById("more-close");
+    const exportBtn = document.getElementById("export-btn");
+    const importBtn = document.getElementById("import-btn");
+    const importInput = document.getElementById("import-input");
+
+    const actionBackdrop = document.getElementById("action-backdrop");
+    const actionSheet = document.getElementById("action-sheet");
+    const actionTitle = document.getElementById("action-title");
+    const actionSubtitle = document.getElementById("action-subtitle");
+    const actionFavoriteBtn = document.getElementById("action-favorite-btn");
+
+    const tagBackdrop = document.getElementById("tag-backdrop");
+    const tagSheet = document.getElementById("tag-sheet");
+    const tagSubtitle = document.getElementById("tag-subtitle");
+    const tagCurrent = document.getElementById("tag-current");
+    const tagSuggest = document.getElementById("tag-suggest");
+    const tagInput = document.getElementById("tag-input");
+    const tagAddBtn = document.getElementById("tag-add-btn");
+    const tagDone = document.getElementById("tag-done");
+
+    const renameBackdrop = document.getElementById("rename-backdrop");
+    const renameSheet = document.getElementById("rename-sheet");
+    const renameInput = document.getElementById("rename-input");
+    const renameExtHint = document.getElementById("rename-ext-hint");
+    const renameSave = document.getElementById("rename-save");
+    const renameCancel = document.getElementById("rename-cancel");
+
+    const deleteBackdrop = document.getElementById("delete-backdrop");
+    const deleteSheet = document.getElementById("delete-sheet");
+    const deleteSubtitle = document.getElementById("delete-subtitle");
+    const deleteConfirm = document.getElementById("delete-confirm");
+    const deleteCancel = document.getElementById("delete-cancel");
+    const feedLink = document.getElementById("feed-link");
+    const profileTab = document.getElementById("profile-tab");
+    const feedTab = document.getElementById("feed-tab");
+    const unlockBackdrop = document.getElementById("unlock-backdrop");
+    const unlockSheet = document.getElementById("unlock-sheet");
+    const unlockTitle = document.getElementById("unlock-title");
+    const unlockSubtitle = document.getElementById("unlock-subtitle");
+    const unlockPassword = document.getElementById("unlock-password");
+    const unlockSubmit = document.getElementById("unlock-submit");
+    const unlockCancel = document.getElementById("unlock-cancel");
+    const groupSettingsBtn = document.getElementById("group-settings-btn");
+    const groupSettingsBackdrop = document.getElementById("group-settings-backdrop");
+    const groupSettingsSheet = document.getElementById("group-settings-sheet");
+    const groupSettingsSubtitle = document.getElementById("group-settings-subtitle");
+    const groupDisplayName = document.getElementById("group-display-name");
+    const groupFolderName = document.getElementById("group-folder-name");
+    const groupNewPassword = document.getElementById("group-new-password");
+    const groupSaveBtn = document.getElementById("group-save-btn");
+    const groupRemoveLockBtn = document.getElementById("group-remove-lock-btn");
+    const groupDeleteBtn = document.getElementById("group-delete-btn");
+    const groupSettingsCancel = document.getElementById("group-settings-cancel");
+
+    const urlGroup = new URLSearchParams(location.search).get("group");
+
+    let allVideos = [];
+    let allTags = [];
+    let allGroups = [];
+    let groupOrder = (() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem("groupOrder") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })();
+    let groupDrag = null;
+
+    const GROUP_DRAG_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>`;
+    let pendingUnlockGroup = null;
+    let activeFilter = "all";
+    let searchQuery = "";
+    let gridSize = localStorage.getItem("gridSize") || "xs";
+    let sortMode = localStorage.getItem("sortMode") || "tags";
+    let activeVideo = null;
+    const thumbCache = new Map();
+    const THUMB_CACHE_PREFIX = "thumb:v5:";
+    const MAX_THUMB_LS_ENTRIES = 80;
+    const MAX_THUMB_LOADS = 2;
+    let thumbLoads = 0;
+    const thumbWaitQueue = [];
+    let thumbObserver = null;
+    const LONG_PRESS_MS = 500;
+
+    const SORT_LABELS = {
+      "date-desc": "Newest",
+      "date-asc": "Oldest",
+      name: "Name",
+      tags: "By tag",
+      favorites: "Favorites first",
+    };
+
+    const SIZE_LABELS = { xs: "XS", sm: "S", md: "M", lg: "L" };
+
+    function closeMenus(except) {
+      [sortMenu, sizeMenu].forEach((menu) => {
+        if (menu === except) return;
+        menu.hidden = true;
+      });
+      sortMenuBtn.classList.toggle("open", !sortMenu.hidden);
+      sizeMenuBtn.classList.toggle("open", !sizeMenu.hidden);
+    }
+
+    function toggleMenu(menu, btn) {
+      const willOpen = menu.hidden;
+      closeMenus(willOpen ? menu : null);
+      menu.hidden = !willOpen;
+      btn.classList.toggle("open", willOpen);
+    }
+
+    function updateSortMenuBtn() {
+      const label = SORT_LABELS[sortMode] || "Sort";
+      sortMenuBtn.title = `Sort: ${label}`;
+      sortMenuBtn.setAttribute("aria-label", sortMenuBtn.title);
+      sortMenuBtn.classList.toggle("non-default", sortMode !== "tags");
+      sortMenu.querySelectorAll(".sort-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.sort === sortMode);
+      });
+    }
+
+    function updateSizeMenuBtn() {
+      const label = SIZE_LABELS[gridSize] || "M";
+      sizeMenuBtn.title = `Grid: ${label}`;
+      sizeMenuBtn.setAttribute("aria-label", sizeMenuBtn.title);
+      sizeMenuBtn.classList.toggle("non-default", gridSize !== "xs");
+      sizeMenu.querySelectorAll(".view-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.size === gridSize);
+      });
+    }
+
+    async function readJsonResponse(res) {
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        if (text.trimStart().startsWith("<")) {
+          throw new Error("Upload unavailable — restart the server (node server.js)");
+        }
+        throw new Error(text.slice(0, 100) || "Request failed");
+      }
+    }
+
+    function thumbCacheKey(name) {
+      return `${THUMB_CACHE_PREFIX}${VideoGroups.getActive()}/${name}`;
+    }
+
+    function pruneThumbCache() {
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k?.startsWith(THUMB_CACHE_PREFIX)) keys.push(k);
+        }
+        if (keys.length <= MAX_THUMB_LS_ENTRIES) return;
+        keys.slice(0, keys.length - MAX_THUMB_LS_ENTRIES).forEach((k) => localStorage.removeItem(k));
+      } catch {}
+    }
+
+    function setupThumbObserver() {
+      if (thumbObserver) thumbObserver.disconnect();
+      thumbObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const wrap = entry.target;
+          if (wrap.classList.contains("ready") || wrap.dataset.thumbQueued) return;
+          wrap.dataset.thumbQueued = "1";
+          thumbObserver.unobserve(wrap);
+          queueThumbLoad(wrap, wrap.dataset.thumbUrl, wrap.dataset.thumbName);
+        });
+      }, { rootMargin: "120px" });
+    }
+
+    function observeThumb(wrap, url, name) {
+      wrap.dataset.thumbUrl = url;
+      wrap.dataset.thumbName = name;
+      if (showCachedThumb(wrap, name)) return;
+      thumbObserver.observe(wrap);
+    }
+
+    function queueThumbLoad(wrap, url, name) {
+      const run = (done) => initThumb(wrap, url, name, done);
+      if (thumbLoads < MAX_THUMB_LOADS) {
+        thumbLoads++;
+        run(() => { thumbLoads--; drainThumbQueue(); });
+      } else {
+        thumbWaitQueue.push(run);
+      }
+    }
+
+    function drainThumbQueue() {
+      while (thumbWaitQueue.length && thumbLoads < MAX_THUMB_LOADS) {
+        const run = thumbWaitQueue.shift();
+        thumbLoads++;
+        run(() => { thumbLoads--; drainThumbQueue(); });
+      }
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement("div");
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function stripExt(name) {
+      return MediaHelpers.stripMediaExt(name);
+    }
+
+    function getExt(name) {
+      const m = name.match(/(\.[a-z0-9]+)$/i);
+      return m ? m[1] : "";
+    }
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      if (msg) setTimeout(() => { if (toast.textContent === msg) toast.textContent = ""; }, 3000);
+    }
+
+    function openSheet(backdrop, sheet) {
+      backdrop.classList.add("open");
+      sheet.classList.add("open");
+    }
+
+    function closeSheet(backdrop, sheet) {
+      backdrop.classList.remove("open");
+      sheet.classList.remove("open");
+    }
+
+    function updateNavLinks() {
+      const q = VideoGroups.query();
+      const profileHref = q ? `/?${q}` : "/";
+      const feedHref = q ? `/watch.html?${q}` : "/watch.html";
+      feedLink.href = feedHref;
+      BottomNav.setProfileHref(profileHref);
+      feedTab.href = feedHref;
+    }
+
+    function saveGroupOrder(order) {
+      const safeOrder = Array.isArray(order) ? order : [];
+      groupOrder = safeOrder.filter((id) => typeof id === "string" && id);
+      localStorage.setItem("groupOrder", JSON.stringify(groupOrder));
+    }
+
+    function sortGroupsForDisplay(groups) {
+      if (!Array.isArray(groups)) return [];
+      if (!Array.isArray(groupOrder)) groupOrder = [];
+      const known = new Set(groups.map((g) => g.id));
+      const cleanOrder = groupOrder.filter((id) => known.has(id));
+      const missing = groups.map((g) => g.id).filter((id) => !cleanOrder.includes(id));
+      const nextOrder = [...cleanOrder, ...missing];
+      if (nextOrder.join("\0") !== groupOrder.join("\0")) saveGroupOrder(nextOrder);
+      const rank = new Map(nextOrder.map((id, idx) => [id, idx]));
+      return [...groups].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    }
+
+    function setDefaultGroup(groupId) {
+      if (typeof VideoGroups.setDefault === "function") VideoGroups.setDefault(groupId);
+      else if (groupId) localStorage.setItem("defaultGroup", groupId);
+      else localStorage.removeItem("defaultGroup");
+      renderGroups();
+      showToast("Default profile updated.");
+    }
+
+    function moveGroupInOrder(sourceId, targetId) {
+      if (!sourceId || !targetId || sourceId === targetId) return false;
+      const order = allGroups.map((g) => g.id);
+      const from = order.indexOf(sourceId);
+      const to = order.indexOf(targetId);
+      if (from < 0 || to < 0) return false;
+      const [moved] = order.splice(from, 1);
+      order.splice(to, 0, moved);
+      groupOrder = order;
+      allGroups.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+
+      const sourceRow = groupListEl.querySelector(`.group-row[data-group-id="${CSS.escape(sourceId)}"]`);
+      const targetRow = groupListEl.querySelector(`.group-row[data-group-id="${CSS.escape(targetId)}"]`);
+      if (sourceRow && targetRow) {
+        if (from < to) targetRow.after(sourceRow);
+        else targetRow.before(sourceRow);
+      }
+      return true;
+    }
+
+    function endGroupDrag() {
+      if (!groupDrag) return;
+      groupDrag.row?.classList.remove("dragging");
+      if (groupDrag.moved) saveGroupOrder(allGroups.map((g) => g.id));
+      groupDrag = null;
+    }
+
+    function bindGroupRowDrag(row, handle, groupId) {
+      const onMove = (e) => {
+        if (!groupDrag || groupDrag.id !== groupId) return;
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const targetRow = el?.closest(".group-row");
+        if (!targetRow) return;
+        const targetId = targetRow.dataset.groupId;
+        if (!targetId || targetId === groupDrag.lastTarget) return;
+        if (moveGroupInOrder(groupDrag.id, targetId)) {
+          groupDrag.moved = true;
+          groupDrag.lastTarget = targetId;
+          groupDrag.row = groupListEl.querySelector(`.group-row[data-group-id="${CSS.escape(groupDrag.id)}"]`);
+          groupDrag.row?.classList.add("dragging");
+        }
+      };
+
+      handle.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        groupDrag = { id: groupId, row, lastTarget: groupId, moved: false };
+        row.classList.add("dragging");
+        handle.setPointerCapture(e.pointerId);
+      });
+
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", endGroupDrag);
+      handle.addEventListener("pointercancel", endGroupDrag);
+      handle.addEventListener("lostpointercapture", endGroupDrag);
+    }
+
+    function renderGroups() {
+      allGroups = sortGroupsForDisplay(allGroups);
+      const activeId = VideoGroups.getActive();
+      const defaultId = typeof VideoGroups.getDefault === "function"
+        ? VideoGroups.getDefault()
+        : (localStorage.getItem("defaultGroup") || "");
+      const active = allGroups.find((g) => g.id === activeId);
+      const label = active?.displayName || active?.name || "Rollo";
+      groupPickerLabel.textContent = label + (active?.locked && !active?.unlocked ? " 🔒" : "");
+      groupPicker.classList.remove("no-switch");
+
+      groupListEl.innerHTML = "";
+      allGroups.forEach((group) => {
+        const row = document.createElement("div");
+        row.className = "group-row" + (group.id === activeId ? " is-active" : "");
+        row.dataset.groupId = group.id;
+
+        const name = group.displayName || group.name;
+        const meta = group.locked && !group.unlocked ? "Locked" : `${group.videoCount ?? "—"}`;
+
+        const mainBtn = document.createElement("button");
+        mainBtn.type = "button";
+        mainBtn.className = "group-main";
+        mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${group.locked && !group.unlocked ? " 🔒" : ""}</span><span class="group-main-meta">${meta}</span>`;
+        mainBtn.addEventListener("click", () => {
+          closeGroupSheet();
+          selectGroup(group.id);
+        });
+
+        const starBtn = document.createElement("button");
+        starBtn.type = "button";
+        starBtn.className = "group-star" + (group.id === defaultId ? " is-default" : "");
+        starBtn.title = group.id === defaultId ? "Default profile" : "Set as default";
+        starBtn.setAttribute("aria-label", starBtn.title);
+        starBtn.textContent = group.id === defaultId ? "★" : "☆";
+        starBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setDefaultGroup(group.id);
+        });
+
+        const dragBtn = document.createElement("button");
+        dragBtn.type = "button";
+        dragBtn.className = "group-drag-btn";
+        dragBtn.title = "Drag to reorder";
+        dragBtn.setAttribute("aria-label", "Drag to reorder");
+        dragBtn.innerHTML = GROUP_DRAG_SVG;
+        bindGroupRowDrag(row, dragBtn, group.id);
+
+        row.append(mainBtn, starBtn, dragBtn);
+        groupListEl.appendChild(row);
+      });
+      updateNavLinks();
+    }
+
+    function getStartupPreferredGroup() {
+      const fromUrl = urlGroup && allGroups.some((g) => g.id === urlGroup) ? urlGroup : "";
+      if (fromUrl) return fromUrl;
+      const fromDefault = typeof VideoGroups.getDefault === "function"
+        ? VideoGroups.getDefault()
+        : (localStorage.getItem("defaultGroup") || "");
+      return fromDefault || VideoGroups.getActive();
+    }
+
+    async function loadGroups() {
+      const res = await fetch("/api/groups", { headers: VideoGroups.headers() });
+      allGroups = await res.json();
+      VideoGroups.pruneStaleUnlocks(allGroups);
+      renderGroups();
+    }
+
+    function openUnlockSheet(group) {
+      pendingUnlockGroup = group;
+      unlockTitle.textContent = `Unlock ${group.displayName || group.name}`;
+      unlockSubtitle.textContent = "This group is password protected.";
+      unlockPassword.value = "";
+      openSheet(unlockBackdrop, unlockSheet);
+      unlockPassword.focus();
+    }
+
+    async function tryUnlock() {
+      if (!pendingUnlockGroup) return;
+      const res = await fetch(`/api/groups/${encodeURIComponent(pendingUnlockGroup.id)}/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: unlockPassword.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showToast(data.error || "Wrong password");
+      if (data.token) VideoGroups.setUnlockToken(pendingUnlockGroup.id, data.token);
+      VideoGroups.setActive(pendingUnlockGroup.id);
+      closeSheet(unlockBackdrop, unlockSheet);
+      pendingUnlockGroup = null;
+      VideoGroups.syncUrlGroup();
+      await loadGroups();
+      await loadVideosData();
+    }
+
+    function setGroupSheetOpen(open) {
+      groupPicker.classList.toggle("open", open);
+      groupPicker.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function openGroupSheet() {
+      newGroupName.value = "";
+      groupAddWrap.classList.remove("open");
+      setGroupSheetOpen(true);
+      openSheet(groupBackdrop, groupSheet);
+    }
+
+    function closeGroupSheet() {
+      setGroupSheetOpen(false);
+      closeSheet(groupBackdrop, groupSheet);
+    }
+
+    async function createGroup() {
+      const name = newGroupName.value.trim();
+      if (!name) {
+        showToast("Enter a profile name first.");
+        return;
+      }
+      newGroupBtn.disabled = true;
+      try {
+        const res = await fetch("/api/groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...VideoGroups.headers() },
+          body: JSON.stringify({ displayName: name || undefined }),
+        });
+        const data = await readJsonResponse(res);
+        if (!res.ok) throw new Error(data.error || "Could not create library");
+        newGroupName.value = "";
+        groupAddWrap.classList.remove("open");
+        VideoGroups.setActive(data.id);
+        closeGroupSheet();
+        await loadGroups();
+        activeFilter = "all";
+        await loadVideosData();
+        showToast(`Created “${data.displayName || data.id}”.`);
+      } catch (err) {
+        showToast(err.message || "Could not create library.");
+      } finally {
+        newGroupBtn.disabled = false;
+      }
+    }
+
+    async function selectGroup(groupId) {
+      const group = allGroups.find((g) => g.id === groupId);
+      if (!group) return;
+      if (group.locked && !group.unlocked) {
+        openUnlockSheet(group);
+        return;
+      }
+      VideoGroups.setActive(groupId);
+      VideoGroups.syncUrlGroup(groupId);
+      renderGroups();
+      await loadVideosData();
+    }
+
+    async function loadVideosData() {
+      loading.hidden = false;
+      const [videosRes, tagsRes] = await Promise.all([
+        VideoGroups.apiFetch("/api/videos"),
+        VideoGroups.apiFetch("/api/tags"),
+      ]);
+      if (videosRes.status === 403) {
+        loading.hidden = true;
+        const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+        if (group) openUnlockSheet(group);
+        return;
+      }
+      if (!videosRes.ok) throw new Error("Could not load videos");
+      const [videos, tags] = await Promise.all([videosRes.json(), tagsRes.json()]);
+      allVideos = VideoGroups.authVideos(videos);
+      allTags = tags;
+      loading.hidden = true;
+      renderFilters();
+      renderGrid();
+    }
+
+    function displayName(v) {
+      return v.displayName || stripExt(v.name);
+    }
+
+    function sortVideos(list) {
+      const sorted = [...list];
+      switch (sortMode) {
+        case "date-asc":
+          return sorted.sort((a, b) => (a.mtime || 0) - (b.mtime || 0));
+        case "name":
+          return sorted.sort((a, b) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" }));
+        case "tags":
+          return sorted.sort((a, b) => {
+            const ta = a.tags[0] || "\uffff";
+            const tb = b.tags[0] || "\uffff";
+            if (ta !== tb) return ta.localeCompare(tb, undefined, { sensitivity: "base" });
+            return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+          });
+        case "favorites":
+          return sorted.sort((a, b) => {
+            if (a.favorite !== b.favorite) return (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
+            return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+          });
+        case "date-desc":
+        default:
+          return sorted.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+      }
+    }
+
+    function setSortMode(mode) {
+      sortMode = mode;
+      localStorage.setItem("sortMode", mode);
+      updateSortMenuBtn();
+      closeMenus();
+      renderGrid();
+    }
+
+    function getFilteredVideos() {
+      let list = [...allVideos];
+      if (activeFilter === "favorites") list = list.filter((v) => v.favorite);
+      else if (activeFilter.startsWith("tag:")) list = list.filter((v) => v.tags.includes(activeFilter.slice(4)));
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter((v) =>
+          v.name.toLowerCase().includes(q) ||
+          displayName(v).toLowerCase().includes(q) ||
+          v.tags.some((t) => t.toLowerCase().includes(q))
+        );
+      }
+      return sortVideos(list);
+    }
+
+    function updateCount() {
+      const shown = getFilteredVideos().length;
+      const total = allVideos.length;
+      videoCountEl.textContent = shown === total ? `${total} files` : `${shown} of ${total}`;
+    }
+
+    function setGridSize(size) {
+      gridSize = size;
+      localStorage.setItem("gridSize", size);
+      grid.className = `size-${size}`;
+      updateSizeMenuBtn();
+      closeMenus();
+    }
+
+    function toggleSearch(open) {
+      const next = open ?? !headerEl.classList.contains("search-open");
+      headerEl.classList.toggle("search-open", next);
+      searchToggle.classList.toggle("active", next);
+      if (next) {
+        requestAnimationFrame(() => searchInput.focus());
+      } else if (!searchQuery) {
+        searchInput.value = "";
+      }
+    }
+
+    function renderFilters() {
+      tagFiltersEl.innerHTML = "";
+      allTags.forEach((tag) => {
+        const btn = document.createElement("button");
+        btn.className = "filter-btn";
+        btn.dataset.filter = `tag:${tag}`;
+        btn.dataset.tag = "1";
+        btn.textContent = tag;
+        tagFiltersEl.appendChild(btn);
+      });
+
+      primaryFiltersEl.querySelectorAll(".filter-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.filter === activeFilter);
+      });
+
+      if (favFilterHeart) {
+        HeartIcon.update(favFilterHeart, activeFilter === "favorites");
+      }
+
+      tagFiltersEl.querySelectorAll(".filter-btn").forEach((btn) => {
+        const isActive = btn.dataset.filter === activeFilter;
+        btn.classList.toggle("active", isActive);
+        const tagName = btn.dataset.filter.slice(4);
+        TagColors.styleTagEl(btn, tagName, { active: isActive });
+      });
+    }
+
+    function onFilterClick(e) {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      activeFilter = btn.dataset.filter;
+      renderFilters();
+      renderGrid();
+    }
+
+    function markThumbReady(wrap) {
+      wrap.querySelector(".thumb-placeholder")?.remove();
+      wrap.classList.add("ready");
+    }
+
+    function showCachedThumb(wrap, name) {
+      const cached = thumbCache.get(name) || localStorage.getItem(thumbCacheKey(name));
+      if (!cached) return false;
+      thumbCache.set(name, cached);
+      if (!wrap.querySelector(".thumb-img")) {
+        const img = document.createElement("img");
+        img.className = "thumb-img";
+        img.src = cached;
+        img.alt = "";
+        img.decoding = "async";
+        wrap.prepend(img);
+        wrap.querySelector(".thumb-video")?.remove();
+      }
+      markThumbReady(wrap);
+      return true;
+    }
+
+    function saveThumbToCache(name, video) {
+      try {
+        if (!video.videoWidth) return;
+        const w = 180;
+        const h = Math.max(1, Math.round(w * (video.videoHeight / video.videoWidth)));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+        const data = canvas.toDataURL("image/jpeg", 0.62);
+        thumbCache.set(name, data);
+        try { localStorage.setItem(thumbCacheKey(name), data); pruneThumbCache(); } catch {}
+      } catch {}
+    }
+
+    function initThumb(wrap, url, name, done) {
+      if (showCachedThumb(wrap, name)) { done?.(); return; }
+
+      if (MediaHelpers.isImageFile(name)) {
+        const img = document.createElement("img");
+        img.className = "thumb-img";
+        img.src = url;
+        img.alt = "";
+        img.decoding = "async";
+        const finish = () => {
+          if (!wrap.classList.contains("ready")) {
+            try {
+              if (img.naturalWidth) {
+                const w = 180;
+                const h = Math.max(1, Math.round(w * (img.naturalHeight / img.naturalWidth)));
+                const canvas = document.createElement("canvas");
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                const data = canvas.toDataURL("image/jpeg", 0.62);
+                thumbCache.set(name, data);
+                try { localStorage.setItem(thumbCacheKey(name), data); pruneThumbCache(); } catch {}
+              }
+            } catch {}
+            markThumbReady(wrap);
+          }
+          done?.();
+        };
+        img.addEventListener("load", finish, { once: true });
+        img.addEventListener("error", finish, { once: true });
+        wrap.prepend(img);
+        return;
+      }
+
+      initThumbVideo(wrap, url, name, done);
+    }
+
+    function initThumbVideo(wrap, url, name, done) {
+      if (showCachedThumb(wrap, name)) { done?.(); return; }
+      let video = wrap.querySelector(".thumb-video");
+      if (!video) {
+        video = document.createElement("video");
+        video.className = "thumb-video";
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute("playsinline", "");
+        video.preload = "metadata";
+        video.src = `${url}#t=0.5`;
+        wrap.prepend(video);
+      }
+      const finish = () => {
+        if (!wrap.classList.contains("ready")) {
+          saveThumbToCache(name, video);
+          markThumbReady(wrap);
+        }
+        video.remove();
+        done?.();
+      };
+      const seek = () => {
+        if (!video.duration || !isFinite(video.duration)) { finish(); return; }
+        const t = Math.min(Math.max(video.duration * 0.08, 0.5), 8);
+        video.addEventListener("seeked", finish, { once: true });
+        try { video.currentTime = t; } catch { finish(); }
+      };
+      if (video.readyState >= 1) seek();
+      else {
+        video.addEventListener("loadedmetadata", seek, { once: true });
+        video.addEventListener("error", finish, { once: true });
+        video.load();
+      }
+    }
+
+    function bindLongPress(el, video) {
+      let timer = null;
+      let startX = 0;
+      let startY = 0;
+      let longPressed = false;
+
+      const clear = () => {
+        clearTimeout(timer);
+        timer = null;
+        el.classList.remove("pressing");
+      };
+
+      const trigger = (e) => {
+        if (e) e.preventDefault();
+        longPressed = true;
+        clear();
+        navigator.vibrate?.(10);
+        openActionMenu(video);
+      };
+
+      el.addEventListener("touchstart", (e) => {
+        if (e.touches.length > 1) return;
+        longPressed = false;
+        const t = e.touches[0];
+        startX = t.clientX;
+        startY = t.clientY;
+        el.classList.add("pressing");
+        timer = setTimeout(() => trigger(), LONG_PRESS_MS);
+      }, { passive: true });
+
+      el.addEventListener("touchmove", (e) => {
+        const t = e.touches[0];
+        if (Math.hypot(t.clientX - startX, t.clientY - startY) > 12) clear();
+      }, { passive: true });
+
+      el.addEventListener("touchend", () => clear());
+      el.addEventListener("touchcancel", () => clear());
+      el.addEventListener("contextmenu", (e) => { e.preventDefault(); trigger(e); });
+
+      el.querySelector(".thumb-link")?.addEventListener("click", (e) => {
+        if (longPressed) { e.preventDefault(); longPressed = false; }
+      });
+    }
+
+    function appendVideoCard(video) {
+      const card = document.createElement("div");
+      card.className = "video-item";
+      card.dataset.filename = video.name;
+
+      const link = document.createElement("a");
+      link.className = "thumb-link";
+        link.href = `/watch.html?${VideoGroups.query()}&video=${encodeURIComponent(video.name)}`;
+
+      const wrap = document.createElement("div");
+      wrap.className = "thumb-wrap";
+      wrap.appendChild(Object.assign(document.createElement("div"), { className: "thumb-placeholder" }));
+
+      if (video.favorite) {
+        const fav = document.createElement("span");
+        fav.className = "fav-badge";
+        const heart = document.createElement("span");
+        HeartIcon.mount(heart, true, { size: "sm" });
+        fav.appendChild(heart);
+        wrap.appendChild(fav);
+      }
+
+      const play = document.createElement("div");
+      play.className = "play-badge";
+      const isImage = video.mediaType === "image" || MediaHelpers.isImageFile(video.name);
+      if (!isImage) {
+        play.textContent = "▶";
+        wrap.appendChild(play);
+      }
+      link.appendChild(wrap);
+
+      const info = document.createElement("div");
+      info.className = "info";
+      const nameEl = document.createElement("div");
+      nameEl.className = "name";
+      nameEl.textContent = displayName(video);
+      info.appendChild(nameEl);
+
+      if (video.tags.length) {
+        const tagsEl = document.createElement("div");
+        tagsEl.className = "tags";
+        video.tags.slice(0, 2).forEach((t) => {
+          const span = document.createElement("span");
+          span.className = "tag";
+          span.textContent = t;
+          TagColors.styleTagEl(span, t);
+          tagsEl.appendChild(span);
+        });
+        info.appendChild(tagsEl);
+      }
+
+      card.append(link, info);
+      grid.appendChild(card);
+      bindLongPress(card, video);
+      observeThumb(wrap, video.url, video.name);
+    }
+
+    function renderGrid() {
+      if (thumbObserver) thumbObserver.disconnect();
+      setupThumbObserver();
+      grid.innerHTML = "";
+      noResults.style.display = "none";
+      empty.style.display = "none";
+
+      if (!allVideos.length) {
+        empty.style.display = "block";
+        updateCount();
+        syncLayoutMetrics();
+        return;
+      }
+
+      const videos = getFilteredVideos();
+      if (!videos.length) {
+        noResults.style.display = "block";
+        updateCount();
+        syncLayoutMetrics();
+        return;
+      }
+
+      if (sortMode === "tags") {
+        let lastGroup = null;
+        videos.forEach((video) => {
+          const group = video.tags[0] || "Untagged";
+          if (group !== lastGroup) {
+            const header = document.createElement("div");
+            header.className = "group-header";
+            header.textContent = group;
+            grid.appendChild(header);
+            lastGroup = group;
+          }
+          appendVideoCard(video);
+        });
+      } else {
+        videos.forEach(appendVideoCard);
+      }
+
+      updateCount();
+      syncLayoutMetrics();
+    }
+
+    function openActionMenu(video) {
+      activeVideo = video;
+      actionTitle.textContent = video.displayName || stripExt(video.name);
+      actionSubtitle.textContent = video.name;
+      if (actionFavoriteBtn) {
+        actionFavoriteBtn.textContent = video.favorite ? "Remove favorite" : "♡ Add to favorites";
+      }
+      openSheet(actionBackdrop, actionSheet);
+    }
+
+    async function toggleFavoriteFromMenu() {
+      if (!activeVideo) return;
+      const next = !activeVideo.favorite;
+      try {
+        await saveMetadata(activeVideo.name, { favorite: next });
+        activeVideo.favorite = next;
+        const v = allVideos.find((x) => x.name === activeVideo.name);
+        if (v) v.favorite = next;
+        closeSheet(actionBackdrop, actionSheet);
+        activeVideo = null;
+        renderGrid();
+        showToast(next ? "Added to favorites." : "Removed from favorites.");
+      } catch {
+        showToast("Could not save favorite.");
+      }
+    }
+
+    function renderTagSheet() {
+      if (!activeVideo) return;
+      tagSubtitle.textContent = activeVideo.displayName || stripExt(activeVideo.name);
+      tagCurrent.innerHTML = "";
+      activeVideo.tags.forEach((tag) => {
+        const chip = document.createElement("span");
+        chip.className = "editable-chip";
+        chip.innerHTML = `${escapeHtml(tag)} <button type="button">×</button>`;
+        TagColors.styleTagEl(chip, tag);
+        chip.querySelector("button").addEventListener("click", () => removeTag(tag));
+        tagCurrent.appendChild(chip);
+      });
+      tagSuggest.innerHTML = "";
+      const suggestions = allTags.filter((t) => !activeVideo.tags.includes(t));
+      document.getElementById("tag-suggest-section").style.display = suggestions.length ? "" : "none";
+      suggestions.forEach((tag) => {
+        const btn = document.createElement("button");
+        btn.className = "suggest-chip";
+        btn.type = "button";
+        btn.textContent = tag;
+        TagColors.styleTagEl(btn, tag);
+        btn.addEventListener("click", () => addTag(tag));
+        tagSuggest.appendChild(btn);
+      });
+    }
+
+    async function saveMetadata(name, patch) {
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(name)}/metadata`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      return res.json();
+    }
+
+    async function addTag(tag) {
+      if (!activeVideo) return;
+      const trimmed = tag.trim();
+      if (!trimmed || activeVideo.tags.includes(trimmed)) return;
+      const tags = [...activeVideo.tags, trimmed];
+      await saveMetadata(activeVideo.name, { tags });
+      activeVideo.tags = tags;
+      const v = allVideos.find((x) => x.name === activeVideo.name);
+      if (v) v.tags = tags;
+      await refreshTags();
+      renderTagSheet();
+      renderGrid();
+    }
+
+    async function removeTag(tag) {
+      if (!activeVideo) return;
+      const tags = activeVideo.tags.filter((t) => t !== tag);
+      await saveMetadata(activeVideo.name, { tags });
+      activeVideo.tags = tags;
+      const v = allVideos.find((x) => x.name === activeVideo.name);
+      if (v) v.tags = tags;
+      await refreshTags();
+      renderTagSheet();
+      renderGrid();
+    }
+
+    async function refreshTags() {
+      allTags = await (await VideoGroups.apiFetch("/api/tags")).json();
+      renderFilters();
+    }
+
+    async function renameVideo() {
+      if (!activeVideo) return;
+      const newBase = renameInput.value.trim();
+      if (!newBase) return alert("Name cannot be empty");
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(activeVideo.name)}/rename`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newBase }),
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || "Rename failed");
+      const idx = allVideos.findIndex((v) => v.name === activeVideo.name);
+      if (idx >= 0) allVideos[idx] = VideoGroups.authVideos([{ ...allVideos[idx], ...data }])[0];
+      closeSheet(renameBackdrop, renameSheet);
+      closeSheet(actionBackdrop, actionSheet);
+      activeVideo = null;
+      renderGrid();
+    }
+
+    async function deleteVideo() {
+      if (!activeVideo) return;
+      const name = activeVideo.name;
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(name)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        return alert(data.error || "Delete failed");
+      }
+      allVideos = allVideos.filter((v) => v.name !== name);
+      localStorage.removeItem(thumbCacheKey(name));
+      closeSheet(deleteBackdrop, deleteSheet);
+      closeSheet(actionBackdrop, actionSheet);
+      activeVideo = null;
+      await refreshTags();
+      renderGrid();
+    }
+
+    async function uploadVideos(files) {
+      if (!files.length) return;
+      uploadFab.classList.add("uploading");
+      showToast(`Uploading ${files.length} video${files.length > 1 ? "s" : ""}…`);
+
+      const form = new FormData();
+      files.forEach((file) => form.append("videos", file));
+
+      try {
+        const res = await fetch(`/api/videos/upload?${VideoGroups.query()}`, {
+          method: "POST",
+          headers: VideoGroups.headers(),
+          body: form,
+        });
+        const data = await readJsonResponse(res);
+        if (res.status === 403) {
+          const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+          if (group) openUnlockSheet(group);
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+        await loadGroups();
+        await loadVideosData();
+        showToast(`Uploaded ${data.count} video${data.count > 1 ? "s" : ""}.`);
+      } catch (err) {
+        showToast(err.message || "Upload failed.");
+      } finally {
+        uploadFab.classList.remove("uploading");
+      }
+    }
+
+    moreBtn.addEventListener("click", () => openSheet(moreBackdrop, moreSheet));
+    moreClose.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
+    moreBackdrop.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
+
+    actionSheet.addEventListener("click", (e) => {
+      const action = e.target.closest("[data-action]")?.dataset.action;
+      if (!action || !activeVideo) return;
+      if (action === "cancel") { closeSheet(actionBackdrop, actionSheet); return; }
+      if (action === "favorite") {
+        toggleFavoriteFromMenu();
+        return;
+      }
+      closeSheet(actionBackdrop, actionSheet);
+      if (action === "tag") {
+        tagInput.value = "";
+        renderTagSheet();
+        openSheet(tagBackdrop, tagSheet);
+      } else if (action === "rename") {
+        renameInput.value = activeVideo.displayName || stripExt(activeVideo.name);
+        renameExtHint.textContent = `Extension kept as ${getExt(activeVideo.name)}`;
+        openSheet(renameBackdrop, renameSheet);
+        renameInput.focus();
+      } else if (action === "delete") {
+        deleteSubtitle.textContent = `"${activeVideo.name}" will be permanently deleted.`;
+        openSheet(deleteBackdrop, deleteSheet);
+      }
+    });
+
+    tagAddBtn.addEventListener("click", () => addTag(tagInput.value));
+    tagInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addTag(tagInput.value); });
+    tagDone.addEventListener("click", () => closeSheet(tagBackdrop, tagSheet));
+    tagBackdrop.addEventListener("click", () => closeSheet(tagBackdrop, tagSheet));
+    renameSave.addEventListener("click", renameVideo);
+    renameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") renameVideo(); });
+    renameCancel.addEventListener("click", () => closeSheet(renameBackdrop, renameSheet));
+    renameBackdrop.addEventListener("click", () => closeSheet(renameBackdrop, renameSheet));
+    deleteConfirm.addEventListener("click", deleteVideo);
+    deleteCancel.addEventListener("click", () => closeSheet(deleteBackdrop, deleteSheet));
+    deleteBackdrop.addEventListener("click", () => closeSheet(deleteBackdrop, deleteSheet));
+    actionBackdrop.addEventListener("click", () => closeSheet(actionBackdrop, actionSheet));
+
+    groupPicker.addEventListener("click", openGroupSheet);
+    groupClose.addEventListener("click", closeGroupSheet);
+    groupBackdrop.addEventListener("click", closeGroupSheet);
+    groupAddToggle.addEventListener("click", () => {
+      const opening = !groupAddWrap.classList.contains("open");
+      groupAddWrap.classList.toggle("open", opening);
+      if (opening) requestAnimationFrame(() => newGroupName.focus());
+    });
+    newGroupBtn.addEventListener("click", createGroup);
+    newGroupName.addEventListener("keydown", (e) => { if (e.key === "Enter") createGroup(); });
+
+    searchToggle.addEventListener("click", () => toggleSearch());
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") toggleSearch(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && headerEl.classList.contains("search-open") && !searchQuery) {
+        toggleSearch(false);
+      }
+    });
+
+    uploadFab.addEventListener("click", () => {
+      const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+      if (group?.locked && !group.unlocked) {
+        openUnlockSheet(group);
+        return;
+      }
+      uploadInput.click();
+    });
+
+    uploadInput.addEventListener("change", async () => {
+      const files = [...uploadInput.files];
+      uploadInput.value = "";
+      await uploadVideos(files);
+    });
+
+    sortMenuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleMenu(sortMenu, sortMenuBtn);
+    });
+
+    sizeMenuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleMenu(sizeMenu, sizeMenuBtn);
+    });
+
+    sortMenu.addEventListener("click", (e) => {
+      const btn = e.target.closest(".sort-btn");
+      if (btn) setSortMode(btn.dataset.sort);
+    });
+
+    sizeMenu.addEventListener("click", (e) => {
+      const btn = e.target.closest(".view-btn");
+      if (btn) setGridSize(btn.dataset.size);
+    });
+
+    document.addEventListener("click", () => closeMenus());
+
+    unlockSubmit.addEventListener("click", tryUnlock);
+    unlockPassword.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+    unlockCancel.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
+    unlockBackdrop.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
+
+    groupSettingsBtn.addEventListener("click", () => {
+      closeSheet(moreBackdrop, moreSheet);
+      const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+      if (!group) return;
+      groupSettingsSubtitle.textContent = `Folder: ${group.name}`;
+      groupDisplayName.value = group.displayName || group.name;
+      groupFolderName.value = "";
+      groupNewPassword.value = "";
+      openSheet(groupSettingsBackdrop, groupSettingsSheet);
+    });
+
+    groupSaveBtn.addEventListener("click", async () => {
+      const groupId = VideoGroups.getActive();
+      const body = { displayName: groupDisplayName.value.trim() };
+      if (groupNewPassword.value) body.password = groupNewPassword.value;
+
+      const folderName = groupFolderName.value.trim();
+      if (folderName && folderName !== groupId) {
+        const renameRes = await fetch(`/api/groups/${encodeURIComponent(groupId)}/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...VideoGroups.headers() },
+          body: JSON.stringify({ newId: folderName }),
+        });
+        const renameData = await renameRes.json();
+        if (!renameRes.ok) return showToast(renameData.error || "Could not rename folder");
+        VideoGroups.clearUnlockToken(groupId);
+        VideoGroups.setActive(renameData.id);
+        VideoGroups.syncUrlGroup(renameData.id);
+      }
+
+      const activeId = VideoGroups.getActive();
+      const res = await fetch(`/api/groups/${encodeURIComponent(activeId)}?${VideoGroups.query()}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...VideoGroups.headers() },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) return showToast(data.error || "Could not save");
+      if (data.passwordChanged) VideoGroups.clearUnlockToken(activeId);
+      closeSheet(groupSettingsBackdrop, groupSettingsSheet);
+      await loadGroups();
+      if (data.locked && data.passwordChanged) {
+        const group = allGroups.find((g) => g.id === activeId);
+        if (group?.locked && !group.unlocked) openUnlockSheet(group);
+      }
+      showToast("Group settings saved.");
+    });
+
+    groupDeleteBtn.addEventListener("click", async () => {
+      const groupId = VideoGroups.getActive();
+      const group = allGroups.find((g) => g.id === groupId);
+      if (!group) return;
+      if (group.videoCount > 0) return showToast("Library must be empty before deleting.");
+      if (!confirm(`Delete library “${group.displayName || group.name}”? This cannot be undone.`)) return;
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}?${VideoGroups.query()}`, {
+        method: "DELETE",
+        headers: VideoGroups.headers(),
+      });
+      const data = await res.json();
+      if (!res.ok) return showToast(data.error || "Could not delete library");
+      VideoGroups.clearUnlockToken(groupId);
+      if (VideoGroups.getDefault() === groupId) VideoGroups.setDefault("");
+      closeSheet(groupSettingsBackdrop, groupSettingsSheet);
+      await loadGroups();
+      if (allGroups.length) {
+        const next = VideoGroups.pickDefaultGroup(allGroups);
+        VideoGroups.setActive(next);
+        VideoGroups.syncUrlGroup(next);
+        await loadVideosData();
+      } else {
+        VideoGroups.setActive("");
+        VideoGroups.syncUrlGroup("");
+        allVideos = [];
+        renderGrid();
+      }
+      showToast("Library deleted.");
+    });
+
+    groupRemoveLockBtn.addEventListener("click", async () => {
+      const groupId = VideoGroups.getActive();
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}?${VideoGroups.query()}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...VideoGroups.headers() },
+        body: JSON.stringify({ removePassword: true }),
+      });
+      if (!res.ok) return showToast("Could not remove password");
+      VideoGroups.clearUnlockToken(VideoGroups.getActive());
+      closeSheet(groupSettingsBackdrop, groupSettingsSheet);
+      await loadGroups();
+      showToast("Password removed.");
+    });
+
+    groupSettingsCancel.addEventListener("click", () => closeSheet(groupSettingsBackdrop, groupSettingsSheet));
+    groupSettingsBackdrop.addEventListener("click", () => closeSheet(groupSettingsBackdrop, groupSettingsSheet));
+
+    primaryFiltersEl.addEventListener("click", onFilterClick);
+    tagFiltersEl.addEventListener("click", onFilterClick);
+
+    searchInput.addEventListener("input", () => {
+      searchQuery = searchInput.value.trim();
+      searchToggle.classList.toggle("active", !!searchQuery || headerEl.classList.contains("search-open"));
+      renderGrid();
+    });
+
+    exportBtn.addEventListener("click", async () => {
+      closeSheet(moreBackdrop, moreSheet);
+      showToast("Exporting…");
+      try {
+        const res = await VideoGroups.apiFetch("/api/metadata/export");
+        if (!res.ok) throw new Error("Export failed — restart the server");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const groupId = VideoGroups.getActive();
+        a.download = `${groupId}-tags.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast("Export downloaded.");
+      } catch (err) {
+        showToast(err.message || "Export failed.");
+      }
+    });
+
+    importBtn.addEventListener("click", () => {
+      closeSheet(moreBackdrop, moreSheet);
+      importInput.click();
+    });
+
+    importInput.addEventListener("change", async () => {
+      const file = importInput.files?.[0];
+      importInput.value = "";
+      if (!file) return;
+      showToast("Importing…");
+      try {
+        const res = await VideoGroups.apiFetch("/api/metadata/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csv: await file.text() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        allVideos = VideoGroups.authVideos(await (await VideoGroups.apiFetch("/api/videos")).json());
+        allTags = await (await VideoGroups.apiFetch("/api/tags")).json();
+        renderFilters();
+        renderGrid();
+        showToast(`Imported ${data.updated} video(s).`);
+      } catch (err) {
+        showToast(err.message || "Import failed.");
+      }
+    });
+
+    async function init() {
+      loading.hidden = false;
+      try {
+        await loadGroups();
+        if (!allGroups.length) {
+          loading.hidden = true;
+          empty.innerHTML = 'No libraries yet.<br>Tap <strong>Rollo</strong> above to create one.';
+          empty.style.display = "block";
+          renderGroups();
+          return;
+        }
+
+        const preferred = getStartupPreferredGroup();
+        const active = VideoGroups.ensureAccessibleGroup(allGroups, preferred);
+        if (active !== VideoGroups.getActive()) {
+          VideoGroups.setActive(active);
+        }
+        VideoGroups.syncUrlGroup();
+        renderGroups();
+
+        setGridSize(gridSize);
+        setSortMode(sortMode);
+        updateSortMenuBtn();
+        updateSizeMenuBtn();
+        HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
+        HeartIcon.mount(favSortHeart, true, { size: "sm" });
+        await loadVideosData();
+      } catch {
+        loading.textContent = "Could not load videos.";
+        loading.hidden = false;
+      }
+    }
+
+    BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
+
+    BottomNav.init({
+      getGroups: () => allGroups,
+      onSelectGroup: (id) => selectGroup(id),
+    });
+
+    init();
+  </script>
+</body>
+</html>

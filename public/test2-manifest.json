@@ -1,0 +1,17 @@
+{
+  "name": "Footer test 2",
+  "short_name": "Test 2",
+  "description": "Standalone footer layout test",
+  "start_url": "/test2.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
