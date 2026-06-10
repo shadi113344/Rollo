@@ -45,6 +45,11 @@ android {
     }
 }
 
+// No instrumented tests in this project — skip androidTest tasks on APK builds.
+tasks.matching { it.name.contains("AndroidTest", ignoreCase = true) }.configureEach {
+    enabled = false
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
