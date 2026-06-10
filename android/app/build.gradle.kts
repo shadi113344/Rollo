@@ -1,3 +1,6 @@
+import java.net.URI
+import java.util.zip.ZipInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -71,12 +74,12 @@ tasks.register("ensureLibnode") {
 
         logger.lifecycle("Downloading nodejs-mobile v$version …")
         zipFile.parentFile.mkdirs()
-        zipUrl.toURL().openStream().use { input ->
+        URI(zipUrl).toURL().openStream().use { input ->
             zipFile.outputStream().use { output -> input.copyTo(output) }
         }
 
         val abis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        java.util.zip.ZipInputStream(zipFile.inputStream()).use { zis ->
+        ZipInputStream(zipFile.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 val name = entry.name.replace('\\', '/')
