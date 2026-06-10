@@ -25,10 +25,12 @@ From the repo root:
 # 1. Copy server + install production node_modules into APK assets
 node scripts/sync-android-assets.js
 
-# 2. Download nodejs-mobile native libs (once)
+# 2. Download nodejs-mobile native libs (once — or auto on build)
 cd android
 ./setup-libnode.sh        # macOS/Linux
 # or: powershell -ExecutionPolicy Bypass -File setup-libnode.ps1
+
+Gradle also runs `ensureLibnode` before each build if `jniLibs/` is empty.
 
 # 3. Open android/ in Android Studio and Build > Build APK(s)
 ```
