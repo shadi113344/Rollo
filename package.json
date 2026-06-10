@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/groups.test.js"
+    "test": "node test/groups.test.js",
+    "sync:android": "node scripts/sync-android-assets.js"
   },
   "keywords": [],
   "author": "",

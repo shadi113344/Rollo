@@ -2,6 +2,20 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
+
+const appRoot = __dirname;
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(appRoot, "data");
+const videosDir = process.env.VIDEOS_DIR
+  ? path.resolve(process.env.VIDEOS_DIR)
+  : path.join(appRoot, "videos");
+const metadataPath = path.join(dataDir, "metadata.json");
+
+if (!process.env.GROUPS_PATH) {
+  process.env.GROUPS_PATH = path.join(dataDir, "groups.json");
+}
+
 const { getAccessInfo, printAccessInfo } = require("./lib/network");
 const {
   MEDIA_RE,
@@ -23,9 +37,6 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3847;
-
-const videosDir = path.join(__dirname, "videos");
-const metadataPath = path.join(__dirname, "data", "metadata.json");
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", etag: true }));
@@ -668,5 +679,7 @@ app.listen(PORT, "0.0.0.0", () => {
   if (!process.env.VIDEO_SECRET) {
     console.warn("[Rollo] VIDEO_SECRET is not set — unlock tokens use a local default.");
   }
+  console.log(`[Rollo] videos: ${videosDir}`);
+  console.log(`[Rollo] data:   ${dataDir}`);
   printAccessInfo(PORT);
 });

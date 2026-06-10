@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+
+# nodejs-mobile native libs (download via setup-libnode script)
+app/libnode/
+app/src/main/jniLibs/
+
+# Synced Node bundle (run scripts/sync-android-assets.js before build)
+app/src/main/assets/nodejs-project/node_modules/
+app/src/main/assets/nodejs-project/server.js
+app/src/main/assets/nodejs-project/lib/
+app/src/main/assets/nodejs-project/public/
+app/src/main/assets/nodejs-project/package.json
+app/src/main/assets/nodejs-project/package-lock.json
+
+# APK output
+*.apk
+*.aab

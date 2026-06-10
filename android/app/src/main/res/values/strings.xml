@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rollo</string>
+    <string name="notification_channel">Rollo server</string>
+    <string name="notification_title">Rollo is running</string>
+    <string name="notification_text">Media library available on your network</string>
+    <string name="server_starting">Starting Rollo server…</string>
+    <string name="server_unavailable">Could not reach Rollo server</string>
+    <string name="grant_storage">Allow file access so Rollo can read and save media in Internal storage/Rollo/Videos</string>
+    <string name="open_settings">Open settings</string>
+    <string name="update_from_github">Update from GitHub</string>
+    <string name="updating">Downloading latest Rollo…</string>
+</resources>

@@ -26,11 +26,36 @@ To rename the project folder from `video-page` to `Rollo`, close Cursor, run **`
 | Variable | Purpose |
 |----------|---------|
 | `VIDEO_SECRET` | HMAC secret for group unlock tokens. Set this in production so tokens cannot be forged. |
+| `VIDEOS_DIR` | Override media folder (default: `./videos`). Android app uses `Internal storage/Rollo/Videos`. |
+| `DATA_DIR` | Override metadata folder (default: `./data`). Holds `metadata.json` and `groups.json`. |
+| `GROUPS_PATH` | Override path to `groups.json` (default: `{DATA_DIR}/groups.json`). |
+| `PORT` | HTTP port (default: **3847**). |
 
 Example:
 
 ```bash
 VIDEO_SECRET=your-long-random-string npm start
+```
+
+Android / custom storage example:
+
+```bash
+export VIDEOS_DIR="/storage/emulated/0/Rollo/Videos"
+export DATA_DIR="$HOME/Rollo/data"
+export VIDEO_SECRET=your-long-random-string
+npm start
+```
+
+## Android app
+
+See [`android/README.md`](android/README.md) for building the APK (Node.js embedded, auto-creates `Rollo/Videos`, foreground service + WebView).
+
+Quick build:
+
+```bash
+npm run sync:android
+cd android && ./setup-libnode.sh   # or setup-libnode.ps1 on Windows
+# Open android/ in Android Studio → Build APK
 ```
 
 ## Libraries
