@@ -5,7 +5,6 @@ import android.os.Environment
 import org.json.JSONObject
 import java.io.File
 import java.security.SecureRandom
-import java.util.UUID
 
 object RolloConfig {
     const val DEFAULT_PORT = 3847

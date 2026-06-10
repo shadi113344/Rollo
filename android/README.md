@@ -43,7 +43,16 @@ On first launch:
 
 1. Allow **notifications** (foreground service)
 2. Allow **All files access** (creates `Internal storage/Rollo/Videos`)
-3. App starts server and opens Rollo
+3. Allow **battery optimization exemption** when prompted (tap **Battery** in the toolbar anytime to re-open)
+4. App starts server and opens Rollo
+
+### Toolbar controls
+
+| Control | Purpose |
+|---------|---------|
+| **Show in Gallery** | Off (default): `.nomedia` hides `Rollo/Videos` from Samsung Gallery / Google Photos. On: scans media so the folder appears in Gallery. |
+| **Battery** | Opens system dialog to ignore battery optimization so the server keeps running. |
+| **Update** | Pull latest `server.js`, `lib/`, `public/` from GitHub. |
 
 ## Remote access (Tailscale)
 

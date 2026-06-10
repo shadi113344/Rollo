@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -20,6 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import com.google.android.material.switchmaterial.SwitchMaterial
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -27,10 +27,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var statusText: TextView
     private lateinit var updateButton: Button
+    private lateinit var batteryButton: Button
+    private lateinit var gallerySwitch: SwitchMaterial
+    private var gallerySwitchListener: ((Boolean) -> Unit)? = null
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { startServerFlow() }
+    ) { continueStartup() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +42,8 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         statusText = findViewById(R.id.statusText)
         updateButton = findViewById(R.id.updateButton)
+        batteryButton = findViewById(R.id.batteryButton)
+        gallerySwitch = findViewById(R.id.gallerySwitch)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -52,6 +57,9 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
         }
+
+        setupGallerySwitch()
+        setupBatteryButton()
 
         updateButton.setOnClickListener {
             updateButton.isEnabled = false
@@ -69,6 +77,43 @@ class MainActivity : AppCompatActivity() {
         requestPermissionsAndStart()
     }
 
+    private fun setupGallerySwitch() {
+        gallerySwitchListener = { visible ->
+            GalleryVisibility.setVisibleInGallery(this, visible)
+            Toast.makeText(
+                this,
+                if (visible) R.string.gallery_visible_toast else R.string.gallery_hidden_toast,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        gallerySwitch.setOnCheckedChangeListener { _, checked ->
+            gallerySwitchListener?.invoke(checked)
+        }
+    }
+
+    private fun setupBatteryButton() {
+        batteryButton.setOnClickListener {
+            if (BatteryHelper.isExempt(this)) {
+                Toast.makeText(this, R.string.battery_opt_granted, Toast.LENGTH_SHORT).show()
+            } else {
+                showBatteryDialog()
+            }
+        }
+    }
+
+    private fun refreshToolbarState() {
+        gallerySwitch.setOnCheckedChangeListener(null)
+        gallerySwitch.isChecked = GalleryVisibility.isVisibleInGallery(this)
+        gallerySwitch.setOnCheckedChangeListener { _, checked ->
+            gallerySwitchListener?.invoke(checked)
+        }
+        batteryButton.text = if (BatteryHelper.isExempt(this)) {
+            getString(R.string.battery_opt_granted)
+        } else {
+            getString(R.string.battery_button)
+        }
+    }
+
     private fun requestPermissionsAndStart() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -78,15 +123,38 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
-        startServerFlow()
+        continueStartup()
     }
 
-    private fun startServerFlow() {
+    private fun continueStartup() {
         if (!hasStorageAccess()) {
             showStorageDialog()
             return
         }
+        if (!BatteryHelper.isExempt(this)) {
+            showBatteryDialog()
+            return
+        }
+        startServerFlow()
+    }
+
+    private fun showBatteryDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.battery_opt_title)
+            .setMessage(R.string.battery_opt_message)
+            .setPositiveButton(R.string.battery_opt_allow) { _, _ ->
+                BatteryHelper.requestExemption(this)
+            }
+            .setNegativeButton(R.string.battery_opt_later) { _, _ ->
+                startServerFlow()
+            }
+            .show()
+    }
+
+    private fun startServerFlow() {
         RolloConfig.videosDir().mkdirs()
+        GalleryVisibility.applySavedPreference(this)
+        refreshToolbarState()
         RolloService.start(this)
         waitForServer()
     }
@@ -124,7 +192,7 @@ class MainActivity : AppCompatActivity() {
 
     private val storagePermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { startServerFlow() }
+    ) { continueStartup() }
 
     private fun waitForServer() {
         statusText.isVisible = true
@@ -165,7 +233,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::webView.isInitialized && hasStorageAccess() && !NodeRunner.isRunning()) {
+        if (!::webView.isInitialized) return
+        refreshToolbarState()
+        if (hasStorageAccess() && !NodeRunner.isRunning()) {
             startServerFlow()
         }
     }

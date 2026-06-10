@@ -8,6 +8,15 @@
     <string name="server_unavailable">Could not reach Rollo server</string>
     <string name="grant_storage">Allow file access so Rollo can read and save media in Internal storage/Rollo/Videos</string>
     <string name="open_settings">Open settings</string>
-    <string name="update_from_github">Update from GitHub</string>
+    <string name="update_from_github">Update</string>
     <string name="updating">Downloading latest Rollo…</string>
+    <string name="gallery_toggle">Show in Gallery</string>
+    <string name="gallery_visible_toast">Videos folder is visible in Samsung Gallery and Google Photos</string>
+    <string name="gallery_hidden_toast">Videos folder is hidden from Gallery</string>
+    <string name="battery_button">Battery</string>
+    <string name="battery_opt_title">Keep Rollo running</string>
+    <string name="battery_opt_message">Allow Rollo to ignore battery optimization so the server keeps running in the background. On Samsung, also set Battery to Unrestricted if prompted.</string>
+    <string name="battery_opt_granted">Background running allowed</string>
+    <string name="battery_opt_later">Not now</string>
+    <string name="battery_opt_allow">Allow</string>
 </resources>

@@ -38,6 +38,8 @@ class RolloService : Service() {
         }
 
         acquireWakeLock()
+        RolloConfig.videosDir().mkdirs()
+        GalleryVisibility.applySavedPreference(this)
         AssetInstaller.installIfNeeded(this)
         NodeRunner.start(RolloConfig.nodeProjectDir(this))
         return START_STICKY
