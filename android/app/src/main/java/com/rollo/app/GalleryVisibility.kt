@@ -34,7 +34,7 @@ object GalleryVisibility {
     }
 
     private fun apply(context: Context, visible: Boolean) {
-        val dir = RolloConfig.videosDir()
+        val dir = RolloConfig.videosDir(context)
         dir.mkdirs()
         val nomedia = File(dir, NOMEDIA)
         if (visible) {

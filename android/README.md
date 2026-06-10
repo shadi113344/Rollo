@@ -16,6 +16,7 @@ Native Android wrapper for Rollo: bundles Node.js via [nodejs-mobile](https://gi
 - [Android Studio](https://developer.android.com/studio) (Ladybug or newer recommended)
 - JDK 17+
 - Node.js on your PC (to sync server assets)
+- **Android NDK** (SDK Manager → SDK Tools → **NDK (Side by side)**) — packages `libc++_shared.so`, which `libnode.so` requires
 
 ## Build steps
 
@@ -33,6 +34,8 @@ cd android
 Gradle also runs `ensureLibnode` before each build if `jniLibs/` is empty.
 
 # 3. Open android/ in Android Studio and Build > Build APK(s)
+
+The native `rollo-node` library implements the JNI bridge that calls `node::Start()` (required by nodejs-mobile).
 ```
 
 Or from Android Studio: **File → Open → `android/`** → run on device.

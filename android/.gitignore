@@ -17,6 +17,9 @@ app/src/main/assets/nodejs-project/public/
 app/src/main/assets/nodejs-project/package.json
 app/src/main/assets/nodejs-project/package-lock.json
 
+# libnode (run setup-libnode.ps1 — also copied to assets/libnode/)
+app/src/main/assets/libnode/
+
 # APK output
 *.apk
 *.aab

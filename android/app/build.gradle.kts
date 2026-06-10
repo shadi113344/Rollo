@@ -14,11 +14,23 @@ android {
         applicationId = "com.rollo.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -61,8 +73,20 @@ tasks.register("ensureLibnode") {
     outputs.file(arm64Lib)
 
     doLast {
+        val assetsRoot = layout.projectDirectory.dir("src/main/assets/libnode")
+        val nativeLibs = listOf("libnode.so", "libc++_shared.so")
+
         if (arm64Lib.asFile.exists()) {
             logger.lifecycle("libnode.so already installed")
+            for (abi in listOf("arm64-v8a", "armeabi-v7a", "x86_64")) {
+                for (lib in nativeLibs) {
+                    val jniOut = jniRoot.file("$abi/$lib").asFile
+                    if (!jniOut.exists()) continue
+                    val assetOut = assetsRoot.file("$abi/$lib").asFile
+                    assetOut.parentFile.mkdirs()
+                    jniOut.copyTo(assetOut, overwrite = true)
+                }
+            }
             return@doLast
         }
 
@@ -86,14 +110,25 @@ tasks.register("ensureLibnode") {
                 for (abi in abis) {
                     val needle = "bin/$abi/libnode.so"
                     if (name.endsWith(needle)) {
-                        val out = jniRoot.file("$abi/libnode.so").asFile
-                        out.parentFile.mkdirs()
-                        out.outputStream().use { zis.copyTo(it) }
-                        logger.lifecycle("Installed libnode.so for $abi")
+                        val jniOut = jniRoot.file("$abi/libnode.so").asFile
+                        jniOut.parentFile.mkdirs()
+                        jniOut.outputStream().use { zis.copyTo(it) }
+                        logger.lifecycle("Installed libnode.so for $abi (jniLibs)")
                     }
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry
+            }
+        }
+
+        for (abi in abis) {
+            for (lib in nativeLibs) {
+                val jniOut = jniRoot.file("$abi/$lib").asFile
+                if (!jniOut.exists()) continue
+                val assetOut = assetsRoot.file("$abi/$lib").asFile
+                assetOut.parentFile.mkdirs()
+                jniOut.copyTo(assetOut, overwrite = true)
+                logger.lifecycle("Copied $lib to assets for $abi")
             }
         }
 

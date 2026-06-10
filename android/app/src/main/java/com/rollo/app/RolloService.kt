@@ -38,7 +38,7 @@ class RolloService : Service() {
         }
 
         acquireWakeLock()
-        RolloConfig.videosDir().mkdirs()
+        RolloConfig.videosDir(this).mkdirs()
         GalleryVisibility.applySavedPreference(this)
         AssetInstaller.installIfNeeded(this)
         NodeRunner.start(RolloConfig.nodeProjectDir(this))
@@ -98,6 +98,10 @@ class RolloService : Service() {
             } else {
                 context.startService(intent)
             }
+        }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, RolloService::class.java))
         }
     }
 }

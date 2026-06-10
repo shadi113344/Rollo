@@ -1,0 +1,234 @@
+/* Press-and-slide radial menu (Zen-style) */
+
+body.menu-active {
+  overflow: hidden;
+  touch-action: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.menu-active #app-scroll {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.radial-menu-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.radial-menu-trigger {
+  position: fixed;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  pointer-events: auto;
+  z-index: 201;
+  --menu-ring: color-mix(in srgb, #fff 32%, #444);
+  --menu-dot-r: 5.5px;
+  --menu-dot-size: 2px;
+}
+
+.radial-menu-trigger::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--menu-dot-size);
+  height: var(--menu-dot-size);
+  margin: calc(var(--menu-dot-size) / -2) 0 0 calc(var(--menu-dot-size) / -2);
+  border-radius: 50%;
+  background: var(--menu-ring);
+  box-shadow:
+    0 calc(var(--menu-dot-r) * -1) 0 0 var(--menu-ring),
+    calc(var(--menu-dot-r) * 0.866) calc(var(--menu-dot-r) * -0.5) 0 0 var(--menu-ring),
+    calc(var(--menu-dot-r) * 0.866) calc(var(--menu-dot-r) * 0.5) 0 0 var(--menu-ring),
+    0 var(--menu-dot-r) 0 0 var(--menu-ring),
+    calc(var(--menu-dot-r) * -0.866) calc(var(--menu-dot-r) * 0.5) 0 0 var(--menu-ring),
+    calc(var(--menu-dot-r) * -0.866) calc(var(--menu-dot-r) * -0.5) 0 0 var(--menu-ring);
+}
+
+.radial-menu-trigger--open {
+  --menu-ring: #fff;
+  transform: scale(1.05);
+}
+
+.radial-menu-fan {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.radial-menu-fan[role="menu"],
+.radial-menu-subfan[role="menu"] {
+  pointer-events: none;
+}
+
+.radial-menu-subfan {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 201;
+}
+
+.radial-menu-option {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, #fff 22%, #333);
+  background: color-mix(in srgb, #1a1a1a 72%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%);
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1),
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.radial-menu-option--enter {
+  animation: radial-pop 0.38s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation-delay: calc(var(--pop-i, 0) * 36ms);
+}
+
+.radial-menu-option__icon {
+  font-size: 20px;
+  line-height: 1;
+  transition: font-size 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+}
+
+.radial-menu-option--highlight:not(.radial-menu-option--sub) {
+  z-index: 2;
+  border-color: color-mix(in srgb, #fff 55%, #666);
+  background: color-mix(in srgb, #2a2a2a 88%, transparent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1.22);
+}
+
+.radial-menu-option--highlight .radial-menu-option__icon {
+  font-size: 24px;
+}
+
+.radial-menu-fan--linear .radial-menu-option--highlight:not(.radial-menu-option--sub) {
+  transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1.2);
+}
+
+.radial-menu-option--delete.radial-menu-option--highlight:not(.radial-menu-option--sub) {
+  border-color: #ff8c42;
+  color: #ff8c42;
+}
+
+.radial-menu-option--active {
+  border-color: color-mix(in srgb, var(--tag-accent, #8cf) 70%, #fff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tag-accent, #8cf) 35%, transparent);
+}
+
+.radial-menu-option--active.radial-menu-option--highlight {
+  background: color-mix(in srgb, var(--tag-accent, #8cf) 22%, #1a1a1a);
+}
+
+.radial-menu-option--sub-open {
+  border-color: color-mix(in srgb, #fff 42%, #666);
+}
+
+.radial-menu-option--sub {
+  width: auto;
+  min-width: 44px;
+  max-width: 92px;
+  height: 26px;
+  margin: -13px 0 0 0;
+  padding: 0 9px;
+  border-radius: 13px;
+  border-width: 1.5px;
+  transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%);
+}
+
+.radial-menu-option__label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 74px;
+  pointer-events: none;
+}
+
+.radial-menu-option--sub.radial-menu-option--highlight {
+  transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1.14);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+}
+
+.radial-menu-option--sub.radial-menu-option--highlight .radial-menu-option__label {
+  font-size: 11px;
+}
+
+.radial-menu-option--sub-enter {
+  animation: radial-sub-pop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation-delay: calc(var(--pop-i, 0) * 24ms);
+}
+
+@keyframes radial-sub-pop {
+  0% {
+    opacity: 0;
+    transform: translate(var(--pop-x), calc(var(--pop-y) - 10px)) translate(-50%, -50%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes radial-pop {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) translate(-50%, -50%) scale(0.12);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--pop-x), var(--pop-y)) translate(-50%, -50%) scale(1);
+  }
+}
+
+.video-item.press-radial-armed {
+  opacity: 0.92;
+}
+
+.video-item.press-radial-armed .thumb-wrap {
+  transform: scale(0.98);
+  transition: transform 0.15s ease;
+}

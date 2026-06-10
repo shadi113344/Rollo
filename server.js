@@ -16,6 +16,7 @@ if (!process.env.GROUPS_PATH) {
   process.env.GROUPS_PATH = path.join(dataDir, "groups.json");
 }
 
+const { createMetadataStore } = require("./lib/metadata");
 const { getAccessInfo, printAccessInfo } = require("./lib/network");
 const {
   MEDIA_RE,
@@ -25,14 +26,10 @@ const {
   isAllowedUpload,
 } = require("./lib/media");
 const {
-  readGroupsFile,
-  writeGroupsFile,
-  getGroupConfig,
+  createGroupsStore,
+  createGroupAuth,
   hashPassword,
   verifyPassword,
-  makeUnlockToken,
-  isGroupLocked,
-  isGroupUnlocked,
 } = require("./lib/groups");
 
 const app = express();
@@ -45,26 +42,11 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function readMetadataFromDisk() {
-  ensureDir(path.dirname(metadataPath));
-  if (!fs.existsSync(metadataPath)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-let metadataCache = null;
-let metadataCacheMtime = 0;
-
-function readMetadataCached() {
-  const mtime = fs.existsSync(metadataPath) ? fs.statSync(metadataPath).mtimeMs : 0;
-  if (metadataCache && mtime === metadataCacheMtime) return metadataCache;
-  metadataCache = readMetadataFromDisk();
-  metadataCacheMtime = mtime;
-  return metadataCache;
-}
+const groupsPath = process.env.GROUPS_PATH || path.join(dataDir, "groups.json");
+const metadataStore = createMetadataStore(videosDir, metadataPath);
+const groupsStore = createGroupsStore(videosDir, groupsPath);
+const groupAuth = createGroupAuth(groupsStore);
+const { makeUnlockToken, isGroupUnlocked } = groupAuth;
 
 const videoListCache = new Map();
 
@@ -84,30 +66,8 @@ function invalidateVideoListCache(groupId) {
   else videoListCache.clear();
 }
 
-function writeMetadata(data) {
-  ensureDir(path.dirname(metadataPath));
-  fs.writeFileSync(metadataPath, JSON.stringify(data, null, 2));
-  metadataCache = data;
-  metadataCacheMtime = fs.statSync(metadataPath).mtimeMs;
-}
-
 function metaKey(groupId, filename) {
   return `${groupId}/${filename}`;
-}
-
-function getVideoMeta(metadata, groupId, filename) {
-  const key = metaKey(groupId, filename);
-  let meta = metadata[key];
-  if (!meta && metadata[filename]) {
-    meta = metadata[filename];
-    metadata[key] = meta;
-    delete metadata[filename];
-    writeMetadata(metadata);
-  }
-  return {
-    tags: Array.isArray(meta?.tags) ? meta.tags : [],
-    favorite: !!meta?.favorite,
-  };
 }
 
 function getFileExt(filename) {
@@ -130,7 +90,7 @@ function listGroupIds() {
   ensureDir(videosDir);
   return fs
     .readdirSync(videosDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "_rollo")
     .map((d) => d.name)
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
@@ -196,7 +156,7 @@ app.use(
   express.static(videosDir, { maxAge: "7d", etag: true, immutable: false })
 );
 
-function buildVideo(groupId, filename, metadata) {
+function buildVideo(groupId, filename) {
   const stat = fs.statSync(path.join(videosDir, groupId, filename));
   const relPath = metaKey(groupId, filename);
   return {
@@ -207,20 +167,22 @@ function buildVideo(groupId, filename, metadata) {
     url: `/videos/${encodeURIComponent(groupId)}/${encodeURIComponent(filename)}`,
     mtime: stat.mtimeMs,
     mediaType: mediaTypeFor(filename),
-    ...getVideoMeta(metadata, groupId, filename),
+    ...metadataStore.getVideoMeta(groupId, filename),
   };
 }
 
 app.get("/api/groups", (req, res) => {
-  const groupsFile = readGroupsFile();
-  const groups = listGroupIds().map((id) => {
-    const config = getGroupConfig(id, groupsFile);
+  const ids = listGroupIds();
+  ids.forEach((id) => groupsStore.invalidateCache(id));
+  const groups = ids.map((id) => {
+    const config = groupsStore.getGroupConfig(id);
     const locked = !!config.passwordHash;
     return {
       id,
       name: id,
       displayName: config.displayName,
       locked,
+      lockMode: locked ? config.lockMode : null,
       unlocked: isGroupUnlockedForRequest(id, req),
       videoCount: listVideoFilesCached(id).length,
     };
@@ -264,16 +226,13 @@ app.post("/api/groups", (req, res) => {
     return res.status(500).json({ error: "Could not create library folder" });
   }
 
-  const groupsFile = readGroupsFile();
-  groupsFile[groupId] = groupsFile[groupId] || {};
-  if (rawName) groupsFile[groupId].displayName = rawName;
-  writeGroupsFile(groupsFile);
+  if (rawName) groupsStore.setGroupConfig(groupId, { displayName: rawName });
   invalidateVideoListCache(groupId);
 
   res.status(201).json({
     id: groupId,
     name: groupId,
-    displayName: getGroupConfig(groupId, groupsFile).displayName,
+    displayName: groupsStore.getGroupConfig(groupId).displayName,
     locked: false,
     unlocked: true,
     videoCount: 0,
@@ -285,7 +244,7 @@ app.post("/api/groups/:groupId/unlock", (req, res) => {
   if (!listGroupIds().includes(groupId)) {
     return res.status(404).json({ error: "Group not found" });
   }
-  const config = getGroupConfig(groupId);
+  const config = groupsStore.getGroupConfig(groupId);
   if (!config.passwordHash) {
     return res.json({ ok: true, token: null });
   }
@@ -305,31 +264,43 @@ app.put("/api/groups/:groupId", (req, res) => {
     return res.status(403).json({ error: "Group is locked", locked: true });
   }
 
-  const groupsFile = readGroupsFile();
-  const current = groupsFile[groupId] || {};
-  const { displayName, password, removePassword } = req.body || {};
+  const existing = groupsStore.getGroupConfig(groupId);
+  const patch = { displayName: existing.displayName };
+  const { displayName, password, removePassword, lockMode } = req.body || {};
 
   if (displayName !== undefined) {
     const trimmed = String(displayName).trim();
-    if (trimmed) current.displayName = trimmed;
+    if (trimmed) patch.displayName = trimmed;
   }
 
   if (removePassword) {
-    delete current.passwordHash;
-    current.passwordVersion = (current.passwordVersion || 0) + 1;
+    patch.passwordHash = null;
+    patch.lockMode = null;
+    patch.passwordVersion = (existing.passwordVersion || 0) + 1;
   } else if (password !== undefined && password !== "") {
-    current.passwordHash = hashPassword(String(password));
-    current.passwordVersion = (current.passwordVersion || 0) + 1;
+    patch.passwordHash = hashPassword(String(password));
+    patch.passwordVersion = (existing.passwordVersion || 0) + 1;
+    if (!existing.lockMode) patch.lockMode = "always";
   }
 
-  groupsFile[groupId] = current;
-  writeGroupsFile(groupsFile);
+  if (lockMode === "once" || lockMode === "always") {
+    const nextHash = patch.passwordHash !== undefined ? patch.passwordHash : existing.passwordHash;
+    if (nextHash) patch.lockMode = lockMode;
+  }
+
+  const current = groupsStore.setGroupConfig(groupId, patch);
 
   res.json({
     id: groupId,
     displayName: current.displayName || groupId,
     locked: !!current.passwordHash,
+    lockMode: current.passwordHash
+      ? current.lockMode === "once"
+        ? "once"
+        : "always"
+      : null,
     passwordChanged: !!(removePassword || (password !== undefined && password !== "")),
+    lockModeChanged: lockMode === "once" || lockMode === "always",
   });
 });
 
@@ -346,10 +317,9 @@ app.post("/api/groups/:groupId/rename", (req, res) => {
   let newId = rawName ? sanitizeGroupId(rawName) : null;
   if (!newId) return res.status(400).json({ error: "Invalid library name" });
   if (newId === oldId) {
-    const groupsFile = readGroupsFile();
     return res.json({
       id: oldId,
-      displayName: getGroupConfig(oldId, groupsFile).displayName,
+      displayName: groupsStore.getGroupConfig(oldId).displayName,
     });
   }
   if (listGroupIds().includes(newId)) {
@@ -362,29 +332,18 @@ app.post("/api/groups/:groupId/rename", (req, res) => {
     return res.status(500).json({ error: "Could not rename library folder" });
   }
 
-  const groupsFile = readGroupsFile();
-  groupsFile[newId] = groupsFile[oldId] || {};
-  if (rawName) groupsFile[newId].displayName = rawName;
-  delete groupsFile[oldId];
-  writeGroupsFile(groupsFile);
+  groupsStore.invalidateCache(oldId);
+  groupsStore.invalidateCache(newId);
 
-  const metadata = readMetadataCached();
-  let metaChanged = false;
-  for (const key of Object.keys(metadata)) {
-    if (key.startsWith(`${oldId}/`)) {
-      metadata[`${newId}/${key.slice(oldId.length + 1)}`] = metadata[key];
-      delete metadata[key];
-      metaChanged = true;
-    }
-  }
-  if (metaChanged) writeMetadata(metadata);
+  metadataStore.invalidateCache(oldId);
+  metadataStore.invalidateCache(newId);
 
   invalidateVideoListCache(oldId);
   invalidateVideoListCache(newId);
 
   res.json({
     id: newId,
-    displayName: groupsFile[newId].displayName || newId,
+    displayName: groupsStore.getGroupConfig(newId).displayName,
   });
 });
 
@@ -408,9 +367,6 @@ app.delete("/api/groups/:groupId", (req, res) => {
     return res.status(500).json({ error: "Could not delete library folder" });
   }
 
-  const groupsFile = readGroupsFile();
-  delete groupsFile[groupId];
-  writeGroupsFile(groupsFile);
   invalidateVideoListCache(groupId);
 
   res.json({ ok: true });
@@ -420,8 +376,8 @@ app.get("/api/videos", (req, res) => {
   const groupId = req.query.group;
   if (!requireGroup(groupId, req, res)) return;
 
-  const metadata = readMetadataCached();
-  const videos = listVideoFilesCached(groupId).map((file) => buildVideo(groupId, file, metadata));
+  metadataStore.invalidateCache(groupId);
+  const videos = listVideoFilesCached(groupId).map((file) => buildVideo(groupId, file));
   res.json(videos);
 });
 
@@ -477,8 +433,7 @@ app.post("/api/videos/upload", (req, res) => {
     }
 
     invalidateVideoListCache(groupId);
-    const metadata = readMetadataCached();
-    const uploaded = req.files.map((file) => buildVideo(groupId, file.filename, metadata));
+    const uploaded = req.files.map((file) => buildVideo(groupId, file.filename));
     res.json({ uploaded, count: uploaded.length });
   });
 });
@@ -487,10 +442,10 @@ app.get("/api/tags", (req, res) => {
   const groupId = req.query.group;
   if (!requireGroup(groupId, req, res)) return;
 
-  const metadata = readMetadataCached();
+  metadataStore.invalidateCache(groupId);
   const tagSet = new Set();
   for (const file of listVideoFilesCached(groupId)) {
-    const meta = getVideoMeta(metadata, groupId, file);
+    const meta = metadataStore.getVideoMeta(groupId, file);
     meta.tags.forEach((tag) => tagSet.add(tag));
   }
   res.json([...tagSet].sort((a, b) => a.localeCompare(b)));
@@ -509,9 +464,7 @@ app.put("/api/videos/:filename/metadata", (req, res) => {
     return res.status(404).json({ error: "Video not found" });
   }
 
-  const metadata = readMetadataCached();
-  const key = metaKey(groupId, filename);
-  const current = getVideoMeta(metadata, groupId, filename);
+  const current = metadataStore.getVideoMeta(groupId, filename);
   const { tags, favorite } = req.body;
 
   if (tags !== undefined) {
@@ -520,8 +473,7 @@ app.put("/api/videos/:filename/metadata", (req, res) => {
   }
   if (favorite !== undefined) current.favorite = !!favorite;
 
-  metadata[key] = current;
-  writeMetadata(metadata);
+  metadataStore.setVideoMeta(groupId, filename, current);
   res.json(current);
 });
 
@@ -541,7 +493,7 @@ app.put("/api/videos/:filename/rename", (req, res) => {
   const groupDir = path.join(videosDir, groupId);
 
   if (newName === oldName) {
-    return res.json(buildVideo(groupId, oldName, readMetadataCached()));
+    return res.json(buildVideo(groupId, oldName));
   }
   if (files.includes(newName)) return res.status(409).json({ error: "A video with that name already exists" });
 
@@ -552,16 +504,9 @@ app.put("/api/videos/:filename/rename", (req, res) => {
     return res.status(500).json({ error: "Could not rename file" });
   }
 
-  const metadata = readMetadataCached();
-  const oldKey = metaKey(groupId, oldName);
-  const newKey = metaKey(groupId, newName);
-  if (metadata[oldKey]) {
-    metadata[newKey] = metadata[oldKey];
-    delete metadata[oldKey];
-    writeMetadata(metadata);
-  }
+  metadataStore.renameVideoMeta(groupId, oldName, newName);
 
-  res.json(buildVideo(groupId, newName, metadata));
+  res.json(buildVideo(groupId, newName));
 });
 
 app.delete("/api/videos/:filename", (req, res) => {
@@ -580,12 +525,7 @@ app.delete("/api/videos/:filename", (req, res) => {
     return res.status(500).json({ error: "Could not delete file" });
   }
 
-  const metadata = readMetadataCached();
-  const key = metaKey(groupId, filename);
-  if (metadata[key]) {
-    delete metadata[key];
-    writeMetadata(metadata);
-  }
+  metadataStore.deleteVideoMeta(groupId, filename);
 
   res.json({ ok: true });
 });
@@ -619,10 +559,9 @@ app.get("/api/metadata/export", (req, res) => {
   const groupId = req.query.group;
   if (!requireGroup(groupId, req, res)) return;
 
-  const metadata = readMetadataCached();
   const lines = ["filename,tags,favorite"];
   for (const file of listVideoFilesCached(groupId)) {
-    const meta = getVideoMeta(metadata, groupId, file);
+    const meta = metadataStore.getVideoMeta(groupId, file);
     lines.push([escapeCsvField(file), escapeCsvField(meta.tags.join(";")), meta.favorite ? "true" : "false"].join(","));
   }
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -638,7 +577,6 @@ app.post("/api/metadata/import", (req, res) => {
   if (typeof csv !== "string" || !csv.trim()) return res.status(400).json({ error: "csv field required" });
 
   const files = new Set(listVideoFilesCached(groupId));
-  const metadata = readMetadataCached();
   const rows = csv.trim().split(/\r?\n/);
   if (rows.length < 2) return res.status(400).json({ error: "CSV must include header and data rows" });
 
@@ -659,7 +597,7 @@ app.post("/api/metadata/import", (req, res) => {
     if (filename?.includes("/")) filename = filename.split("/").pop();
     if (!filename || !files.has(filename)) { skipped++; continue; }
 
-    const current = getVideoMeta(metadata, groupId, filename);
+    const current = metadataStore.getVideoMeta(groupId, filename);
     if (tagsIdx !== -1 && cols[tagsIdx] !== undefined) {
       current.tags = [...new Set(cols[tagsIdx].split(";").map((t) => t.trim()).filter(Boolean))];
     }
@@ -667,13 +605,22 @@ app.post("/api/metadata/import", (req, res) => {
       const val = cols[favIdx].trim().toLowerCase();
       current.favorite = val === "true" || val === "1" || val === "yes";
     }
-    metadata[metaKey(groupId, filename)] = current;
+    metadataStore.setVideoMeta(groupId, filename, current);
     updated++;
   }
 
-  writeMetadata(metadata);
   res.json({ updated, skipped });
 });
+
+const groupIds = listGroupIds();
+const migratedMeta = metadataStore.migrateFromLegacy(groupIds);
+if (migratedMeta.migrated > 0) {
+  console.log(`[Rollo] Migrated ${migratedMeta.migrated} tag entries into library _rollo/meta.json files`);
+}
+const migratedGroups = groupsStore.migrateFromLegacy(groupIds);
+if (migratedGroups.migrated > 0) {
+  console.log(`[Rollo] Migrated ${migratedGroups.migrated} lock settings into library _rollo/group.json files`);
+}
 
 app.listen(PORT, "0.0.0.0", () => {
   if (!process.env.VIDEO_SECRET) {

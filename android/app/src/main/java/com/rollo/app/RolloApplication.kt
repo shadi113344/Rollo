@@ -7,12 +7,9 @@ class RolloApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        try {
-            System.loadLibrary("node")
-            libNodeLoaded = true
-        } catch (err: UnsatisfiedLinkError) {
-            Log.e(TAG, "Failed to load libnode.so — run setup-libnode.ps1 before building", err)
-            libNodeLoaded = false
+        libNodeLoaded = LibNodeLoader.load(this)
+        if (!libNodeLoaded) {
+            Log.e(TAG, "libnode not loaded: ${LibNodeLoader.getLastError()}")
         }
     }
 

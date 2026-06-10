@@ -20,8 +20,8 @@ object NodeRunner {
     fun start(nodeProjectDir: File) {
         if (state.get() == State.STARTING || state.get() == State.RUNNING) return
 
-        if (!RolloApplication.libNodeLoaded) {
-            fail("libnode.so not loaded. Rebuild APK after running android/setup-libnode.ps1")
+        if (!LibNodeLoader.isLoaded() && !LibNodeLoader.load(RolloApplication.instance)) {
+            fail(LibNodeLoader.getLastError() ?: "libnode.so not loaded")
             return
         }
 
@@ -57,5 +57,6 @@ object NodeRunner {
         state.set(State.FAILED)
     }
 
+    @JvmStatic
     private external fun startNodeWithArguments(arguments: Array<String>): Int
 }

@@ -989,20 +989,39 @@
     const TAP_MAX_MS = 320;
     const MOVE_THRESHOLD = 14;
 
-    let viewMode = localStorage.getItem("viewMode") || "order";
-    let selectedTag = localStorage.getItem("selectedTag") || "";
-    let aspectMode = localStorage.getItem("feedAspectMode") || "original";
-    const startVideo = new URLSearchParams(location.search).get("video");
-    const urlGroup = new URLSearchParams(location.search).get("group");
-    if (urlGroup) VideoGroups.setActive(urlGroup);
-    BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
-
     const MODE_LABELS = {
       order: "In order",
       shuffle: "Shuffle",
       favorites: "Favorites",
       tag: "By tag",
+      untagged: "Untagged",
     };
+
+    const urlParams = new URLSearchParams(location.search);
+    let viewMode = localStorage.getItem("viewMode") || "order";
+    let selectedTag = localStorage.getItem("selectedTag") || "";
+    let aspectMode = localStorage.getItem("feedAspectMode") || "original";
+    const startVideo = urlParams.get("video");
+    const urlGroup = urlParams.get("group");
+    const urlMode = urlParams.get("mode");
+    const urlTag = urlParams.get("tag");
+    if (urlGroup) VideoGroups.setActive(urlGroup);
+    if (urlMode === "tag" || urlTag) {
+      viewMode = "tag";
+      if (urlTag) {
+        selectedTag = urlTag;
+        localStorage.setItem("selectedTag", urlTag);
+      }
+      localStorage.setItem("viewMode", "tag");
+    } else if (urlMode === "untagged") {
+      viewMode = "untagged";
+      selectedTag = "";
+      localStorage.setItem("viewMode", "untagged");
+    } else if (urlMode && MODE_LABELS[urlMode]) {
+      viewMode = urlMode;
+      localStorage.setItem("viewMode", urlMode);
+    }
+    BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
 
     function updateNavLinks() {
       const q = VideoGroups.query();
@@ -1060,7 +1079,9 @@
       });
       const data = await res.json();
       if (!res.ok) return Toast.show(data.error || "Wrong password");
-      if (data.token) VideoGroups.setUnlockToken(groupId, data.token);
+      if (data.token) {
+        VideoGroups.setUnlockToken(groupId, data.token, VideoGroups.getLockMode(group));
+      }
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
       closeUnlockSheet();
@@ -1070,9 +1091,17 @@
     }
 
     async function selectGroup(groupId) {
+      const previousId = VideoGroups.getActive();
       const group = allGroups.find((g) => g.id === groupId);
       if (!group) return;
-      if (group.locked && !group.unlocked) {
+
+      VideoGroups.prepareProfileSwitch(previousId, group);
+      if (previousId && previousId !== groupId) {
+        const previous = allGroups.find((g) => g.id === previousId);
+        if (previous) previous.unlocked = false;
+      }
+
+      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
         openUnlockSheet(group);
         return;
       }
@@ -1203,6 +1232,8 @@
         list = list.filter((v) => v.favorite);
       } else if (viewMode === "tag" && allTags.length && selectedTag) {
         list = list.filter((v) => v.tags.includes(selectedTag));
+      } else if (viewMode === "untagged") {
+        list = list.filter((v) => !v.tags.length);
       } else if (viewMode === "shuffle") {
         const key = list.map((v) => v.name).join("\0");
         if (key !== shuffleSourceKey) {
@@ -1824,7 +1855,9 @@
           ? 'No favorites yet.<br>Tap <span class="heart-wrap sm" style="display:inline-flex;vertical-align:middle;color:#ff4d6d">' + HeartIcon.svg(true) + '</span> on a video to save it here.'
           : viewMode === "tag"
             ? `No videos tagged “${escapeHtml(selectedTag)}”.<br>Tap 🏷 on a video to add this tag.`
-            : "No videos match this view.";
+            : viewMode === "untagged"
+              ? "No untagged videos in this library."
+              : "No videos match this view.";
         filteredEmpty.style.display = "flex";
         updateCounter();
         return;

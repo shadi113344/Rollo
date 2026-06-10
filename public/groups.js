@@ -1,4 +1,6 @@
 window.VideoGroups = {
+  SESSION_KEY: "rolloSessionUnlocks",
+
   getDefault() {
     return localStorage.getItem("defaultGroup") || "";
   },
@@ -17,26 +19,12 @@ window.VideoGroups = {
     else localStorage.removeItem("activeGroup");
   },
 
-  isGroupAccessible(group) {
-    return group && (!group.locked || group.unlocked);
+  getLockMode(group) {
+    if (!group?.locked) return null;
+    return group.lockMode === "once" ? "once" : "always";
   },
 
-  pickDefaultGroup(groups) {
-    if (!groups?.length) return "";
-    const preferred = this.getDefault();
-    const preferredGroup = groups.find((g) => g.id === preferred);
-    if (preferredGroup && this.isGroupAccessible(preferredGroup)) return preferredGroup.id;
-    const accessible = groups.find((g) => !g.locked || g.unlocked);
-    return accessible?.id || groups[0].id;
-  },
-
-  ensureAccessibleGroup(groups, preferredId) {
-    const preferred = groups.find((g) => g.id === preferredId);
-    if (preferred && this.isGroupAccessible(preferred)) return preferred.id;
-    return this.pickDefaultGroup(groups);
-  },
-
-  getUnlockTokens() {
+  getStoredUnlockTokens() {
     try {
       return JSON.parse(localStorage.getItem("groupUnlocks") || "{}");
     } catch {
@@ -44,22 +32,81 @@ window.VideoGroups = {
     }
   },
 
+  getSessionUnlockTokens() {
+    try {
+      return JSON.parse(sessionStorage.getItem(this.SESSION_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  },
+
+  setSessionUnlockToken(groupId, token) {
+    const tokens = this.getSessionUnlockTokens();
+    if (token) tokens[groupId] = token;
+    else delete tokens[groupId];
+    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(tokens));
+  },
+
+  getUnlockTokens() {
+    return { ...this.getStoredUnlockTokens(), ...this.getSessionUnlockTokens() };
+  },
+
+  hasUnlockToken(groupId) {
+    return !!this.getUnlockTokens()[groupId];
+  },
+
+  isGroupAccessible(group) {
+    if (!group?.locked) return true;
+    return this.hasUnlockToken(group.id);
+  },
+
   setUnlockToken(groupId, token) {
-    const tokens = this.getUnlockTokens();
-    tokens[groupId] = token;
-    localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    this.setSessionUnlockToken(groupId, token);
+    const tokens = this.getStoredUnlockTokens();
+    if (tokens[groupId]) {
+      delete tokens[groupId];
+      localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    }
   },
 
   clearUnlockToken(groupId) {
-    const tokens = this.getUnlockTokens();
-    delete tokens[groupId];
-    localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    const tokens = this.getStoredUnlockTokens();
+    if (tokens[groupId]) {
+      delete tokens[groupId];
+      localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    }
+    this.setSessionUnlockToken(groupId, null);
+  },
+
+  leaveGroup(group) {
+    const id = typeof group === "string" ? group : group?.id;
+    if (!id) return;
+    this.clearUnlockToken(id);
+    if (group && typeof group === "object") group.unlocked = false;
+  },
+
+  switchAwayFromGroup(groupId) {
+    if (!groupId) return;
+    this.clearUnlockToken(groupId);
+  },
+
+  prepareProfileSwitch(previousId, nextGroup) {
+    const nextId = nextGroup?.id;
+    if (!nextId) return;
+    if (previousId && previousId !== nextId) {
+      this.clearUnlockToken(previousId);
+    }
+    if (nextGroup.locked && previousId !== nextId) {
+      this.clearUnlockToken(nextId);
+      nextGroup.unlocked = false;
+    }
   },
 
   headers() {
-    const tokens = this.getUnlockTokens();
-    const all = Object.values(tokens).filter(Boolean);
-    return all.length ? { "X-Unlocked": all.join(",") } : {};
+    const active = this.getActive();
+    if (!active) return {};
+    const token = this.getUnlockTokens()[active];
+    return token ? { "X-Unlocked": token } : {};
   },
 
   query(groupId) {
@@ -97,15 +144,9 @@ window.VideoGroups = {
 
   pruneStaleUnlocks(groups) {
     if (!groups?.length) return;
-    const tokens = this.getUnlockTokens();
-    let changed = false;
-    for (const group of groups) {
-      if (group.locked && !group.unlocked && tokens[group.id]) {
-        delete tokens[group.id];
-        changed = true;
-      }
-    }
-    if (changed) localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    const tokens = this.getStoredUnlockTokens();
+    if (!Object.keys(tokens).length) return;
+    localStorage.setItem("groupUnlocks", JSON.stringify({}));
   },
 
   syncUrlGroup(groupId) {
@@ -117,5 +158,20 @@ window.VideoGroups = {
     if (location.pathname + location.search !== next) {
       history.replaceState(null, "", next);
     }
+  },
+
+  pickDefaultGroup(groups) {
+    if (!groups?.length) return "";
+    const preferred = this.getDefault();
+    const preferredGroup = groups.find((g) => g.id === preferred);
+    if (preferredGroup && this.isGroupAccessible(preferredGroup)) return preferredGroup.id;
+    const accessible = groups.find((g) => this.isGroupAccessible(g));
+    return accessible?.id || groups[0].id;
+  },
+
+  ensureAccessibleGroup(groups, preferredId) {
+    const preferred = groups.find((g) => g.id === preferredId);
+    if (preferred && this.isGroupAccessible(preferred)) return preferred.id;
+    return this.pickDefaultGroup(groups);
   },
 };

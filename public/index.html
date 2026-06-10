@@ -11,6 +11,7 @@
   <title>Rollo</title>
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
+  <link rel="stylesheet" href="/press-radial-menu.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -390,6 +391,117 @@
     }
 
     .group-header:first-child { padding-top: 0; }
+
+    #collection-header {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 2px 0 10px;
+    }
+
+    #collection-header.visible { display: flex; }
+
+    #collection-back {
+      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    #collection-title {
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    #collection-meta {
+      font-size: 12px;
+      color: #888;
+    }
+
+    #grid.collections-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 12px;
+      row-gap: 36px;
+      padding: 0;
+      justify-items: center;
+    }
+
+    .collection-card {
+      border: none;
+      padding: 0;
+      margin: 0 auto;
+      width: 90%;
+      border-radius: 11px;
+      overflow: hidden;
+      background: #141414;
+      cursor: pointer;
+      text-align: left;
+      color: inherit;
+      position: relative;
+      aspect-ratio: 1;
+      touch-action: manipulation;
+    }
+
+    .collection-mosaic {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 1.5px;
+      width: 100%;
+      height: 100%;
+      background: #0a0a0a;
+    }
+
+    .collection-mosaic-cell {
+      position: relative;
+      background: #1c1c1c;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .collection-mosaic-cell .thumb-img,
+    .collection-mosaic-cell .thumb-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .collection-mosaic-cell .thumb-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1a1a1a, #252525);
+    }
+
+    .collection-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 18px 8px 7px;
+      background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.82));
+      pointer-events: none;
+    }
+
+    .collection-label-name {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .collection-label-count {
+      display: block;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.72);
+      margin-top: 2px;
+    }
 
     .video-item {
       border-radius: 12px;
@@ -784,6 +896,37 @@
       font-size: 16px;
       margin-bottom: 12px;
     }
+
+    .lock-mode-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .lock-mode-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #444;
+      border-radius: 10px;
+      background: #111;
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.35;
+      cursor: pointer;
+    }
+
+    .lock-mode-option:has(input:checked) {
+      border-color: #fff;
+      background: #1a1a1a;
+    }
+
+    .lock-mode-option input {
+      margin-top: 2px;
+      accent-color: #fff;
+    }
   </style>
 </head>
 <body class="page-profile">
@@ -828,8 +971,9 @@
             </button>
           </div>
         </div>
+        <button class="menu-btn" id="profile-view-btn" type="button" title="Grid view" aria-label="Grid view">▦</button>
         <div class="menu-wrap" id="size-menu-wrap">
-          <button class="menu-btn" id="size-menu-btn" type="button" title="Grid size" aria-label="Grid size">▦</button>
+          <button class="menu-btn" id="size-menu-btn" type="button" title="Grid size" aria-label="Grid size">▣</button>
           <div class="menu-popover" id="size-menu" hidden>
             <button class="menu-item view-btn active" data-size="xs" type="button">XS — extra small</button>
             <button class="menu-item view-btn" data-size="sm" type="button">S — small</button>
@@ -847,6 +991,11 @@
     <div id="loading" hidden>Loading videos…</div>
     <div id="empty">No media yet.<br>Tap <strong>+</strong> to upload, or add files to the <code>videos</code> folder.</div>
     <div id="no-results">No videos match your search or filter.</div>
+    <div id="collection-header">
+      <button type="button" id="collection-back" aria-label="Back to collections">←</button>
+      <span id="collection-title"></span>
+      <span id="collection-meta"></span>
+    </div>
     <div id="grid" class="size-xs"></div>
   </main>
   </div>
@@ -950,6 +1099,19 @@
     <input class="rename-input" id="group-display-name" type="text" autocomplete="off">
     <div class="sheet-label" style="margin-top:12px">Password (leave blank to keep unchanged)</div>
     <input class="unlock-input" id="group-new-password" type="password" placeholder="New password" autocomplete="new-password">
+    <div id="group-lock-mode-wrap" hidden>
+      <div class="sheet-label" style="margin-top:12px">Lock behavior</div>
+      <div class="lock-mode-options">
+        <label class="lock-mode-option">
+          <input type="radio" name="group-lock-mode" id="group-lock-mode-always" value="always">
+          <span>Ask for password when switching to this library</span>
+        </label>
+        <label class="lock-mode-option">
+          <input type="radio" name="group-lock-mode" id="group-lock-mode-once" value="once">
+          <span>Unlock once and remember on this device</span>
+        </label>
+      </div>
+    </div>
     <div class="sheet-label" style="margin-top:12px">Folder name (rename library)</div>
     <input class="rename-input" id="group-folder-name" type="text" autocomplete="off" placeholder="Leave blank to keep current">
     <button class="sheet-primary" id="group-save-btn" type="button">Save</button>
@@ -984,6 +1146,7 @@
   <script src="/hearts.js"></script>
   <script src="/groups.js"></script>
   <script src="/bottom-nav.js"></script>
+  <script src="/press-radial-menu.js"></script>
   <script>
     const grid = document.getElementById("grid");
     const loading = document.getElementById("loading");
@@ -1001,6 +1164,11 @@
     const sortMenu = document.getElementById("sort-menu");
     const sizeMenuBtn = document.getElementById("size-menu-btn");
     const sizeMenu = document.getElementById("size-menu");
+    const profileViewBtn = document.getElementById("profile-view-btn");
+    const collectionHeader = document.getElementById("collection-header");
+    const collectionBack = document.getElementById("collection-back");
+    const collectionTitle = document.getElementById("collection-title");
+    const collectionMeta = document.getElementById("collection-meta");
     const videoCountEl = document.getElementById("video-count");
     const toast = document.getElementById("toast");
     const groupPicker = document.getElementById("group-picker");
@@ -1071,6 +1239,9 @@
     const groupRemoveLockBtn = document.getElementById("group-remove-lock-btn");
     const groupDeleteBtn = document.getElementById("group-delete-btn");
     const groupSettingsCancel = document.getElementById("group-settings-cancel");
+    const groupLockModeWrap = document.getElementById("group-lock-mode-wrap");
+    const groupLockModeAlways = document.getElementById("group-lock-mode-always");
+    const groupLockModeOnce = document.getElementById("group-lock-mode-once");
 
     const urlGroup = new URLSearchParams(location.search).get("group");
 
@@ -1091,6 +1262,8 @@
     let pendingUnlockGroup = null;
     let activeFilter = "all";
     let searchQuery = "";
+    let profileView = localStorage.getItem("profileView") || "grid";
+    let collectionTag = null;
     let gridSize = localStorage.getItem("gridSize") || "xs";
     let sortMode = localStorage.getItem("sortMode") || "tags";
     let activeVideo = null;
@@ -1347,7 +1520,8 @@
         : (localStorage.getItem("defaultGroup") || "");
       const active = allGroups.find((g) => g.id === activeId);
       const label = active?.displayName || active?.name || "Rollo";
-      groupPickerLabel.textContent = label + (active?.locked && !active?.unlocked ? " 🔒" : "");
+      const activeLocked = active?.locked && !VideoGroups.hasUnlockToken(active?.id);
+      groupPickerLabel.textContent = label + (activeLocked ? " 🔒" : "");
       groupPicker.classList.remove("no-switch");
 
       groupListEl.innerHTML = "";
@@ -1357,12 +1531,13 @@
         row.dataset.groupId = group.id;
 
         const name = group.displayName || group.name;
-        const meta = group.locked && !group.unlocked ? "Locked" : `${group.videoCount ?? "—"}`;
+        const lockedNow = group.locked && !VideoGroups.hasUnlockToken(group.id);
+        const meta = lockedNow ? "Locked" : `${group.videoCount ?? "—"}`;
 
         const mainBtn = document.createElement("button");
         mainBtn.type = "button";
         mainBtn.className = "group-main";
-        mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${group.locked && !group.unlocked ? " 🔒" : ""}</span><span class="group-main-meta">${meta}</span>`;
+        mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${lockedNow ? " 🔒" : ""}</span><span class="group-main-meta">${meta}</span>`;
         mainBtn.addEventListener("click", () => {
           closeGroupSheet();
           selectGroup(group.id);
@@ -1402,10 +1577,17 @@
       return fromDefault || VideoGroups.getActive();
     }
 
+    function syncGroupAccessState() {
+      allGroups.forEach((g) => {
+        if (g.locked) g.unlocked = VideoGroups.hasUnlockToken(g.id);
+      });
+    }
+
     async function loadGroups() {
       const res = await fetch("/api/groups", { headers: VideoGroups.headers() });
       allGroups = await res.json();
       VideoGroups.pruneStaleUnlocks(allGroups);
+      syncGroupAccessState();
       renderGroups();
     }
 
@@ -1427,7 +1609,15 @@
       });
       const data = await res.json();
       if (!res.ok) return showToast(data.error || "Wrong password");
-      if (data.token) VideoGroups.setUnlockToken(pendingUnlockGroup.id, data.token);
+      if (data.token) {
+        VideoGroups.setUnlockToken(
+          pendingUnlockGroup.id,
+          data.token,
+          VideoGroups.getLockMode(pendingUnlockGroup)
+        );
+        const unlocked = allGroups.find((g) => g.id === pendingUnlockGroup.id);
+        if (unlocked) unlocked.unlocked = true;
+      }
       VideoGroups.setActive(pendingUnlockGroup.id);
       closeSheet(unlockBackdrop, unlockSheet);
       pendingUnlockGroup = null;
@@ -1484,9 +1674,17 @@
     }
 
     async function selectGroup(groupId) {
+      const previousId = VideoGroups.getActive();
       const group = allGroups.find((g) => g.id === groupId);
       if (!group) return;
-      if (group.locked && !group.unlocked) {
+
+      VideoGroups.prepareProfileSwitch(previousId, group);
+      if (previousId && previousId !== groupId) {
+        const previous = allGroups.find((g) => g.id === previousId);
+        if (previous) previous.unlocked = false;
+      }
+
+      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
         openUnlockSheet(group);
         return;
       }
@@ -1557,6 +1755,7 @@
     function getFilteredVideos() {
       let list = [...allVideos];
       if (activeFilter === "favorites") list = list.filter((v) => v.favorite);
+      else if (activeFilter === "untagged") list = list.filter((v) => !v.tags.length);
       else if (activeFilter.startsWith("tag:")) list = list.filter((v) => v.tags.includes(activeFilter.slice(4)));
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -1570,15 +1769,164 @@
     }
 
     function updateCount() {
+      if (profileView === "collections" && !collectionTag) {
+        const n = getCollectionEntries().length;
+        videoCountEl.textContent = n === 1 ? "1 collection" : `${n} collections`;
+        return;
+      }
       const shown = getFilteredVideos().length;
       const total = allVideos.length;
+      if (collectionTag) {
+        videoCountEl.textContent = shown === 1 ? "1 video" : `${shown} videos`;
+        return;
+      }
       videoCountEl.textContent = shown === total ? `${total} files` : `${shown} of ${total}`;
+    }
+
+    function applyGridClasses() {
+      grid.className = `size-${gridSize}`;
+      grid.classList.toggle("collections-grid", profileView === "collections" && !collectionTag);
+    }
+
+    function updateProfileChrome() {
+      const inCollections = profileView === "collections";
+      const collectionsTop = inCollections && !collectionTag;
+      tagFiltersEl.style.display = collectionsTop ? "none" : "";
+      sizeMenuBtn.parentElement.style.display = collectionsTop ? "none" : "";
+      collectionHeader.classList.toggle("visible", inCollections);
+      if (collectionTag) {
+        collectionTitle.textContent = collectionTag;
+        collectionBack.setAttribute("aria-label", "Back to collections");
+      } else if (collectionsTop) {
+        collectionTitle.textContent = "Collections";
+        collectionMeta.textContent = `${getCollectionEntries().length} tags`;
+        collectionBack.setAttribute("aria-label", "Back to grid");
+      }
+      profileViewBtn.classList.toggle("active", profileView === "collections");
+      profileViewBtn.textContent = profileView === "collections" ? "▣" : "▦";
+      profileViewBtn.title = profileView === "collections" ? "Collections view" : "Grid view";
+      profileViewBtn.setAttribute("aria-label", profileViewBtn.title);
+      applyGridClasses();
+    }
+
+    function setProfileView(view) {
+      profileView = view;
+      localStorage.setItem("profileView", view);
+      collectionTag = null;
+      activeFilter = "all";
+      updateProfileChrome();
+      renderFilters();
+      renderGrid();
+    }
+
+    function toggleProfileView() {
+      if (collectionTag) return;
+      setProfileView(profileView === "grid" ? "collections" : "grid");
+    }
+
+    function getCollectionEntries() {
+      const entries = (allTags || []).map((tag) => ({
+        tag,
+        videos: allVideos.filter((v) => v.tags.includes(tag)),
+      })).filter((e) => e.videos.length);
+      const untagged = allVideos.filter((v) => !v.tags.length);
+      if (untagged.length) entries.push({ tag: "Untagged", videos: untagged });
+      return entries.sort((a, b) => a.tag.localeCompare(b.tag, undefined, { sensitivity: "base" }));
+    }
+
+    function openCollection(tag) {
+      collectionTag = tag;
+      activeFilter = tag === "Untagged" ? "untagged" : `tag:${tag}`;
+      collectionTitle.textContent = tag;
+      updateProfileChrome();
+      renderFilters();
+      renderGrid();
+    }
+
+    function closeCollection() {
+      collectionTag = null;
+      activeFilter = "all";
+      updateProfileChrome();
+      renderFilters();
+      renderGrid();
+    }
+
+    function watchUrl(video) {
+      const params = new URLSearchParams();
+      const active = VideoGroups.getActive();
+      if (active) params.set("group", active);
+      if (collectionTag && collectionTag !== "Untagged") {
+        params.set("mode", "tag");
+        params.set("tag", collectionTag);
+      } else if (collectionTag === "Untagged") {
+        params.set("mode", "untagged");
+      }
+      params.set("video", video.name);
+      return `/watch.html?${params}`;
+    }
+
+    function renderCollectionsGrid() {
+      if (thumbObserver) thumbObserver.disconnect();
+      setupThumbObserver();
+      grid.innerHTML = "";
+      noResults.style.display = "none";
+      empty.style.display = "none";
+      applyGridClasses();
+
+      if (!allVideos.length) {
+        empty.style.display = "block";
+        updateCount();
+        syncLayoutMetrics();
+        return;
+      }
+
+      const entries = getCollectionEntries();
+      if (!entries.length) {
+        noResults.textContent = "No tags yet — long-press a video to add tags.";
+        noResults.style.display = "block";
+        updateCount();
+        syncLayoutMetrics();
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "collection-card";
+        card.setAttribute("aria-label", `${entry.tag}, ${entry.videos.length} videos`);
+
+        const mosaic = document.createElement("div");
+        mosaic.className = "collection-mosaic";
+        const picks = entry.videos.slice(0, 4);
+        for (let i = 0; i < 4; i++) {
+          const cell = document.createElement("div");
+          cell.className = "collection-mosaic-cell";
+          if (picks[i]) {
+            cell.appendChild(Object.assign(document.createElement("div"), { className: "thumb-placeholder" }));
+            observeThumb(cell, picks[i].url, picks[i].name);
+          }
+          mosaic.appendChild(cell);
+        }
+
+        const label = document.createElement("div");
+        label.className = "collection-label";
+        const c = TagColors.getTagColors(entry.tag);
+        if (entry.tag !== "Untagged") label.style.setProperty("--tag-accent", c.solid);
+        label.innerHTML = `<span class="collection-label-name">${escapeHtml(entry.tag)}</span><span class="collection-label-count">${entry.videos.length} video${entry.videos.length === 1 ? "" : "s"}</span>`;
+
+        card.append(mosaic, label);
+        card.addEventListener("click", () => openCollection(entry.tag));
+        grid.appendChild(card);
+      });
+
+      updateCount();
+      syncLayoutMetrics();
     }
 
     function setGridSize(size) {
       gridSize = size;
       localStorage.setItem("gridSize", size);
-      grid.className = `size-${size}`;
+      applyGridClasses();
       updateSizeMenuBtn();
       closeMenus();
     }
@@ -1738,48 +2086,96 @@
       }
     }
 
+    const MAX_SUB_TAGS = 8;
+
+    function buildTagSubOptions(video) {
+      const pool = [...new Set([...(allTags || []), ...(video.tags || [])])].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+      );
+      const tags = pool.slice(0, MAX_SUB_TAGS);
+      const opts = tags.map((tag) => ({
+        id: `tag-${tag}`,
+        label: tag,
+        active: video.tags.includes(tag),
+        accent: TagColors.getTagColors(tag).solid,
+        onSelect: () => toggleTagForRadial(video, tag),
+      }));
+      if (pool.length > MAX_SUB_TAGS || !pool.length) {
+        opts.push({
+          id: "tag-more",
+          label: pool.length ? "More…" : "Add tag",
+          onSelect: () => {
+            PressRadialMenu.close();
+            activeVideo = video;
+            tagInput.value = "";
+            renderTagSheet();
+            openSheet(tagBackdrop, tagSheet);
+          },
+        });
+      }
+      return opts;
+    }
+
+    function openTagSheetFromRadial(video) {
+      activeVideo = video;
+      tagInput.value = "";
+      renderTagSheet();
+      openSheet(tagBackdrop, tagSheet);
+    }
+
+    function getVideoActionOptions(video) {
+      return [
+        {
+          id: "favorite",
+          label: video.favorite ? "Remove favorite" : "Add favorite",
+          icon: video.favorite ? "♥" : "♡",
+          onSelect: () => toggleFavoriteFromRadial(video),
+        },
+        {
+          id: "tag",
+          label: "Edit tags",
+          icon: "🏷",
+          submenu: () => buildTagSubOptions(video),
+          onSelect: () => openTagSheetFromRadial(video),
+        },
+        {
+          id: "rename",
+          label: "Edit name",
+          icon: "✎",
+          onSelect: () => openRenameFromRadial(video),
+        },
+        {
+          id: "delete",
+          label: "Delete video",
+          icon: "🗑",
+          tone: "delete",
+          onSelect: () => openDeleteFromRadial(video),
+        },
+      ];
+    }
+
     function bindLongPress(el, video) {
-      let timer = null;
-      let startX = 0;
-      let startY = 0;
-      let longPressed = false;
+      PressRadialMenu.bindCardLongPress(el, () => getVideoActionOptions(video));
+    }
 
-      const clear = () => {
-        clearTimeout(timer);
-        timer = null;
-        el.classList.remove("pressing");
-      };
+    function openRenameFromRadial(video) {
+      activeVideo = video;
+      renameInput.value = video.displayName || stripExt(video.name);
+      renameExtHint.textContent = `Extension kept as ${getExt(video.name)}`;
+      openSheet(renameBackdrop, renameSheet);
+      renameInput.focus();
+    }
 
-      const trigger = (e) => {
-        if (e) e.preventDefault();
-        longPressed = true;
-        clear();
-        navigator.vibrate?.(10);
-        openActionMenu(video);
-      };
+    function openDeleteFromRadial(video) {
+      activeVideo = video;
+      deleteSubtitle.textContent = `"${video.name}" will be permanently deleted.`;
+      openSheet(deleteBackdrop, deleteSheet);
+    }
 
-      el.addEventListener("touchstart", (e) => {
-        if (e.touches.length > 1) return;
-        longPressed = false;
-        const t = e.touches[0];
-        startX = t.clientX;
-        startY = t.clientY;
-        el.classList.add("pressing");
-        timer = setTimeout(() => trigger(), LONG_PRESS_MS);
-      }, { passive: true });
-
-      el.addEventListener("touchmove", (e) => {
-        const t = e.touches[0];
-        if (Math.hypot(t.clientX - startX, t.clientY - startY) > 12) clear();
-      }, { passive: true });
-
-      el.addEventListener("touchend", () => clear());
-      el.addEventListener("touchcancel", () => clear());
-      el.addEventListener("contextmenu", (e) => { e.preventDefault(); trigger(e); });
-
-      el.querySelector(".thumb-link")?.addEventListener("click", (e) => {
-        if (longPressed) { e.preventDefault(); longPressed = false; }
-      });
+    async function toggleTagForRadial(video, tag) {
+      activeVideo = video;
+      if (video.tags.includes(tag)) await removeTag(tag);
+      else await addTag(tag);
     }
 
     function appendVideoCard(video) {
@@ -1789,7 +2185,7 @@
 
       const link = document.createElement("a");
       link.className = "thumb-link";
-        link.href = `/watch.html?${VideoGroups.query()}&video=${encodeURIComponent(video.name)}`;
+      link.href = watchUrl(video);
 
       const wrap = document.createElement("div");
       wrap.className = "thumb-wrap";
@@ -1840,11 +2236,21 @@
     }
 
     function renderGrid() {
+      if (profileView === "collections" && !collectionTag) {
+        return renderCollectionsGrid();
+      }
+
       if (thumbObserver) thumbObserver.disconnect();
       setupThumbObserver();
       grid.innerHTML = "";
+      noResults.textContent = "No videos match your search or filter.";
       noResults.style.display = "none";
       empty.style.display = "none";
+      applyGridClasses();
+
+      if (collectionTag) {
+        collectionMeta.textContent = `${getFilteredVideos().length} videos`;
+      }
 
       if (!allVideos.length) {
         empty.style.display = "block";
@@ -1902,6 +2308,20 @@
         if (v) v.favorite = next;
         closeSheet(actionBackdrop, actionSheet);
         activeVideo = null;
+        renderGrid();
+        showToast(next ? "Added to favorites." : "Removed from favorites.");
+      } catch {
+        showToast("Could not save favorite.");
+      }
+    }
+
+    async function toggleFavoriteFromRadial(video) {
+      const next = !video.favorite;
+      try {
+        await saveMetadata(video.name, { favorite: next });
+        video.favorite = next;
+        const v = allVideos.find((x) => x.name === video.name);
+        if (v) v.favorite = next;
         renderGrid();
         showToast(next ? "Added to favorites." : "Removed from favorites.");
       } catch {
@@ -2107,7 +2527,7 @@
 
     uploadFab.addEventListener("click", () => {
       const group = allGroups.find((g) => g.id === VideoGroups.getActive());
-      if (group?.locked && !group.unlocked) {
+      if (group?.locked && !VideoGroups.hasUnlockToken(group.id)) {
         openUnlockSheet(group);
         return;
       }
@@ -2130,6 +2550,16 @@
       toggleMenu(sizeMenu, sizeMenuBtn);
     });
 
+    profileViewBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleProfileView();
+    });
+
+    collectionBack.addEventListener("click", () => {
+      if (collectionTag) closeCollection();
+      else if (profileView === "collections") setProfileView("grid");
+    });
+
     sortMenu.addEventListener("click", (e) => {
       const btn = e.target.closest(".sort-btn");
       if (btn) setSortMode(btn.dataset.sort);
@@ -2147,6 +2577,15 @@
     unlockCancel.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
     unlockBackdrop.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
 
+    function setGroupLockModeUi(group) {
+      const show = !!group?.locked || !!groupNewPassword.value;
+      groupLockModeWrap.hidden = !show;
+      if (!show) return;
+      const mode = group?.lockMode === "once" ? "once" : "always";
+      groupLockModeAlways.checked = mode === "always";
+      groupLockModeOnce.checked = mode === "once";
+    }
+
     groupSettingsBtn.addEventListener("click", () => {
       closeSheet(moreBackdrop, moreSheet);
       const group = allGroups.find((g) => g.id === VideoGroups.getActive());
@@ -2155,13 +2594,25 @@
       groupDisplayName.value = group.displayName || group.name;
       groupFolderName.value = "";
       groupNewPassword.value = "";
+      setGroupLockModeUi(group);
       openSheet(groupSettingsBackdrop, groupSettingsSheet);
+    });
+
+    groupNewPassword.addEventListener("input", () => {
+      const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+      setGroupLockModeUi(group);
     });
 
     groupSaveBtn.addEventListener("click", async () => {
       const groupId = VideoGroups.getActive();
+      const group = allGroups.find((g) => g.id === groupId);
       const body = { displayName: groupDisplayName.value.trim() };
       if (groupNewPassword.value) body.password = groupNewPassword.value;
+      if ((group?.locked || groupNewPassword.value) && groupLockModeOnce.checked) {
+        body.lockMode = "once";
+      } else if (group?.locked || groupNewPassword.value) {
+        body.lockMode = "always";
+      }
 
       const folderName = groupFolderName.value.trim();
       if (folderName && folderName !== groupId) {
@@ -2185,10 +2636,10 @@
       });
       const data = await res.json();
       if (!res.ok) return showToast(data.error || "Could not save");
-      if (data.passwordChanged) VideoGroups.clearUnlockToken(activeId);
+      if (data.passwordChanged || data.lockModeChanged) VideoGroups.clearUnlockToken(activeId);
       closeSheet(groupSettingsBackdrop, groupSettingsSheet);
       await loadGroups();
-      if (data.locked && data.passwordChanged) {
+      if (data.locked && (data.passwordChanged || data.lockModeChanged)) {
         const group = allGroups.find((g) => g.id === activeId);
         if (group?.locked && !group.unlocked) openUnlockSheet(group);
       }
@@ -2314,7 +2765,10 @@
         }
 
         const preferred = getStartupPreferredGroup();
-        const active = VideoGroups.ensureAccessibleGroup(allGroups, preferred);
+        const preferredGroup = allGroups.find((g) => g.id === preferred);
+        const active = preferredGroup
+          ? preferred
+          : VideoGroups.pickDefaultGroup(allGroups);
         if (active !== VideoGroups.getActive()) {
           VideoGroups.setActive(active);
         }
@@ -2325,6 +2779,7 @@
         setSortMode(sortMode);
         updateSortMenuBtn();
         updateSizeMenuBtn();
+        updateProfileChrome();
         HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });
         await loadVideosData();

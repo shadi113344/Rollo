@@ -61,8 +61,9 @@ cd android && ./setup-libnode.sh   # or setup-libnode.ps1 on Windows
 ## Libraries
 
 - Media files live in `videos/{LibraryName}/`
-- Tags and favorites in `data/metadata.json`
-- Display names and passwords in `data/groups.json`
+- Tags and favorites in `videos/{LibraryName}/_rollo/meta.json` (syncs with Syncthing)
+- Passwords and lock mode in `videos/{LibraryName}/_rollo/group.json` (syncs with Syncthing)
+- Legacy `data/metadata.json` and `data/groups.json` are imported into `_rollo/` on first run (backups saved as `*.bak`)
 
 Locked libraries require a password; unlock tokens are stored in the browser and sent via the `X-Unlocked` header.
 

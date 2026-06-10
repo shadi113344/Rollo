@@ -10,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Process
+import android.provider.DocumentsContract
 import android.provider.Settings
 import android.view.View
 import android.webkit.WebResourceRequest
@@ -17,13 +19,14 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import java.io.File
 import java.net.HttpURLConnection
@@ -31,8 +34,9 @@ import java.net.URL
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private lateinit var libraryPanel: View
+    private lateinit var libraryToolbar: MaterialToolbar
     private lateinit var settingsPanel: View
-    private lateinit var settingsFab: FloatingActionButton
     private lateinit var statusLabel: TextView
     private lateinit var statusDetail: TextView
     private lateinit var accessDesc: TextView
@@ -44,6 +48,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gallerySwitch: SwitchMaterial
     private lateinit var shareWhatsAppButton: MaterialButton
     private lateinit var shareCopyButton: MaterialButton
+    private lateinit var videosFolderPath: TextView
+    private lateinit var chooseVideosFolderButton: MaterialButton
+    private lateinit var defaultVideosFolderButton: MaterialButton
+    private lateinit var exitButton: MaterialButton
 
     private var gallerySwitchListener: ((Boolean) -> Unit)? = null
     private var startupInProgress = false
@@ -53,6 +61,20 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { continueStartup() }
 
+    private val pickVideosFolder = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val uri = result.data?.data ?: return@registerForActivityResult
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        try {
+            contentResolver.takePersistableUriPermission(uri, flags)
+        } catch (_: SecurityException) {
+            // Some providers do not allow persistable grants.
+        }
+        applyVideosFolderUri(uri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -60,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         setupWebView()
         setupControls()
+        setupBackNavigation()
         refreshAccessUrls()
         refreshSettingsState()
         requestPermissionsAndStart()
@@ -67,8 +90,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun bindViews() {
         webView = findViewById(R.id.webView)
+        libraryPanel = findViewById(R.id.libraryPanel)
+        libraryToolbar = findViewById(R.id.libraryToolbar)
         settingsPanel = findViewById(R.id.settingsPanel)
-        settingsFab = findViewById(R.id.settingsFab)
         statusLabel = findViewById(R.id.statusLabel)
         statusDetail = findViewById(R.id.statusDetail)
         accessDesc = findViewById(R.id.accessDesc)
@@ -80,6 +104,10 @@ class MainActivity : AppCompatActivity() {
         gallerySwitch = findViewById(R.id.gallerySwitch)
         shareWhatsAppButton = findViewById(R.id.shareWhatsAppButton)
         shareCopyButton = findViewById(R.id.shareCopyButton)
+        videosFolderPath = findViewById(R.id.videosFolderPath)
+        chooseVideosFolderButton = findViewById(R.id.chooseVideosFolderButton)
+        defaultVideosFolderButton = findViewById(R.id.defaultVideosFolderButton)
+        exitButton = findViewById(R.id.exitButton)
     }
 
     private fun setupWebView() {
@@ -129,10 +157,28 @@ class MainActivity : AppCompatActivity() {
 
         openLibraryButton.setOnClickListener { openLibrary() }
         retryButton.setOnClickListener { startServerFlow() }
+        chooseVideosFolderButton.setOnClickListener { openVideosFolderPicker() }
+        defaultVideosFolderButton.setOnClickListener { resetVideosFolderToDefault() }
+        exitButton.setOnClickListener { confirmKillServerAndExit() }
 
-        settingsFab.setOnClickListener {
-            showSettingsPanel()
-        }
+        libraryToolbar.setNavigationOnClickListener { leaveLibrary() }
+    }
+
+    private fun setupBackNavigation() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (libraryPanel.isVisible) {
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                    } else {
+                        leaveLibrary()
+                    }
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     private fun shareLink(viaWhatsApp: Boolean) {
@@ -185,6 +231,92 @@ class MainActivity : AppCompatActivity() {
         } else {
             getString(R.string.battery_button)
         }
+        refreshVideosFolderLabel()
+    }
+
+    private fun refreshVideosFolderLabel() {
+        videosFolderPath.text = getString(
+            R.string.videos_folder_current,
+            RolloConfig.videosDir(this).absolutePath
+        )
+    }
+
+    private fun openVideosFolderPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        RolloConfig.getVideosTreeUri(this)?.let { existing ->
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, existing)
+        }
+        pickVideosFolder.launch(intent)
+    }
+
+    private fun applyVideosFolderUri(uri: Uri) {
+        val path = StoragePathHelper.treeUriToPath(this, uri)
+        if (path.isNullOrBlank()) {
+            Toast.makeText(this, R.string.videos_folder_error, Toast.LENGTH_LONG).show()
+            return
+        }
+        val dir = File(path)
+        if (!dir.exists() && !dir.mkdirs()) {
+            Toast.makeText(this, R.string.videos_folder_error, Toast.LENGTH_LONG).show()
+            return
+        }
+        RolloConfig.setVideosDir(this, dir, uri)
+        RolloConfig.writeNodeConfig(this)
+        GalleryVisibility.applySavedPreference(this)
+        refreshVideosFolderLabel()
+        Toast.makeText(this, R.string.videos_folder_set, Toast.LENGTH_SHORT).show()
+        if (serverReady || NodeRunner.isRunning()) {
+            offerServerRestartForNewFolder()
+        }
+    }
+
+    private fun resetVideosFolderToDefault() {
+        RolloConfig.clearCustomVideosDir(this)
+        RolloConfig.writeNodeConfig(this)
+        RolloConfig.defaultVideosDir().mkdirs()
+        GalleryVisibility.applySavedPreference(this)
+        refreshVideosFolderLabel()
+        Toast.makeText(this, R.string.videos_folder_set, Toast.LENGTH_SHORT).show()
+        if (serverReady || NodeRunner.isRunning()) {
+            offerServerRestartForNewFolder()
+        }
+    }
+
+    private fun offerServerRestartForNewFolder() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.videos_folder_restart_title)
+            .setMessage(R.string.videos_folder_restart_message)
+            .setPositiveButton(R.string.videos_folder_restart_now) { _, _ ->
+                restartAppForNewConfig()
+            }
+            .setNegativeButton(R.string.videos_folder_restart_later, null)
+            .show()
+    }
+
+    private fun confirmKillServerAndExit() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.exit_title)
+            .setMessage(R.string.exit_message)
+            .setPositiveButton(R.string.exit_confirm) { _, _ ->
+                killServerAndExit()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun killServerAndExit() {
+        RolloService.stop(this)
+        finishAndRemoveTask()
+        Process.killProcess(Process.myPid())
+    }
+
+    private fun restartAppForNewConfig() {
+        RolloService.stop(this)
+        Process.killProcess(Process.myPid())
     }
 
     private fun requestPermissionsAndStart() {
@@ -236,7 +368,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             try {
                 AssetInstaller.installIfNeeded(this)
-                RolloConfig.videosDir().mkdirs()
+                RolloConfig.videosDir(this).mkdirs()
                 GalleryVisibility.applySavedPreference(this)
                 runOnUiThread {
                     refreshSettingsState()
@@ -273,10 +405,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun onServerReady() {
         serverReady = true
-        updateStatus(getString(R.string.status_running), getString(R.string.status_running))
+        updateStatus(getString(R.string.status_running), getString(R.string.server_ready_hint))
         openLibraryButton.isVisible = true
         retryButton.isVisible = false
-        openLibrary()
     }
 
     private fun onServerFailed(extra: String? = null) {
@@ -307,18 +438,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openLibrary() {
-        webView.loadUrl(RolloConfig.serverUrl(this))
-        webView.isVisible = true
+        val url = RolloConfig.serverUrl(this)
+        if (webView.url != url) {
+            webView.loadUrl(url)
+        }
+        libraryPanel.isVisible = true
         settingsPanel.isVisible = false
-        settingsFab.isVisible = true
+    }
+
+    private fun leaveLibrary() {
+        showSettingsPanel()
     }
 
     private fun showSettingsPanel() {
-        webView.isVisible = false
+        libraryPanel.isVisible = false
         settingsPanel.isVisible = true
-        settingsFab.isVisible = false
         refreshAccessUrls()
         refreshSettingsState()
+        if (serverReady) {
+            updateStatus(getString(R.string.status_running), getString(R.string.server_ready_hint))
+            openLibraryButton.isVisible = true
+        }
     }
 
     private fun hasStorageAccess(): Boolean {
@@ -378,12 +518,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (webView.isVisible) {
-            showSettingsPanel()
-        } else {
-            super.onBackPressed()
-        }
-    }
 }

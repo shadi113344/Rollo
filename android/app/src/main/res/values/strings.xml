@@ -9,6 +9,7 @@
     <string name="server_unavailable">Could not reach Rollo server</string>
     <string name="server_retry">Retry</string>
     <string name="server_open_library">Open library</string>
+    <string name="server_ready_hint">Server is ready. Tap Open library, or change settings below.</string>
     <string name="server_show_settings">Settings</string>
     <string name="server_hide_settings">Hide settings</string>
     <string name="grant_storage">Allow file access so Rollo can read and save media in Internal storage/Rollo/Videos</string>
@@ -42,4 +43,19 @@
     <string name="status_failed">Server failed</string>
     <string name="error_log_hint">Check node.log in app storage or tap Retry after rebuilding the APK with npm run sync:android.</string>
     <string name="tailscale_hint">Replace YOUR-TAILSCALE-IP with the IP shown in the Tailscale app for this phone.</string>
+    <string name="videos_folder_title">Videos folder</string>
+    <string name="videos_folder_desc">Choose where Rollo stores and reads your media libraries. Default is Internal storage/Rollo/Videos.</string>
+    <string name="videos_folder_choose">Choose folder</string>
+    <string name="videos_folder_default">Use default folder</string>
+    <string name="videos_folder_current">Current folder:\n%1$s</string>
+    <string name="videos_folder_set">Videos folder updated</string>
+    <string name="videos_folder_error">Could not use that folder. Try another location or the default folder.</string>
+    <string name="videos_folder_restart_title">Restart server?</string>
+    <string name="videos_folder_restart_message">The server must restart to use the new videos folder.</string>
+    <string name="videos_folder_restart_now">Restart now</string>
+    <string name="videos_folder_restart_later">Later</string>
+    <string name="exit_title">Stop server and exit?</string>
+    <string name="exit_message">This stops the Rollo server and closes the app. Open Rollo again when you want the server back.</string>
+    <string name="exit_confirm">Stop and exit</string>
+    <string name="exit_button">Stop server &amp; exit</string>
 </resources>
