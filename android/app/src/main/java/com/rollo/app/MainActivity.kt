@@ -150,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     updateButton.isEnabled = true
                     Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                    if (ok) recreate()
+                    if (ok) restartAppForNewConfig()
                 }
             }
         }

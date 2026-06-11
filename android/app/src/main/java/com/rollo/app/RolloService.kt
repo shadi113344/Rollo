@@ -91,6 +91,12 @@ class RolloService : Service() {
         private const val CHANNEL_ID = "rollo_server"
         private const val NOTIFICATION_ID = 1
 
+        fun restart(context: Context) {
+            stop(context)
+            NodeRunner.reset()
+            start(context)
+        }
+
         fun start(context: Context) {
             val intent = Intent(context, RolloService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

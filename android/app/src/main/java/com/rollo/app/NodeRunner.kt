@@ -17,6 +17,11 @@ object NodeRunner {
 
     fun isRunning(): Boolean = state.get() == State.RUNNING
 
+    fun reset() {
+        state.set(State.IDLE)
+        lastError.set(null)
+    }
+
     fun start(nodeProjectDir: File) {
         if (state.get() == State.STARTING || state.get() == State.RUNNING) return
 
