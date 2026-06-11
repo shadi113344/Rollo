@@ -28,7 +28,10 @@ import androidx.core.view.isVisible
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
+import org.json.JSONObject
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -408,6 +411,39 @@ class MainActivity : AppCompatActivity() {
         updateStatus(getString(R.string.status_running), getString(R.string.server_ready_hint))
         openLibraryButton.isVisible = true
         retryButton.isVisible = false
+        refreshServerLibraryStatus()
+    }
+
+    private fun refreshServerLibraryStatus() {
+        Thread {
+            try {
+                val connection = URL("${RolloConfig.serverUrl(this)}api/status").openConnection() as HttpURLConnection
+                connection.connectTimeout = 2000
+                connection.readTimeout = 2000
+                connection.requestMethod = "GET"
+                if (connection.responseCode !in 200..299) return@Thread
+                val body = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+                val json = JSONObject(body)
+                val count = json.optInt("libraryCount", 0)
+                val path = json.optString("videosDir", RolloConfig.videosDir(this).absolutePath)
+                val hints = json.optJSONArray("hints")
+                val hint = if (hints != null && hints.length() > 0) hints.optString(0) else null
+                runOnUiThread {
+                    val detail = buildString {
+                        append(getString(R.string.server_ready_hint))
+                        append("\n\n")
+                        append(getString(R.string.server_libraries_found, count, path))
+                        if (count == 0) {
+                            append("\n")
+                            append(hint ?: getString(R.string.server_libraries_empty))
+                        }
+                    }
+                    updateStatus(getString(R.string.status_running), detail)
+                }
+            } catch (_: Exception) {
+                /* keep generic ready message */
+            }
+        }.start()
     }
 
     private fun onServerFailed(extra: String? = null) {

@@ -3,6 +3,7 @@ package com.rollo.app
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.SecureRandom
@@ -70,11 +71,19 @@ object RolloConfig {
         videosDir(context).mkdirs()
         dataDir(context).mkdirs()
 
+        val videosRoot = videosDir(context)
+        val libraryIds = JSONArray()
+        videosRoot.listFiles()
+            ?.filter { it.isDirectory && !it.name.startsWith(".") && it.name != "_rollo" }
+            ?.sortedBy { it.name.lowercase() }
+            ?.forEach { libraryIds.put(it.name) }
+
         val cfg = JSONObject()
         cfg.put("PORT", getPort(context))
         cfg.put("VIDEO_SECRET", getOrCreateSecret(context))
-        cfg.put("VIDEOS_DIR", videosDir(context).absolutePath)
+        cfg.put("VIDEOS_DIR", videosRoot.absolutePath)
         cfg.put("DATA_DIR", dataDir(context).absolutePath)
+        cfg.put("LIBRARY_IDS", libraryIds.toString())
         cfg.put("ROLLO_CONFIG", File(nodeDir, "rollo-config.json").absolutePath)
 
         File(nodeDir, "rollo-config.json").writeText(cfg.toString(2))

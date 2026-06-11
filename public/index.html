@@ -1583,9 +1583,35 @@
       });
     }
 
+    async function fetchServerStatus() {
+      try {
+        const res = await fetch("/api/status");
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    }
+
+    function formatLibraryHelp(status) {
+      const path = status?.videosDir || "videos";
+      const hints = Array.isArray(status?.hints) ? status.hints : [];
+      const hintHtml = hints.length
+        ? `<br><br>${hints.map((h) => escapeHtml(h)).join("<br>")}`
+        : "";
+      return `Looking in <code>${escapeHtml(path)}</code>.${hintHtml}`;
+    }
+
     async function loadGroups() {
       const res = await fetch("/api/groups", { headers: VideoGroups.headers() });
-      allGroups = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || `Could not load libraries (${res.status})`);
+      }
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid libraries response from server");
+      }
+      allGroups = data;
       VideoGroups.pruneStaleUnlocks(allGroups);
       syncGroupAccessState();
       renderGroups();
@@ -1703,10 +1729,17 @@
       if (videosRes.status === 403) {
         loading.hidden = true;
         const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+        empty.innerHTML = "This library is locked.<br>Enter your password to view media.";
+        empty.style.display = "block";
+        renderFilters();
+        renderGrid();
         if (group) openUnlockSheet(group);
         return;
       }
-      if (!videosRes.ok) throw new Error("Could not load videos");
+      if (!videosRes.ok) {
+        const err = await videosRes.json().catch(() => ({}));
+        throw new Error(err.error || "Could not load videos");
+      }
       const [videos, tags] = await Promise.all([videosRes.json(), tagsRes.json()]);
       allVideos = VideoGroups.authVideos(videos);
       allTags = tags;
@@ -2757,8 +2790,11 @@
       try {
         await loadGroups();
         if (!allGroups.length) {
+          const status = await fetchServerStatus();
           loading.hidden = true;
-          empty.innerHTML = 'No libraries yet.<br>Tap <strong>Rollo</strong> above to create one.';
+          empty.innerHTML =
+            "No libraries found.<br>Tap <strong>Rollo</strong> above to create one, or check your videos folder.<br><br>" +
+            formatLibraryHelp(status);
           empty.style.display = "block";
           renderGroups();
           return;
@@ -2767,13 +2803,22 @@
         const preferred = getStartupPreferredGroup();
         const preferredGroup = allGroups.find((g) => g.id === preferred);
         const active = preferredGroup
-          ? preferred
+          ? preferredGroup.id
           : VideoGroups.pickDefaultGroup(allGroups);
         if (active !== VideoGroups.getActive()) {
           VideoGroups.setActive(active);
         }
         VideoGroups.syncUrlGroup();
         renderGroups();
+
+        const activeGroup = allGroups.find((g) => g.id === active);
+        if (activeGroup?.locked && !VideoGroups.isGroupAccessible(activeGroup)) {
+          loading.hidden = true;
+          empty.innerHTML = "This library is locked.<br>Enter your password to view media.";
+          empty.style.display = "block";
+          openUnlockSheet(activeGroup);
+          return;
+        }
 
         setGridSize(gridSize);
         setSortMode(sortMode);
@@ -2783,9 +2828,24 @@
         HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });
         await loadVideosData();
-      } catch {
-        loading.textContent = "Could not load videos.";
-        loading.hidden = false;
+        if (!allVideos.length) {
+          const status = await fetchServerStatus();
+          const activeId = VideoGroups.getActive();
+          const count = status?.videoCounts?.[activeId];
+          if (count === 0 && status?.hints?.length) {
+            empty.innerHTML =
+              "No media in this library yet.<br>Tap <strong>+</strong> to upload, or add files to the library folder.<br><br>" +
+              formatLibraryHelp(status);
+            empty.style.display = "block";
+          }
+        }
+      } catch (err) {
+        const status = await fetchServerStatus();
+        loading.hidden = true;
+        empty.innerHTML =
+          `${escapeHtml(err.message || "Could not load videos.")}<br><br>` +
+          formatLibraryHelp(status);
+        empty.style.display = "block";
       }
     }
 

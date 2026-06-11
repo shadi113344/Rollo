@@ -10,6 +10,8 @@
     <string name="server_retry">Retry</string>
     <string name="server_open_library">Open library</string>
     <string name="server_ready_hint">Server is ready. Tap Open library, or change settings below.</string>
+    <string name="server_libraries_found">Found %1$d libraries in:\n%2$s</string>
+    <string name="server_libraries_empty">No library folders found. Open Videos folder below and point Rollo at the folder that contains Gym, Random, etc.</string>
     <string name="server_show_settings">Settings</string>
     <string name="server_hide_settings">Hide settings</string>
     <string name="grant_storage">Allow file access so Rollo can read and save media in Internal storage/Rollo/Videos</string>

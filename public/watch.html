@@ -2005,7 +2005,14 @@
 
       try {
         const groupsRes = await fetch("/api/groups", { headers: VideoGroups.headers() });
-        allGroups = await groupsRes.json();
+        const groupsData = await groupsRes.json().catch(() => null);
+        if (!groupsRes.ok) {
+          throw new Error(groupsData?.error || `Could not load libraries (${groupsRes.status})`);
+        }
+        if (!Array.isArray(groupsData)) {
+          throw new Error("Invalid libraries response from server");
+        }
+        allGroups = groupsData;
         VideoGroups.pruneStaleUnlocks(allGroups);
 
         const videosRes = await VideoGroups.apiFetch("/api/videos");

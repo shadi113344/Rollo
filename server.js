@@ -46,19 +46,24 @@ const groupsPath = process.env.GROUPS_PATH || path.join(dataDir, "groups.json");
 const metadataStore = createMetadataStore(videosDir, metadataPath);
 const groupsStore = createGroupsStore(videosDir, groupsPath);
 const groupAuth = createGroupAuth(groupsStore);
-const { makeUnlockToken, isGroupUnlocked } = groupAuth;
+const { makeUnlockToken, isGroupUnlocked, isGroupLocked } = groupAuth;
 
 const videoListCache = new Map();
 
 function listVideoFilesCached(groupId) {
   const dir = path.join(videosDir, groupId);
   if (!fs.existsSync(dir)) return [];
-  const mtime = fs.statSync(dir).mtimeMs;
-  const cached = videoListCache.get(groupId);
-  if (cached && cached.mtime === mtime) return cached.files;
-  const files = listVideoFiles(groupId);
-  videoListCache.set(groupId, { mtime, files });
-  return files;
+  try {
+    const mtime = fs.statSync(dir).mtimeMs;
+    const cached = videoListCache.get(groupId);
+    if (cached && cached.mtime === mtime) return cached.files;
+    const files = listVideoFiles(groupId);
+    videoListCache.set(groupId, { mtime, files });
+    return files;
+  } catch (err) {
+    console.warn(`[Rollo] Cannot scan library “${groupId}”:`, err.message || err);
+    return [];
+  }
 }
 
 function invalidateVideoListCache(groupId) {
@@ -86,22 +91,109 @@ function sanitizeBaseName(name) {
     .replace(/\s+/g, " ");
 }
 
-function listGroupIds() {
+function parseLibraryIdsEnv() {
+  const raw = process.env.LIBRARY_IDS;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : [];
+  } catch {
+    return [];
+  }
+}
+
+function sortGroupIds(ids) {
+  return [...new Set(ids)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function listGroupIdsFromDisk() {
   ensureDir(videosDir);
   return fs
     .readdirSync(videosDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "_rollo")
-    .map((d) => d.name)
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    .map((d) => d.name);
+}
+
+function listGroupIds() {
+  let fromDisk = [];
+  let diskError = null;
+  try {
+    fromDisk = listGroupIdsFromDisk();
+  } catch (err) {
+    diskError = err;
+    console.error("[Rollo] Cannot read videos folder:", videosDir, err.message || err);
+  }
+
+  if (fromDisk.length) return sortGroupIds(fromDisk);
+
+  const fromEnv = parseLibraryIdsEnv();
+  if (fromEnv.length) {
+    console.warn(
+      `[Rollo] Disk listing empty; using ${fromEnv.length} librar${fromEnv.length === 1 ? "y" : "ies"} from LIBRARY_IDS`
+    );
+    return sortGroupIds(fromEnv);
+  }
+
+  if (diskError) throw diskError;
+  return [];
+}
+
+function diagnoseVideosLayout() {
+  const ids = listGroupIds();
+  const hints = [];
+  if (!ids.length) {
+    hints.push("No library folders found. Each library should be a subfolder of the videos directory.");
+    return hints;
+  }
+  for (const id of ids) {
+    const dir = path.join(videosDir, id);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir);
+    } catch {
+      hints.push(`Cannot read library folder “${id}”.`);
+      continue;
+    }
+    const mediaHere = entries.filter((name) => MEDIA_RE.test(name)).length;
+    const subdirs = entries.filter((name) => {
+      if (name === "_rollo") return false;
+      try {
+        return fs.statSync(path.join(dir, name)).isDirectory() && !name.startsWith(".");
+      } catch {
+        return false;
+      }
+    });
+    const nestedLibraries = subdirs.filter((sub) => {
+      try {
+        return fs
+          .readdirSync(path.join(dir, sub))
+          .some((name) => MEDIA_RE.test(name));
+      } catch {
+        return false;
+      }
+    });
+    if (!mediaHere && nestedLibraries.length) {
+      hints.push(
+        `“${id}/${nestedLibraries[0]}” contains media but “${id}” is not a library itself. ` +
+          `Move each library folder up so files live in videos/${nestedLibraries[0]}/, not videos/${id}/${nestedLibraries[0]}/.`
+      );
+    }
+  }
+  return hints;
 }
 
 function listVideoFiles(groupId) {
   const dir = path.join(videosDir, groupId);
   if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((file) => MEDIA_RE.test(file))
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((file) => MEDIA_RE.test(file))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  } catch (err) {
+    console.warn(`[Rollo] Cannot list media in ${dir}:`, err.message || err);
+    return [];
+  }
 }
 
 function getUnlockTokensFromRequest(req) {
@@ -171,23 +263,69 @@ function buildVideo(groupId, filename) {
   };
 }
 
-app.get("/api/groups", (req, res) => {
-  const ids = listGroupIds();
-  ids.forEach((id) => groupsStore.invalidateCache(id));
-  const groups = ids.map((id) => {
-    const config = groupsStore.getGroupConfig(id);
-    const locked = !!config.passwordHash;
-    return {
-      id,
-      name: id,
-      displayName: config.displayName,
-      locked,
-      lockMode: locked ? config.lockMode : null,
-      unlocked: isGroupUnlockedForRequest(id, req),
-      videoCount: listVideoFilesCached(id).length,
-    };
+app.get("/api/status", (_req, res) => {
+  let ids = [];
+  let readError = null;
+  try {
+    ids = listGroupIds();
+  } catch (err) {
+    readError = err.message || String(err);
+  }
+  const counts = {};
+  for (const id of ids) {
+    try {
+      counts[id] = listVideoFilesCached(id).length;
+    } catch {
+      counts[id] = 0;
+    }
+  }
+  res.json({
+    videosDir,
+    dataDir,
+    libraries: ids,
+    libraryCount: ids.length,
+    videoCounts: counts,
+    hints: diagnoseVideosLayout(),
+    readError,
   });
-  res.json(groups);
+});
+
+app.get("/api/groups", (req, res) => {
+  try {
+    const ids = listGroupIds();
+    ids.forEach((id) => groupsStore.invalidateCache(id));
+    const groups = ids.map((id) => {
+      try {
+        const config = groupsStore.getGroupConfig(id);
+        const locked = !!config.passwordHash;
+        return {
+          id,
+          name: id,
+          displayName: config.displayName || id,
+          locked,
+          lockMode: locked ? config.lockMode : null,
+          unlocked: isGroupUnlockedForRequest(id, req),
+          videoCount: listVideoFilesCached(id).length,
+        };
+      } catch (err) {
+        console.error(`[Rollo] Could not load library “${id}”:`, err);
+        return {
+          id,
+          name: id,
+          displayName: id,
+          locked: false,
+          lockMode: null,
+          unlocked: true,
+          videoCount: 0,
+          error: err.message || String(err),
+        };
+      }
+    });
+    res.json(groups);
+  } catch (err) {
+    console.error("[Rollo] /api/groups failed:", err);
+    res.status(500).json({ error: `Cannot read videos folder: ${err.message || err}` });
+  }
 });
 
 function sanitizeGroupId(name) {
@@ -612,7 +750,12 @@ app.post("/api/metadata/import", (req, res) => {
   res.json({ updated, skipped });
 });
 
-const groupIds = listGroupIds();
+let groupIds = [];
+try {
+  groupIds = listGroupIds();
+} catch (err) {
+  console.error("[Rollo] Startup library scan failed:", err.message || err);
+}
 const migratedMeta = metadataStore.migrateFromLegacy(groupIds);
 if (migratedMeta.migrated > 0) {
   console.log(`[Rollo] Migrated ${migratedMeta.migrated} tag entries into library _rollo/meta.json files`);
@@ -628,5 +771,14 @@ app.listen(PORT, "0.0.0.0", () => {
   }
   console.log(`[Rollo] videos: ${videosDir}`);
   console.log(`[Rollo] data:   ${dataDir}`);
+  if (groupIds.length) {
+    const summary = groupIds
+      .map((id) => `${id} (${listVideoFilesCached(id).length})`)
+      .join(", ");
+    console.log(`[Rollo] libraries: ${summary}`);
+  } else {
+    console.warn("[Rollo] No libraries found — check VIDEOS_DIR and folder layout.");
+    for (const hint of diagnoseVideosLayout()) console.warn(`[Rollo] ${hint}`);
+  }
   printAccessInfo(PORT);
 });
