@@ -55,7 +55,7 @@ On first launch:
 
 | Control | Purpose |
 |---------|---------|
-| **Show in Gallery** | Off (default): writes `.nomedia` in `Rollo/Videos` so Gallery ignores the folder — **files are not deleted**. On: removes `.nomedia` and scans media into Gallery. **Do not use “Show in Gallery” on APK builds before 2026-06-10** — older builds had a bug that deleted files when hiding. |
+| **Show in Gallery** | Off (default): hides `Rollo/Videos` from Gallery using `.nomedia` (recursive) and a safe MediaStore hide flag — **files are never deleted**. On: removes markers and re-scans media into Gallery. |
 | **Battery** | Opens system dialog to ignore battery optimization so the server keeps running. |
 | **Update** | Pull latest `server.js`, `lib/`, `public/` from GitHub. |
 

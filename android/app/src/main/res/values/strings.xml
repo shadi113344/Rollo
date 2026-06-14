@@ -19,7 +19,7 @@
     <string name="update_from_github">Update from GitHub</string>
     <string name="updating">Downloading latest Rollo…</string>
     <string name="gallery_toggle">Show in Gallery</string>
-    <string name="gallery_desc">When off, a .nomedia file hides Rollo/Videos from Samsung Gallery (your files stay on disk). When on, media is scanned so the folder appears in Gallery.</string>
+    <string name="gallery_desc">When off, Rollo hides media from Samsung Gallery without deleting files (.nomedia + private index flag). When on, media appears in Gallery again.</string>
     <string name="gallery_visible_toast">Videos folder is visible in Gallery</string>
     <string name="gallery_hidden_toast">Videos folder is hidden from Gallery</string>
     <string name="battery_button">Fix battery</string>
