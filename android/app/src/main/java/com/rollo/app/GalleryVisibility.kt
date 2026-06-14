@@ -2,10 +2,14 @@ package com.rollo.app
 
 import android.content.Context
 import android.media.MediaScannerConnection
-import android.os.Build
-import android.provider.MediaStore
 import java.io.File
 
+/**
+ * Hide or show Rollo media in Samsung Gallery / Google Photos.
+ *
+ * Uses only a [.nomedia] marker file — never deletes media from disk.
+ * (Older builds incorrectly called MediaStore.delete, which removed real files.)
+ */
 object GalleryVisibility {
     private const val PREFS = "rollo_prefs"
     private const val KEY_GALLERY_VISIBLE = "gallery_visible"
@@ -41,8 +45,7 @@ object GalleryVisibility {
             if (nomedia.exists()) nomedia.delete()
             scanFolder(context, dir)
         } else {
-            nomedia.writeText("")
-            removeFromMediaStore(context, dir)
+            if (!nomedia.exists()) nomedia.writeText("")
         }
     }
 
@@ -62,37 +65,11 @@ object GalleryVisibility {
         val entries = dir.listFiles() ?: return
         for (entry in entries) {
             if (entry.isDirectory) {
-                if (entry.name == NOMEDIA) continue
+                if (entry.name == NOMEDIA || entry.name == "_rollo") continue
                 collectMediaPaths(entry, out)
             } else if (entry.extension.lowercase() in mediaExtensions) {
                 out.add(entry.absolutePath)
             }
-        }
-    }
-
-    private fun removeFromMediaStore(context: Context, dir: File) {
-        val resolver = context.contentResolver
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val relative = "Rollo/Videos%"
-            val videoUri = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            val imageUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            resolver.delete(
-                videoUri,
-                "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?",
-                arrayOf(relative)
-            )
-            resolver.delete(
-                imageUri,
-                "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?",
-                arrayOf(relative)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            resolver.delete(
-                MediaStore.Files.getContentUri("external"),
-                "${MediaStore.MediaColumns.DATA} LIKE ?",
-                arrayOf("${dir.absolutePath}%")
-            )
         }
     }
 }
