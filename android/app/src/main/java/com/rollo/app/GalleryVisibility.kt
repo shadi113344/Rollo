@@ -7,18 +7,19 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import org.json.JSONObject
 import java.io.File
 
 /**
- * Hide or show Rollo media in Samsung Gallery / Google Photos.
+ * Per-library control for showing Rollo media in Samsung Gallery / Google Photos.
  *
- * Never deletes files. Hiding uses recursive [.nomedia] markers plus marking
- * existing MediaStore rows as pending (hidden from gallery apps).
+ * Never deletes files. Each profile folder can be shown or hidden independently.
  */
 object GalleryVisibility {
     private const val TAG = "RolloGallery"
     private const val PREFS = "rollo_prefs"
     private const val KEY_GALLERY_VISIBLE = "gallery_visible"
+    private const val KEY_LIBRARY_VISIBILITY = "gallery_library_visibility"
     private const val NOMEDIA = ".nomedia"
 
     private val mediaExtensions = setOf(
@@ -26,65 +27,95 @@ object GalleryVisibility {
         "mp4", "mov", "webm", "m4v", "mkv", "avi", "3gp"
     )
 
-    fun isVisibleInGallery(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_GALLERY_VISIBLE, false)
+    fun listLibraryFolders(context: Context): List<String> {
+        val root = RolloConfig.videosDir(context)
+        return root.listFiles()
+            ?.filter { it.isDirectory && isLibraryFolder(it) }
+            ?.map { it.name }
+            ?.sortedBy { it.lowercase() }
+            ?: emptyList()
     }
 
-    fun setVisibleInGallery(context: Context, visible: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_GALLERY_VISIBLE, visible)
-            .apply()
-        apply(context, visible)
+    fun isLibraryVisibleInGallery(context: Context, libraryId: String): Boolean {
+        migrateGlobalPreferenceIfNeeded(context)
+        return readVisibilityMap(context).optBoolean(libraryId, false)
+    }
+
+    fun setLibraryVisibleInGallery(context: Context, libraryId: String, visible: Boolean) {
+        migrateGlobalPreferenceIfNeeded(context)
+        val map = readVisibilityMap(context)
+        map.put(libraryId, visible)
+        saveVisibilityMap(context, map)
+        applyLibrary(context, File(RolloConfig.videosDir(context), libraryId), visible)
     }
 
     fun applySavedPreference(context: Context) {
-        apply(context, isVisibleInGallery(context))
+        applyAllSavedPreferences(context)
     }
 
-    private fun apply(context: Context, visible: Boolean) {
-        val dir = RolloConfig.videosDir(context)
+    fun applyAllSavedPreferences(context: Context) {
+        migrateGlobalPreferenceIfNeeded(context)
+        val root = RolloConfig.videosDir(context)
+        root.mkdirs()
+        File(root, NOMEDIA).delete()
+        for (libraryId in listLibraryFolders(context)) {
+            val visible = isLibraryVisibleInGallery(context, libraryId)
+            applyLibrary(context, File(root, libraryId), visible)
+        }
+    }
+
+    private fun migrateGlobalPreferenceIfNeeded(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.contains(KEY_GALLERY_VISIBLE)) return
+        if (prefs.contains(KEY_LIBRARY_VISIBILITY)) {
+            prefs.edit().remove(KEY_GALLERY_VISIBLE).apply()
+            return
+        }
+        val global = prefs.getBoolean(KEY_GALLERY_VISIBLE, false)
+        val map = JSONObject()
+        for (libraryId in listLibraryFolders(context)) {
+            map.put(libraryId, global)
+        }
+        saveVisibilityMap(context, map)
+        prefs.edit().remove(KEY_GALLERY_VISIBLE).apply()
+    }
+
+    private fun readVisibilityMap(context: Context): JSONObject {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LIBRARY_VISIBILITY, null)
+        if (raw.isNullOrBlank()) return JSONObject()
+        return try {
+            JSONObject(raw)
+        } catch (_: Exception) {
+            JSONObject()
+        }
+    }
+
+    private fun saveVisibilityMap(context: Context, map: JSONObject) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LIBRARY_VISIBILITY, map.toString())
+            .apply()
+    }
+
+    private fun applyLibrary(context: Context, dir: File, visible: Boolean) {
         dir.mkdirs()
+        val nomedia = File(dir, NOMEDIA)
         if (visible) {
-            removeNomediaMarkers(dir)
+            if (nomedia.exists()) nomedia.delete()
             setIndexedMediaPending(context, dir, pending = false)
             scanMediaFiles(context, dir)
         } else {
-            placeNomediaMarkers(dir)
+            if (!nomedia.exists()) nomedia.writeText("")
             setIndexedMediaPending(context, dir, pending = true)
-            scanNomediaMarkers(context, dir)
+            scanNomediaMarker(context, dir)
         }
     }
 
-    private fun placeNomediaMarkers(dir: File) {
-        val nomedia = File(dir, NOMEDIA)
-        if (!nomedia.exists()) nomedia.writeText("")
-        dir.listFiles()?.forEach { entry ->
-            if (entry.isDirectory && shouldScanDir(entry)) {
-                placeNomediaMarkers(entry)
-            }
-        }
-    }
-
-    private fun removeNomediaMarkers(dir: File) {
-        val nomedia = File(dir, NOMEDIA)
-        if (nomedia.exists()) nomedia.delete()
-        dir.listFiles()?.forEach { entry ->
-            if (entry.isDirectory && shouldScanDir(entry)) {
-                removeNomediaMarkers(entry)
-            }
-        }
-    }
-
-    private fun shouldScanDir(dir: File): Boolean {
+    private fun isLibraryFolder(dir: File): Boolean {
         return dir.name != NOMEDIA && dir.name != "_rollo" && !dir.name.startsWith(".")
     }
 
-    /**
-     * Mark existing MediaStore index rows hidden/visible without deleting files.
-     * IS_PENDING=1 keeps files on disk but hides them from gallery apps.
-     */
     private fun setIndexedMediaPending(context: Context, root: File, pending: Boolean) {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
@@ -174,27 +205,20 @@ object GalleryVisibility {
         MediaScannerConnection.scanFile(context, paths.toTypedArray(), null, null)
     }
 
-    private fun scanNomediaMarkers(context: Context, dir: File) {
-        val paths = mutableListOf(dir.absolutePath)
-        collectNomediaPaths(dir, paths)
-        MediaScannerConnection.scanFile(context, paths.toTypedArray(), null, null)
-    }
-
-    private fun collectNomediaPaths(dir: File, out: MutableList<String>) {
+    private fun scanNomediaMarker(context: Context, dir: File) {
         val nomedia = File(dir, NOMEDIA)
-        if (nomedia.exists()) out.add(nomedia.absolutePath)
-        dir.listFiles()?.forEach { entry ->
-            if (entry.isDirectory && shouldScanDir(entry)) {
-                collectNomediaPaths(entry, out)
-            }
-        }
+        val paths = mutableListOf(dir.absolutePath)
+        if (nomedia.exists()) paths.add(nomedia.absolutePath)
+        MediaScannerConnection.scanFile(context, paths.toTypedArray(), null, null)
     }
 
     private fun collectMediaPaths(dir: File, out: MutableList<String>) {
         val entries = dir.listFiles() ?: return
         for (entry in entries) {
             if (entry.isDirectory) {
-                if (shouldScanDir(entry)) collectMediaPaths(entry, out)
+                if (entry.name != NOMEDIA && entry.name != "_rollo" && !entry.name.startsWith(".")) {
+                    collectMediaPaths(entry, out)
+                }
             } else if (entry.extension.lowercase() in mediaExtensions) {
                 out.add(entry.absolutePath)
             }

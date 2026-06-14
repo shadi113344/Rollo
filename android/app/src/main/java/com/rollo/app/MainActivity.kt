@@ -14,6 +14,8 @@ import android.os.Process
 import android.provider.DocumentsContract
 import android.provider.Settings
 import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -48,7 +50,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var retryButton: MaterialButton
     private lateinit var updateButton: MaterialButton
     private lateinit var batteryButton: MaterialButton
-    private lateinit var gallerySwitch: SwitchMaterial
+    private lateinit var galleryLibraryList: LinearLayout
+    private lateinit var galleryLibrariesEmpty: TextView
     private lateinit var shareWhatsAppButton: MaterialButton
     private lateinit var shareCopyButton: MaterialButton
     private lateinit var videosFolderPath: TextView
@@ -56,7 +59,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var defaultVideosFolderButton: MaterialButton
     private lateinit var exitButton: MaterialButton
 
-    private var gallerySwitchListener: ((Boolean) -> Unit)? = null
     private var startupInProgress = false
     private var serverReady = false
 
@@ -104,7 +106,8 @@ class MainActivity : AppCompatActivity() {
         retryButton = findViewById(R.id.retryButton)
         updateButton = findViewById(R.id.updateButton)
         batteryButton = findViewById(R.id.batteryButton)
-        gallerySwitch = findViewById(R.id.gallerySwitch)
+        galleryLibraryList = findViewById(R.id.galleryLibraryList)
+        galleryLibrariesEmpty = findViewById(R.id.galleryLibrariesEmpty)
         shareWhatsAppButton = findViewById(R.id.shareWhatsAppButton)
         shareCopyButton = findViewById(R.id.shareCopyButton)
         videosFolderPath = findViewById(R.id.videosFolderPath)
@@ -123,18 +126,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupControls() {
-        gallerySwitchListener = { visible ->
-            GalleryVisibility.setVisibleInGallery(this, visible)
-            Toast.makeText(
-                this,
-                if (visible) R.string.gallery_visible_toast else R.string.gallery_hidden_toast,
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        gallerySwitch.setOnCheckedChangeListener { _, checked ->
-            gallerySwitchListener?.invoke(checked)
-        }
-
         batteryButton.setOnClickListener {
             if (BatteryHelper.isExempt(this)) {
                 Toast.makeText(this, R.string.battery_opt_granted, Toast.LENGTH_SHORT).show()
@@ -224,17 +215,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshSettingsState() {
-        gallerySwitch.setOnCheckedChangeListener(null)
-        gallerySwitch.isChecked = GalleryVisibility.isVisibleInGallery(this)
-        gallerySwitch.setOnCheckedChangeListener { _, checked ->
-            gallerySwitchListener?.invoke(checked)
-        }
+        refreshGalleryLibraryList()
         batteryButton.text = if (BatteryHelper.isExempt(this)) {
             getString(R.string.battery_opt_granted)
         } else {
             getString(R.string.battery_button)
         }
         refreshVideosFolderLabel()
+    }
+
+    private fun refreshGalleryLibraryList() {
+        galleryLibraryList.removeAllViews()
+        val libraries = GalleryVisibility.listLibraryFolders(this)
+        galleryLibrariesEmpty.isVisible = libraries.isEmpty()
+        if (libraries.isEmpty()) return
+
+        val marginPx = (8 * resources.displayMetrics.density).toInt()
+        val accent = ContextCompat.getColor(this, R.color.rollo_accent)
+        for (libraryId in libraries) {
+            val toggle = SwitchMaterial(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = marginPx }
+                text = libraryId
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.rollo_text))
+                thumbTintList = android.content.res.ColorStateList.valueOf(accent)
+                isChecked = GalleryVisibility.isLibraryVisibleInGallery(this@MainActivity, libraryId)
+                setOnCheckedChangeListener { _, checked ->
+                    GalleryVisibility.setLibraryVisibleInGallery(this@MainActivity, libraryId, checked)
+                    val msg = if (checked) {
+                        getString(R.string.gallery_library_visible_toast, libraryId)
+                    } else {
+                        getString(R.string.gallery_library_hidden_toast, libraryId)
+                    }
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                }
+            }
+            galleryLibraryList.addView(toggle)
+        }
     }
 
     private fun refreshVideosFolderLabel() {

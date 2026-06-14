@@ -55,7 +55,7 @@ On first launch:
 
 | Control | Purpose |
 |---------|---------|
-| **Show in Gallery** | Off (default): hides `Rollo/Videos` from Gallery using `.nomedia` (recursive) and a safe MediaStore hide flag — **files are never deleted**. On: removes markers and re-scans media into Gallery. |
+| **Show in Gallery** | Per-library toggles under Settings: each profile folder (Gym, xXx, …) can be shown or hidden in Gallery independently. Hidden libraries stay on disk — nothing is deleted. |
 | **Battery** | Opens system dialog to ignore battery optimization so the server keeps running. |
 | **Update** | Pull latest `server.js`, `lib/`, `public/` from GitHub. |
 

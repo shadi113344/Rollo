@@ -19,9 +19,11 @@
     <string name="update_from_github">Update from GitHub</string>
     <string name="updating">Downloading latest Rollo…</string>
     <string name="gallery_toggle">Show in Gallery</string>
-    <string name="gallery_desc">When off, Rollo hides media from Samsung Gallery without deleting files (.nomedia + private index flag). When on, media appears in Gallery again.</string>
-    <string name="gallery_visible_toast">Videos folder is visible in Gallery</string>
-    <string name="gallery_hidden_toast">Videos folder is hidden from Gallery</string>
+    <string name="gallery_desc">Choose which libraries appear in Samsung Gallery. Hidden libraries stay on disk — nothing is deleted.</string>
+    <string name="gallery_libraries_label">Libraries</string>
+    <string name="gallery_libraries_empty">No libraries found in your videos folder yet.</string>
+    <string name="gallery_library_visible_toast">%1$s is visible in Gallery</string>
+    <string name="gallery_library_hidden_toast">%1$s is hidden from Gallery</string>
     <string name="battery_button">Fix battery</string>
     <string name="battery_title">Keep running in background</string>
     <string name="battery_desc">Prevents Android from stopping the server. On Samsung also set Apps → Rollo → Battery → Unrestricted.</string>

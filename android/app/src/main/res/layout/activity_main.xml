@@ -288,15 +288,31 @@
                         android:textColor="@color/rollo_muted"
                         android:textSize="13sp" />
 
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/gallerySwitch"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/gallery_libraries_label"
+                        android:textColor="@color/rollo_text"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="12dp" />
+
+                    <TextView
+                        android:id="@+id/galleryLibrariesEmpty"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="@string/gallery_toggle"
-                        android:textColor="@color/rollo_text"
-                        app:thumbTint="@color/rollo_accent"
-                        app:trackTint="#444444" />
+                        android:text="@string/gallery_libraries_empty"
+                        android:textColor="@color/rollo_muted"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/galleryLibraryList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
