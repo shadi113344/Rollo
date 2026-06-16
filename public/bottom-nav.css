@@ -75,6 +75,10 @@
   color: #fff;
 }
 
+.tab-item.tab-item-servers .tab-label {
+  font-size: 8px;
+}
+
 .tab-icon {
   width: 24px;
   height: 24px;

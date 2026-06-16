@@ -1,5 +1,6 @@
 const express = require("express");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const multer = require("multer");
 
@@ -284,6 +285,8 @@ function buildVideo(groupId, filename) {
 }
 
 app.get("/api/status", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   let ids = [];
   let readError = null;
   try {
@@ -300,6 +303,7 @@ app.get("/api/status", (_req, res) => {
     }
   }
   res.json({
+    hostname: os.hostname(),
     videosDir,
     dataDir,
     libraries: ids,
@@ -307,7 +311,14 @@ app.get("/api/status", (_req, res) => {
     videoCounts: counts,
     hints: diagnoseVideosLayout(),
     readError,
+    network: getAccessInfo(PORT),
   });
+});
+
+app.options("/api/status", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.sendStatus(204);
 });
 
 app.get("/api/groups", (req, res) => {

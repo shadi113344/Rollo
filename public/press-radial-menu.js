@@ -15,7 +15,8 @@ window.PressRadialMenu = (function () {
   const SUB_ROW_GAP = 12;
   const SUB_COL_GAP = 14;
   const SUB_MAX_ROW_WIDTH = 260;
-  const PRIMARY_HIGHLIGHT_SCALE = 1.2;
+  const PRIMARY_HIGHLIGHT_SCALE = 1.36;
+  const PRIMARY_GAP = 10;
   const SUB_HIGHLIGHT_SCALE = 1.5;
   const ROW_MIN_CLEAR = 8;
   const SUB_ROW_EXTRA = 16;
@@ -55,6 +56,7 @@ window.PressRadialMenu = (function () {
   let tagPaletteActive = false;
   let tagPaletteOptionId = null;
   let lastPointer = { x: 0, y: 0 };
+  let menuRelayoutRaf = null;
 
   const bodyHandlers = {
     touchmove: null,
@@ -207,8 +209,22 @@ window.PressRadialMenu = (function () {
     return Math.min(SUB_MAX_W, Math.max(SUB_MIN_W, base));
   }
 
-  function subOptionLayoutWidth(label) {
-    return Math.ceil(subOptionWidth(label) * SUB_HIGHLIGHT_SCALE) + 6;
+  function subItemSize(index, highlightIdx) {
+    const label = subOptions[index]?.label || "";
+    const baseW = subOptionWidth(label);
+    if (index === highlightIdx) {
+      return {
+        w: Math.min(SUB_MAX_W + 24, Math.ceil(baseW * SUB_HIGHLIGHT_SCALE)),
+        h: Math.ceil(SUB_HEIGHT * SUB_HIGHLIGHT_SCALE),
+      };
+    }
+    return { w: baseW, h: SUB_HEIGHT };
+  }
+
+  function subHighlightedIndex() {
+    if (!highlightId) return -1;
+    const idx = subOptions.findIndex((o) => o.id === highlightId);
+    return idx >= 0 ? idx : -1;
   }
 
   function isVerticalLayout() {
@@ -250,10 +266,11 @@ window.PressRadialMenu = (function () {
     };
   }
 
-  function subGridLayout() {
-    const widths = subOptions.map((o) => subOptionLayoutWidth(o.label));
+  function subGridLayout(subHi = subHighlightedIndex()) {
+    const sizes = subOptions.map((_, i) => subItemSize(i, subHi));
+    const widths = sizes.map((s) => s.w);
     const positions = new Array(subOptions.length);
-    const rowStep = SUB_HEIGHT + SUB_ROW_GAP;
+    const rowStep = (rowH) => rowH + SUB_ROW_GAP;
 
     if (isVerticalLayout()) {
       const vh = window.innerHeight - VIEW_MARGIN * 2;
@@ -290,9 +307,9 @@ window.PressRadialMenu = (function () {
           const i = c * perCol + r;
           const y =
             countInCol === 1 ? 0 : -stackH / 2 + r * VERTICAL_SUB_STEP;
-          positions[i] = { x: colCenterX, y, width: widths[i] };
-          minY = Math.min(minY, y - SUB_HEIGHT / 2);
-          maxY = Math.max(maxY, y + SUB_HEIGHT / 2);
+          positions[i] = { x: colCenterX, y, w: sizes[i].w, h: sizes[i].h };
+          minY = Math.min(minY, y - sizes[i].h / 2);
+          maxY = Math.max(maxY, y + sizes[i].h / 2);
           minX = Math.min(minX, colCenterX - colW / 2);
           maxX = Math.max(maxX, colCenterX + colW / 2);
         }
@@ -302,6 +319,7 @@ window.PressRadialMenu = (function () {
       return {
         positions,
         widths,
+        sizes,
         totalW: Math.abs(colEdge - dir * sep),
         totalH: maxY - minY,
         minX,
@@ -313,7 +331,7 @@ window.PressRadialMenu = (function () {
 
     const parentPos = parentOptionPos(submenuParentId || "tags");
     const gridAnchor = subGridAnchor(parentPos);
-    const items = subOptions.map((o, i) => ({ index: i, width: widths[i], label: o.label }));
+    const items = subOptions.map((o, i) => ({ index: i, width: sizes[i].w, label: o.label }));
     const rows = packSubRows(items);
     let minX = Infinity;
     let maxX = -Infinity;
@@ -321,24 +339,32 @@ window.PressRadialMenu = (function () {
     let maxY = -Infinity;
 
     rows.forEach((row, rowIdx) => {
-      const rowTotalW = row.reduce((sum, it, i) => sum + it.width + (i ? SUB_GAP : 0), 0);
+      const rowH = Math.max(...row.map((it) => sizes[it.index].h));
+      const rowTotalW = row.reduce((sum, it, i) => sum + sizes[it.index].w + (i ? SUB_GAP : 0), 0);
       let cursor = -rowTotalW / 2;
-      const y = gridAnchor.y - rowIdx * rowStep;
+      let yOffset = 0;
+      for (let r = 0; r < rowIdx; r++) {
+        const prevH = Math.max(...rows[r].map((it) => sizes[it.index].h));
+        yOffset += rowStep(prevH);
+      }
+      const y = gridAnchor.y - yOffset;
       row.forEach((item) => {
-        cursor += item.width / 2;
+        const sz = sizes[item.index];
+        cursor += sz.w / 2;
         const x = gridAnchor.x + cursor;
-        positions[item.index] = { x, y, width: item.width };
-        minX = Math.min(minX, x - item.width / 2);
-        maxX = Math.max(maxX, x + item.width / 2);
-        minY = Math.min(minY, y - SUB_HEIGHT / 2);
-        maxY = Math.max(maxY, y + SUB_HEIGHT / 2);
-        cursor += item.width / 2 + SUB_GAP;
+        positions[item.index] = { x, y, w: sz.w, h: sz.h };
+        minX = Math.min(minX, x - sz.w / 2);
+        maxX = Math.max(maxX, x + sz.w / 2);
+        minY = Math.min(minY, y - sz.h / 2);
+        maxY = Math.max(maxY, y + sz.h / 2);
+        cursor += sz.w / 2 + SUB_GAP;
       });
     });
 
     return {
       positions,
       widths,
+      sizes,
       totalW: maxX - minX,
       totalH: maxY - minY,
       minX,
@@ -399,6 +425,112 @@ window.PressRadialMenu = (function () {
     return arcPosition(index, count, mode);
   }
 
+  function primaryHighlightIndex() {
+    if (!highlightId) return -1;
+    const idx = options.findIndex((o) => o.id === highlightId);
+    return idx >= 0 ? idx : -1;
+  }
+
+  function primaryButtonDiameter(index, highlightIdx) {
+    return index === highlightIdx ? BTN_HIGHLIGHT : BTN_SIZE;
+  }
+
+  function fanShiftForRowWidth(totalWidth) {
+    const half = totalWidth / 2;
+    const vw = window.innerWidth;
+    let center = anchor.x + fanShiftX;
+    if (center - half < VIEW_MARGIN) center = VIEW_MARGIN + half;
+    if (center + half > vw - VIEW_MARGIN) center = vw - VIEW_MARGIN - half;
+    return center - anchor.x;
+  }
+
+  function linearPositionsWithHighlight(highlightIdx) {
+    const count = options.length;
+    const y = primaryLinearRowY(layoutMode);
+    const diameters = options.map((_, i) => primaryButtonDiameter(i, highlightIdx));
+    const totalW = diameters.reduce((a, b) => a + b, 0) + PRIMARY_GAP * Math.max(0, count - 1);
+    const shift = fanShiftForRowWidth(totalW);
+    let xLeft = shift - totalW / 2;
+    return diameters.map((d) => {
+      const pos = { x: xLeft + d / 2, y };
+      xLeft += d + PRIMARY_GAP;
+      return pos;
+    });
+  }
+
+  function arcPositionsWithHighlight(highlightIdx) {
+    const count = options.length;
+    const bases = options.map((_, i) => arcPosition(i, count, layoutMode));
+    if (highlightIdx < 0) return bases;
+    const hi = bases[highlightIdx];
+    const push = (BTN_HIGHLIGHT - BTN_SIZE) * 0.5;
+    return bases.map((p, i) => {
+      if (i === highlightIdx) return p;
+      const dx = p.x - hi.x;
+      const dy = p.y - hi.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const steps = Math.abs(i - highlightIdx);
+      const falloff = steps === 1 ? 1 : steps === 2 ? 0.55 : 0.3;
+      const m = push * falloff;
+      return { x: p.x + (dx / dist) * m, y: p.y + (dy / dist) * m };
+    });
+  }
+
+  function computePrimaryPositions(highlightIdx) {
+    const count = options.length;
+    if (highlightIdx < 0) {
+      return options.map((_, i) => layoutPosition(i, count, layoutMode));
+    }
+    if (layoutMode.startsWith("linear")) {
+      return linearPositionsWithHighlight(highlightIdx);
+    }
+    if (ARC_LAYOUTS[layoutMode]) {
+      return arcPositionsWithHighlight(highlightIdx);
+    }
+    return options.map((_, i) => layoutPosition(i, count, layoutMode));
+  }
+
+  function scheduleMenuRelayout() {
+    if (menuRelayoutRaf) cancelAnimationFrame(menuRelayoutRaf);
+    menuRelayoutRaf = requestAnimationFrame(() => {
+      menuRelayoutRaf = null;
+      relayoutPrimaryFan();
+      relayoutSubFan();
+    });
+  }
+
+  function relayoutPrimaryFan() {
+    if (!open || isVerticalLayout()) return;
+    const highlightIdx = primaryHighlightIndex();
+    const positions = computePrimaryPositions(highlightIdx);
+    const buttons = [...fanEl.querySelectorAll(".radial-menu-option:not(.radial-menu-option--sub)")];
+    buttons.forEach((btn, i) => {
+      const pos = positions[i];
+      if (!pos) return;
+      const size = i === highlightIdx ? BTN_HIGHLIGHT : BTN_SIZE;
+      btn.style.setProperty("--opt-size", `${size}px`);
+      btn.style.setProperty("--pop-x", `${pos.x}px`);
+      btn.style.setProperty("--pop-y", `${pos.y}px`);
+    });
+  }
+
+  function relayoutSubFan() {
+    if (!open || !subOptions.length) return;
+    syncSubmenuShift();
+    const subHi = subHighlightedIndex();
+    const grid = subGridLayout(subHi);
+    const buttons = [...subFanEl.querySelectorAll(".radial-menu-option--sub")];
+    buttons.forEach((btn, i) => {
+      const pos = grid.positions[i];
+      const sz = grid.sizes[i];
+      if (!pos || !sz) return;
+      btn.style.setProperty("--sub-w", `${sz.w}px`);
+      btn.style.setProperty("--sub-h", `${sz.h}px`);
+      btn.style.setProperty("--pop-x", `${pos.x + subShiftX}px`);
+      btn.style.setProperty("--pop-y", `${pos.y + subShiftY}px`);
+    });
+  }
+
   function resolveSubmenu(opt) {
     if (!opt?.submenu) return [];
     return typeof opt.submenu === "function" ? opt.submenu() : opt.submenu;
@@ -407,7 +539,8 @@ window.PressRadialMenu = (function () {
   function parentOptionPos(parentId) {
     const index = options.findIndex((o) => o.id === parentId);
     if (index < 0) return { x: 0, y: 0 };
-    return layoutPosition(index, options.length, layoutMode);
+    const positions = computePrimaryPositions(primaryHighlightIndex());
+    return positions[index] || layoutPosition(index, options.length, layoutMode);
   }
 
   function subRowPosition(subIndex) {
@@ -488,14 +621,17 @@ window.PressRadialMenu = (function () {
     let pos;
     if (isSub) {
       const parentPos = parentOptionPos(submenuParentId);
-      const { widths } = subRowLayout();
       pos = subRowPosition(index);
+      const sz = subItemSize(index, subHighlightedIndex());
       btn.style.setProperty("--sub-ox", `${parentPos.x}px`);
       btn.style.setProperty("--sub-oy", `${parentPos.y}px`);
-      const w = widths[index] ?? SUB_MIN_W;
-      btn.style.setProperty("--sub-w", `${Math.ceil(w / SUB_HIGHLIGHT_SCALE)}px`);
+      btn.style.setProperty("--sub-w", `${sz.w}px`);
+      btn.style.setProperty("--sub-h", `${sz.h}px`);
     } else {
-      pos = layoutPosition(index, options.length, layoutMode);
+      const positions = computePrimaryPositions(primaryHighlightIndex());
+      pos = positions[index] || layoutPosition(index, options.length, layoutMode);
+      const size = index === primaryHighlightIndex() ? BTN_HIGHLIGHT : BTN_SIZE;
+      btn.style.setProperty("--opt-size", `${size}px`);
     }
     btn.style.setProperty("--pop-x", `${pos.x}px`);
     btn.style.setProperty("--pop-y", `${pos.y}px`);
@@ -617,13 +753,15 @@ window.PressRadialMenu = (function () {
 
     grid.positions.forEach((p, i) => {
       if (!p) return;
-      const hw = (grid.widths[i] || SUB_MIN_W) / 2;
+      const sz = grid.sizes?.[i];
+      const hw = (sz?.w || grid.widths[i] || SUB_MIN_W) / 2;
+      const hh = (sz?.h || SUB_HEIGHT) / 2;
       const absX = anchor.x + p.x;
       const absY = anchor.y + p.y;
       minX = Math.min(minX, absX - hw);
       maxX = Math.max(maxX, absX + hw);
-      minY = Math.min(minY, absY - SUB_HEIGHT / 2);
-      maxY = Math.max(maxY, absY + SUB_HEIGHT / 2);
+      minY = Math.min(minY, absY - hh);
+      maxY = Math.max(maxY, absY + hh);
     });
 
     let dx = 0;
@@ -729,10 +867,25 @@ window.PressRadialMenu = (function () {
     /* null id while sub-row open: finger in transit — keep sub-row */
 
     updateHighlight();
-    if (subOptions.length && !subJustOpened) renderSubRow(false);
+    scheduleMenuRelayout();
   }
 
   function hitTest(clientX, clientY) {
+    if (highlightId) {
+      const sticky = root.querySelector(`[data-menu-option="${highlightId}"]`);
+      if (sticky) {
+        const r = sticky.getBoundingClientRect();
+        const pad = 12;
+        if (
+          clientX >= r.left - pad &&
+          clientX <= r.right + pad &&
+          clientY >= r.top - pad &&
+          clientY <= r.bottom + pad
+        ) {
+          return highlightId;
+        }
+      }
+    }
     const stack = document.elementsFromPoint(clientX, clientY);
     let primary = null;
     for (const el of stack) {
@@ -783,6 +936,8 @@ window.PressRadialMenu = (function () {
     triggerEl.classList.add("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "true");
     setBodyLock(true);
+    root.classList.add("radial-menu-root--opening");
+    setTimeout(() => root?.classList.remove("radial-menu-root--opening"), 520);
     renderFan(true);
     renderSubRow(false);
   }

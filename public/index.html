@@ -663,6 +663,11 @@
       cursor: pointer;
     }
 
+    a.action-btn {
+      text-decoration: none;
+      color: #fff;
+    }
+
     .action-btn:active { background: #333; }
     .action-btn.danger { color: #ff6b8a; }
     .action-btn.cancel { background: #333; text-align: center; margin-top: 4px; }
@@ -1046,6 +1051,7 @@
     <button class="action-btn" id="group-settings-btn" type="button"></button>
     <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
     <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
+    <a class="action-btn" href="/connect.html" id="servers-link">Servers</a>
     <button class="action-btn cancel" id="more-close" type="button">Close</button>
   </div>
 
@@ -1172,10 +1178,18 @@
         </span>
         <span class="tab-label">Download</span>
       </a>
+      <a href="/connect.html" class="tab-item tab-item-servers" id="servers-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1.5"/><rect x="2" y="11" width="20" height="6" rx="1.5"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="tab-label">Servers</span>
+      </a>
     </nav>
   </footer>
 
   <script src="/pwa.js"></script>
+  <script src="/servers.js"></script>
+  <script>RolloServers.importSeedFromUrl();</script>
   <script src="/layout-metrics.js"></script>
   <script src="/media.js"></script>
   <script src="/tag-colors.js"></script>
@@ -2363,17 +2377,17 @@
           }),
         },
         {
-          id: "rename",
-          label: "Edit name",
-          icon: RolloIcons.edit(22),
-          onSelect: () => openRenameFromRadial(video),
-        },
-        {
           id: "move",
           label: "Move to…",
           icon: RolloIcons.move(22),
           submenu: () => buildMoveSubOptions(video),
           onSelect: () => openMoveSheetFromRadial(video),
+        },
+        {
+          id: "rename",
+          label: "Edit name",
+          icon: RolloIcons.edit(22),
+          onSelect: () => openRenameFromRadial(video),
         },
         {
           id: "delete",
