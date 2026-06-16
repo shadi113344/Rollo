@@ -535,12 +535,11 @@
 
     <main>
       <div class="warn-banner" id="ytdlp-warn" hidden>
-        yt-dlp is not installed on this server. On your PC run:
-        <strong>winget install yt-dlp</strong>, then restart Rollo.
+        <span id="ytdlp-warn-text">yt-dlp is not installed on this server.</span>
       </div>
 
       <div class="warn-banner" id="ffmpeg-warn" hidden>
-        ffmpeg not found. Install with <strong>winget install Gyan.FFmpeg</strong>, then restart Rollo.
+        <span id="ffmpeg-warn-text">ffmpeg not found.</span>
       </div>
 
       <div class="card" id="x-auth-card">
@@ -671,7 +670,9 @@
     const urlInput = document.getElementById("url-input");
     const downloadBtn = document.getElementById("download-btn");
     const ytdlpWarn = document.getElementById("ytdlp-warn");
+    const ytdlpWarnText = document.getElementById("ytdlp-warn-text");
     const ffmpegWarn = document.getElementById("ffmpeg-warn");
+    const ffmpegWarnText = document.getElementById("ffmpeg-warn-text");
     const xAuthStatus = document.getElementById("x-auth-status");
     const xConnectBtn = document.getElementById("x-connect-btn");
     const xDisconnectBtn = document.getElementById("x-disconnect-btn");
@@ -843,18 +844,36 @@
       }
     }
 
+    let androidDownloaderPoll = null;
+
     async function checkDownloader() {
       try {
         const res = await fetch("/api/downloader/status");
         const data = await res.json();
         ytdlpAvailable = !!data.available;
+        ytdlpWarnText.textContent = data.available
+          ? ""
+          : data.androidServer && !data.androidBridge
+            ? data.installHint || "Android downloader is starting…"
+            : data.installHint || "yt-dlp is not installed on this server.";
         ytdlpWarn.hidden = ytdlpAvailable;
-        ffmpegWarn.hidden = !ytdlpAvailable || !!data.ffmpeg;
+        if (data.ffmpegHint) {
+          ffmpegWarnText.textContent = data.ffmpegHint;
+          ffmpegWarn.hidden = false;
+        } else {
+          ffmpegWarn.hidden = !ytdlpAvailable || !!data.ffmpeg;
+        }
         downloadBtn.disabled = !ytdlpAvailable;
         if (data.defaultQuality) qualitySelect.value = data.defaultQuality;
         updateXAuthUi(!!data.cookies || (hasAndroidBridge() && window.RolloBridge.isXConnected()));
+
+        clearTimeout(androidDownloaderPoll);
+        if (data.androidServer && !data.available) {
+          androidDownloaderPoll = setTimeout(checkDownloader, 3000);
+        }
       } catch {
         ytdlpAvailable = false;
+        ytdlpWarnText.textContent = "Could not reach the downloader on this server.";
         ytdlpWarn.hidden = false;
         ffmpegWarn.hidden = true;
         downloadBtn.disabled = true;

@@ -41,6 +41,7 @@ class RolloService : Service() {
         RolloConfig.videosDir(this).mkdirs()
         GalleryVisibility.applySavedPreference(this)
         AssetInstaller.installIfNeeded(this)
+        AndroidDownloadWorker.start(this)
         NodeRunner.start(RolloConfig.nodeProjectDir(this))
         return START_STICKY
     }

@@ -28,8 +28,8 @@ android {
         applicationId = "com.rollo.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -176,4 +176,7 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.webkit:webkit:1.10.0")
+    val youtubedlAndroid = "0.17.2"
+    implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroid")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroid")
 }

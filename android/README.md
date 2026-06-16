@@ -84,6 +84,12 @@ On first launch:
 | **Battery** | Opens system dialog to ignore battery optimization so the server keeps running. |
 | **Update** | Pull latest `server.js`, `lib/`, `public/` from GitHub. |
 
+## Browser Downloader (yt-dlp)
+
+The Android APK bundles **youtubedl-android** (Python + yt-dlp + ffmpeg) and runs downloads on the phone. The first launch may take **10–30 seconds** before the Download tab shows as ready.
+
+On **PC**, install yt-dlp separately: `winget install yt-dlp`
+
 ## Remote access (Tailscale)
 
 Install Tailscale separately on the phone and other devices. Use the S10 Tailscale IP from the Tailscale app (not always what Termux prints):
