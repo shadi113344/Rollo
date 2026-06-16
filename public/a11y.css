@@ -1,0 +1,79 @@
+/* Safari / iOS — keep taps for the app, not browser zoom / text select / callouts */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+.allow-select {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* iOS Safari auto-zooms focused fields below 16px — !important beats page overrides */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Focus — keyboard / switch-control navigation */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #7ec8ff;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[role="slider"]:focus-visible {
+  outline: 2px solid #7ec8ff;
+  outline-offset: 2px;
+}
+
+/* Minimum touch targets (44×44 CSS px) */
+.icon-btn,
+.menu-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.group-picker .group-chev {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Toasts — screen reader announcements */
+#toast[role="status"] {
+  min-height: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .thumb-placeholder {
+    animation: none !important;
+  }
+}

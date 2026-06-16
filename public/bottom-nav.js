@@ -60,7 +60,20 @@ window.BottomNav = {
         btn.className = "profile-switch-item";
         btn.setAttribute("role", "menuitem");
         const name = group.displayName || group.name || group.id;
-        btn.textContent = name + (group.locked && !group.unlocked ? " \u{1F512}" : "");
+        const locked = group.locked && !group.unlocked;
+        if (locked && window.RolloIcons) {
+          const label = document.createElement("span");
+          label.textContent = name;
+          btn.appendChild(label);
+          const lock = document.createElement("span");
+          lock.className = "inline-lock";
+          lock.setAttribute("aria-hidden", "true");
+          lock.innerHTML = RolloIcons.lock(12);
+          btn.appendChild(document.createTextNode(" "));
+          btn.appendChild(lock);
+        } else {
+          btn.textContent = name;
+        }
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           closeMenu();

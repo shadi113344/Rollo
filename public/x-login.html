@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Sign in to X — Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/bottom-nav.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #app-scroll {
+      min-height: 100%;
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(24px + var(--bottom-ui-inset));
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
+    .lead { margin: 0 0 20px; color: #9a9a9a; font-size: 14px; line-height: 1.5; }
+    .card {
+      background: #141414;
+      border: 1px solid #242424;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .step-num {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8a8a8a;
+      margin-bottom: 6px;
+    }
+    .step-title { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+    .step-desc { margin: 0 0 14px; font-size: 13px; color: #9a9a9a; line-height: 1.45; }
+    .primary-btn, .secondary-btn {
+      display: block;
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .primary-btn { background: #fff; color: #000; }
+    .primary-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .secondary-btn { background: #2a2a2a; color: #fff; }
+    .error { color: #ff8f8f; font-size: 13px; margin-top: 12px; line-height: 1.45; }
+    .ok { color: #8ddf8d; font-size: 13px; margin-top: 12px; }
+    a.back-link {
+      display: inline-block;
+      margin-top: 8px;
+      color: #9ec5ff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-scroll">
+    <h1>Sign in to X</h1>
+    <p class="lead">One-time sign-in so Rollo can download video links from X / Twitter. Same steps on PC and phone.</p>
+
+    <div class="card">
+      <div class="step-num">Step 1</div>
+      <p class="step-title">Log in to X</p>
+      <p class="step-desc" id="step1-desc">Open X and sign in with your account.</p>
+      <button class="primary-btn" id="open-x-btn" type="button">Open X login</button>
+    </div>
+
+    <div class="card">
+      <div class="step-num">Step 2</div>
+      <p class="step-title">Confirm you’re signed in</p>
+      <p class="step-desc" id="step2-desc">
+        After you see your X home feed, come back here and tap below.
+        On PC: close Edge/Chrome completely first so Rollo can read the login.
+      </p>
+      <button class="primary-btn" id="confirm-btn" type="button">I’m signed in — save</button>
+      <p class="error" id="error-msg" hidden></p>
+      <p class="ok" id="ok-msg" hidden></p>
+    </div>
+
+    <a class="back-link" id="back-link" href="/download.html">← Back to Download</a>
+  </div>
+
+  <script src="/toast.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const returnTo = params.get("return") || "/download.html";
+    const openXBtn = document.getElementById("open-x-btn");
+    const confirmBtn = document.getElementById("confirm-btn");
+    const errorMsg = document.getElementById("error-msg");
+    const okMsg = document.getElementById("ok-msg");
+    const backLink = document.getElementById("back-link");
+    const step1Desc = document.getElementById("step1-desc");
+    const step2Desc = document.getElementById("step2-desc");
+
+    backLink.href = returnTo;
+
+    const hasBridge = () => typeof window.RolloBridge?.connectX === "function";
+
+    if (hasBridge()) {
+      step1Desc.textContent = "Sign in inside Rollo — no extra browser needed.";
+      step2Desc.textContent = "When you see your X feed, tap Done on the login screen, then tap save below.";
+      openXBtn.textContent = "Open X login in app";
+    } else {
+      openXBtn.textContent = "Open X login in browser";
+    }
+
+    function showError(msg) {
+      errorMsg.hidden = !msg;
+      errorMsg.textContent = msg || "";
+      okMsg.hidden = true;
+    }
+
+    function showOk(msg) {
+      okMsg.hidden = !msg;
+      okMsg.textContent = msg || "";
+      errorMsg.hidden = true;
+    }
+
+    openXBtn.addEventListener("click", () => {
+      if (hasBridge()) {
+        window.RolloBridge.connectX();
+        return;
+      }
+      window.open("https://x.com/i/flow/login", "_blank", "noopener");
+      Toast.show("Sign in in the browser tab, then return here");
+    });
+
+    window.onRolloXAuthChanged = async () => {
+      if (window.RolloBridge?.isXConnected?.()) {
+        showOk("App login saved. Tap save below to finish.");
+      }
+    };
+
+    confirmBtn.addEventListener("click", async () => {
+      showError("");
+      confirmBtn.disabled = true;
+      try {
+        const res = await fetch("/api/downloader/x-session/confirm", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not save X login");
+        showOk("Signed in to X. Redirecting…");
+        Toast.show("Signed in to X");
+        setTimeout(() => { location.href = returnTo; }, 600);
+      } catch (err) {
+        showError(err.message || "Could not save X login");
+        confirmBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

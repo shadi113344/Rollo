@@ -4,6 +4,9 @@ window.Toast = {
     if (!el) {
       el = document.createElement("div");
       el.id = "toast";
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
+      el.setAttribute("aria-atomic", "true");
       document.body.appendChild(el);
     }
     el.textContent = msg;

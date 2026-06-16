@@ -8,12 +8,21 @@ window.PressRadialMenu = (function () {
   const LINEAR_ROW_PAD = 10;
   const MENU_GAP_DEG = 7;
   const LINEAR_STEP = 58;
-  const SUB_STEP = 49;
-  const SUB_HEIGHT = 26;
+  const SUB_GAP = 10;
+  const SUB_MIN_W = 54;
+  const SUB_MAX_W = 118;
+  const SUB_HEIGHT = 28;
+  const SUB_ROW_GAP = 12;
+  const SUB_COL_GAP = 14;
+  const SUB_MAX_ROW_WIDTH = 260;
   const PRIMARY_HIGHLIGHT_SCALE = 1.2;
-  const SUB_HIGHLIGHT_SCALE = 1.14;
+  const SUB_HIGHLIGHT_SCALE = 1.5;
   const ROW_MIN_CLEAR = 8;
+  const SUB_ROW_EXTRA = 16;
+  const VERTICAL_SUB_STEP = 34;
   const LONG_PRESS_MS = 420;
+  const TAG_PALETTE_HOLD_MS = 400;
+  const HOLD_LOCK_MS = 80;
   const VIEW_MARGIN = 14;
 
   const ARC_LAYOUTS = {
@@ -32,6 +41,7 @@ window.PressRadialMenu = (function () {
   let anchor = { x: 0, y: 0 };
   let fanShiftX = 0;
   let subShiftX = 0;
+  let subShiftY = 0;
   let options = [];
   let subOptions = [];
   let submenuParentId = null;
@@ -41,11 +51,16 @@ window.PressRadialMenu = (function () {
   let longPressTimer = null;
   let armedEl = null;
   let selectionHandled = false;
+  let tagPaletteTimer = null;
+  let tagPaletteActive = false;
+  let tagPaletteOptionId = null;
+  let lastPointer = { x: 0, y: 0 };
 
   const bodyHandlers = {
     touchmove: null,
     selectstart: null,
     contextmenu: null,
+    gesturestart: null,
   };
 
   function ensureRoot() {
@@ -83,7 +98,7 @@ window.PressRadialMenu = (function () {
     const top = y;
     const bottom = vh - y;
 
-    if (count <= 4) {
+    if (count <= 5) {
       return top >= bottom ? "linear-top" : "linear-bottom";
     }
 
@@ -117,9 +132,10 @@ window.PressRadialMenu = (function () {
     return "linear-bottom";
   }
 
-  function computeFanShift(count, mode, step = LINEAR_STEP, btnSize = BTN_SIZE) {
+  function computeFanShift(count, mode, step = null, btnSize = BTN_SIZE) {
     if (!mode.startsWith("linear")) return 0;
-    const total = (count - 1) * step + btnSize;
+    const linearStep = step ?? linearStepForCount(count);
+    const total = (count - 1) * linearStep + btnSize;
     const half = total / 2;
     const vw = window.innerWidth;
     let center = anchor.x;
@@ -148,11 +164,18 @@ window.PressRadialMenu = (function () {
     };
   }
 
+  function linearStepForCount(count) {
+    if (count <= 1) return LINEAR_STEP;
+    const maxRow = Math.min(window.innerWidth - VIEW_MARGIN * 2, 248);
+    return Math.min(LINEAR_STEP, (maxRow - BTN_SIZE) / (count - 1));
+  }
+
   function linearPosition(index, count, mode) {
-    const total = (count - 1) * LINEAR_STEP;
+    const step = linearStepForCount(count);
+    const total = (count - 1) * step;
     const y = mode === "linear-top" ? -(RADIUS + LINEAR_ROW_PAD) : RADIUS + LINEAR_ROW_PAD;
     return {
-      x: fanShiftX + (-total / 2 + index * LINEAR_STEP),
+      x: fanShiftX + (-total / 2 + index * step),
       y,
     };
   }
@@ -169,11 +192,198 @@ window.PressRadialMenu = (function () {
     return (SUB_HEIGHT / 2) * SUB_HIGHLIGHT_SCALE;
   }
 
+  let measureCanvas = null;
+
+  function measureSubLabelWidth(label) {
+    if (!measureCanvas) measureCanvas = document.createElement("canvas");
+    const ctx = measureCanvas.getContext("2d");
+    ctx.font = "600 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    return ctx.measureText(String(label || "")).width;
+  }
+
+  function subOptionWidth(label) {
+    const textW = measureSubLabelWidth(label);
+    const base = Math.ceil(textW + 26);
+    return Math.min(SUB_MAX_W, Math.max(SUB_MIN_W, base));
+  }
+
+  function subOptionLayoutWidth(label) {
+    return Math.ceil(subOptionWidth(label) * SUB_HIGHLIGHT_SCALE) + 6;
+  }
+
+  function isVerticalLayout() {
+    return layoutMode === "vertical-left" || layoutMode === "vertical-right";
+  }
+
+  function packSubRows(items) {
+    const rows = [];
+    let row = [];
+    let rowW = 0;
+    items.forEach((item) => {
+      const gap = row.length ? SUB_GAP : 0;
+      if (row.length && rowW + gap + item.width > SUB_MAX_ROW_WIDTH) {
+        rows.push(row);
+        row = [item];
+        rowW = item.width;
+      } else {
+        row.push(item);
+        rowW += gap + item.width;
+      }
+    });
+    if (row.length) rows.push(row);
+    return rows;
+  }
+
+  function subGridAnchor(parentPos) {
+    const sep = subRowSeparation();
+    if (isVerticalLayout()) return { x: 0, y: 0 };
+    if (layoutMode === "linear-top") {
+      return { x: parentPos.x, y: parentPos.y - sep };
+    }
+    if (layoutMode === "linear-bottom") {
+      return { x: parentPos.x, y: parentPos.y + sep };
+    }
+    const dir = subRowDirection();
+    return {
+      x: parentPos.x + dir.x * sep,
+      y: parentPos.y + dir.y * sep,
+    };
+  }
+
+  function subGridLayout() {
+    const widths = subOptions.map((o) => subOptionLayoutWidth(o.label));
+    const positions = new Array(subOptions.length);
+    const rowStep = SUB_HEIGHT + SUB_ROW_GAP;
+
+    if (isVerticalLayout()) {
+      const vh = window.innerHeight - VIEW_MARGIN * 2;
+      const perCol = Math.max(4, Math.floor(vh / VERTICAL_SUB_STEP));
+      const colCount = Math.ceil(subOptions.length / perCol) || 1;
+      const colWidths = [];
+      for (let c = 0; c < colCount; c++) {
+        let maxW = SUB_MIN_W;
+        for (let r = 0; r < perCol; r++) {
+          const i = c * perCol + r;
+          if (i >= subOptions.length) break;
+          maxW = Math.max(maxW, widths[i]);
+        }
+        colWidths.push(maxW);
+      }
+      const countFirstCol = Math.min(perCol, subOptions.length);
+      const colTotalH =
+        countFirstCol <= 1 ? SUB_HEIGHT : (countFirstCol - 1) * VERTICAL_SUB_STEP;
+      const dir = layoutMode === "vertical-left" ? -1 : 1;
+      const sep = subRowSeparation();
+      let colEdge = dir * sep;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      let minX = Infinity;
+      let maxX = -Infinity;
+
+      for (let c = 0; c < colCount; c++) {
+        const colW = colWidths[c];
+        const countInCol = Math.min(perCol, subOptions.length - c * perCol);
+        const stackH =
+          countInCol <= 1 ? SUB_HEIGHT : (countInCol - 1) * VERTICAL_SUB_STEP;
+        const colCenterX = colEdge + (dir * colW) / 2;
+        for (let r = 0; r < countInCol; r++) {
+          const i = c * perCol + r;
+          const y =
+            countInCol === 1 ? 0 : -stackH / 2 + r * VERTICAL_SUB_STEP;
+          positions[i] = { x: colCenterX, y, width: widths[i] };
+          minY = Math.min(minY, y - SUB_HEIGHT / 2);
+          maxY = Math.max(maxY, y + SUB_HEIGHT / 2);
+          minX = Math.min(minX, colCenterX - colW / 2);
+          maxX = Math.max(maxX, colCenterX + colW / 2);
+        }
+        colEdge += dir * (colW + SUB_COL_GAP);
+      }
+
+      return {
+        positions,
+        widths,
+        totalW: Math.abs(colEdge - dir * sep),
+        totalH: maxY - minY,
+        minX,
+        maxX,
+        minY,
+        maxY,
+      };
+    }
+
+    const parentPos = parentOptionPos(submenuParentId || "tags");
+    const gridAnchor = subGridAnchor(parentPos);
+    const items = subOptions.map((o, i) => ({ index: i, width: widths[i], label: o.label }));
+    const rows = packSubRows(items);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    rows.forEach((row, rowIdx) => {
+      const rowTotalW = row.reduce((sum, it, i) => sum + it.width + (i ? SUB_GAP : 0), 0);
+      let cursor = -rowTotalW / 2;
+      const y = gridAnchor.y - rowIdx * rowStep;
+      row.forEach((item) => {
+        cursor += item.width / 2;
+        const x = gridAnchor.x + cursor;
+        positions[item.index] = { x, y, width: item.width };
+        minX = Math.min(minX, x - item.width / 2);
+        maxX = Math.max(maxX, x + item.width / 2);
+        minY = Math.min(minY, y - SUB_HEIGHT / 2);
+        maxY = Math.max(maxY, y + SUB_HEIGHT / 2);
+        cursor += item.width / 2 + SUB_GAP;
+      });
+    });
+
+    return {
+      positions,
+      widths,
+      totalW: maxX - minX,
+      totalH: maxY - minY,
+      minX,
+      maxX,
+      minY,
+      maxY,
+    };
+  }
+
+  function subRowLayout() {
+    const grid = subGridLayout();
+    const centers = grid.positions.map((p) => p?.x ?? 0);
+    return {
+      widths: grid.widths,
+      centers,
+      total: grid.totalW,
+      positions: grid.positions,
+    };
+  }
+
+  function computeSubShift(totalWidth) {
+    const half = totalWidth / 2;
+    const vw = window.innerWidth;
+    let center = anchor.x;
+    if (center - half < VIEW_MARGIN) center = VIEW_MARGIN + half;
+    if (center + half > vw - VIEW_MARGIN) center = vw - VIEW_MARGIN - half;
+    return center - anchor.x;
+  }
+
   function subRowSeparation() {
-    return primaryOuterRadius() + subOuterRadius() + ROW_MIN_CLEAR;
+    return primaryOuterRadius() + subOuterRadius() + ROW_MIN_CLEAR + SUB_ROW_EXTRA;
+  }
+
+  function computeSubShiftY(totalHeight) {
+    const half = totalHeight / 2;
+    const vh = window.innerHeight;
+    let center = anchor.y;
+    if (center - half < VIEW_MARGIN) center = VIEW_MARGIN + half;
+    if (center + half > vh - VIEW_MARGIN) center = vh - VIEW_MARGIN - half;
+    return center - anchor.y;
   }
 
   function subRowDirection() {
+    if (layoutMode === "vertical-left") return { x: -1, y: 0 };
+    if (layoutMode === "vertical-right") return { x: 1, y: 0 };
     if (layoutMode === "linear-top") return { x: 0, y: -1 };
     if (layoutMode === "linear-bottom") return { x: 0, y: 1 };
     const cfg = ARC_LAYOUTS[layoutMode];
@@ -184,6 +394,7 @@ window.PressRadialMenu = (function () {
   }
 
   function layoutPosition(index, count, mode) {
+    if (isVerticalLayout()) return { x: 0, y: 0 };
     if (mode.startsWith("linear")) return linearPosition(index, count, mode);
     return arcPosition(index, count, mode);
   }
@@ -199,28 +410,11 @@ window.PressRadialMenu = (function () {
     return layoutPosition(index, options.length, layoutMode);
   }
 
-  function subRowPosition(subIndex, subCount, parentPos) {
-    const sep = subRowSeparation();
-    const total = (subCount - 1) * SUB_STEP;
-    let rowX = -total / 2 + subIndex * SUB_STEP;
-    let rowY;
-
-    if (layoutMode.startsWith("linear")) {
-      const primaryY = primaryLinearRowY(layoutMode);
-      rowY = layoutMode === "linear-top" ? primaryY - sep : primaryY + sep;
-      return {
-        x: subShiftX + rowX,
-        y: rowY,
-      };
-    }
-
-    const dir = subRowDirection();
-    const centerX = parentPos.x + dir.x * sep;
-    const centerY = parentPos.y + dir.y * sep;
-    return {
-      x: subShiftX + centerX + (-total / 2 + subIndex * SUB_STEP),
-      y: centerY,
-    };
+  function subRowPosition(subIndex) {
+    const { positions } = subGridLayout();
+    const pos = positions[subIndex];
+    if (!pos) return { x: 0, y: 0 };
+    return { x: pos.x + subShiftX, y: pos.y + subShiftY };
   }
 
   function setBodyLock(on) {
@@ -230,16 +424,22 @@ window.PressRadialMenu = (function () {
 
     if (on) {
       window.getSelection()?.removeAllRanges();
-      bodyHandlers.touchmove = (e) => e.preventDefault();
+      bodyHandlers.touchmove = (e) => {
+        e.preventDefault();
+        if (e.touches.length > 1) e.stopPropagation();
+      };
       bodyHandlers.selectstart = (e) => e.preventDefault();
       bodyHandlers.contextmenu = (e) => e.preventDefault();
+      bodyHandlers.gesturestart = (e) => e.preventDefault();
       document.addEventListener("touchmove", bodyHandlers.touchmove, { passive: false });
       document.addEventListener("selectstart", bodyHandlers.selectstart);
       document.addEventListener("contextmenu", bodyHandlers.contextmenu);
+      document.addEventListener("gesturestart", bodyHandlers.gesturestart, { passive: false });
     } else {
       if (bodyHandlers.touchmove) document.removeEventListener("touchmove", bodyHandlers.touchmove);
       if (bodyHandlers.selectstart) document.removeEventListener("selectstart", bodyHandlers.selectstart);
       if (bodyHandlers.contextmenu) document.removeEventListener("contextmenu", bodyHandlers.contextmenu);
+      if (bodyHandlers.gesturestart) document.removeEventListener("gesturestart", bodyHandlers.gesturestart);
     }
   }
 
@@ -253,6 +453,8 @@ window.PressRadialMenu = (function () {
       offsetY = -3;
     } else if (layoutMode === "linear-bottom") {
       offsetY = 3;
+    } else if (isVerticalLayout()) {
+      offsetY = 0;
     }
 
     fanEl.style.left = `${anchor.x + offsetX}px`;
@@ -286,7 +488,12 @@ window.PressRadialMenu = (function () {
     let pos;
     if (isSub) {
       const parentPos = parentOptionPos(submenuParentId);
-      pos = subRowPosition(index, subOptions.length, parentPos);
+      const { widths } = subRowLayout();
+      pos = subRowPosition(index);
+      btn.style.setProperty("--sub-ox", `${parentPos.x}px`);
+      btn.style.setProperty("--sub-oy", `${parentPos.y}px`);
+      const w = widths[index] ?? SUB_MIN_W;
+      btn.style.setProperty("--sub-w", `${Math.ceil(w / SUB_HIGHLIGHT_SCALE)}px`);
     } else {
       pos = layoutPosition(index, options.length, layoutMode);
     }
@@ -304,7 +511,9 @@ window.PressRadialMenu = (function () {
     } else {
       const icon = btn.querySelector(".radial-menu-option__icon") || document.createElement("span");
       icon.className = "radial-menu-option__icon";
-      icon.textContent = opt.icon;
+      const iconVal = opt.icon || "";
+      if (String(iconVal).includes("<svg")) icon.innerHTML = iconVal;
+      else icon.textContent = iconVal;
       if (!icon.parentNode) btn.appendChild(icon);
     }
   }
@@ -324,6 +533,7 @@ window.PressRadialMenu = (function () {
     fanEl.setAttribute("aria-hidden", open ? "false" : "true");
     fanEl.className = "radial-menu-fan";
     if (layoutMode.startsWith("linear")) fanEl.classList.add("radial-menu-fan--linear");
+    if (isVerticalLayout()) fanEl.classList.add("radial-menu-fan--vertical");
 
     if (!open) {
       fanEl.innerHTML = "";
@@ -355,8 +565,11 @@ window.PressRadialMenu = (function () {
 
   function renderSubRow(animate = false) {
     subFanEl.setAttribute("aria-hidden", subOptions.length ? "false" : "true");
+    subFanEl.classList.toggle("radial-menu-subfan--open", subOptions.length > 0);
+    subFanEl.classList.toggle("radial-menu-subfan--vertical", isVerticalLayout());
     if (!open || !subOptions.length) {
       subFanEl.innerHTML = "";
+      subFanEl.classList.remove("radial-menu-subfan--open");
       lastSubSignature = "";
       return;
     }
@@ -384,8 +597,49 @@ window.PressRadialMenu = (function () {
   }
 
   function syncSubmenuShift() {
-    const subMode = layoutMode.startsWith("linear") ? layoutMode : "linear-bottom";
-    subShiftX = computeFanShift(subOptions.length, subMode, SUB_STEP, 44);
+    if (!subOptions.length) {
+      subShiftX = 0;
+      subShiftY = 0;
+      return;
+    }
+
+    subShiftX = 0;
+    subShiftY = 0;
+    let grid = subGridLayout();
+    if (!grid.positions.length) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    grid.positions.forEach((p, i) => {
+      if (!p) return;
+      const hw = (grid.widths[i] || SUB_MIN_W) / 2;
+      const absX = anchor.x + p.x;
+      const absY = anchor.y + p.y;
+      minX = Math.min(minX, absX - hw);
+      maxX = Math.max(maxX, absX + hw);
+      minY = Math.min(minY, absY - SUB_HEIGHT / 2);
+      maxY = Math.max(maxY, absY + SUB_HEIGHT / 2);
+    });
+
+    let dx = 0;
+    let dy = 0;
+    if (minX < VIEW_MARGIN) dx = VIEW_MARGIN - minX;
+    if (maxX > vw - VIEW_MARGIN) dx = vw - VIEW_MARGIN - maxX;
+    if (minY < VIEW_MARGIN) dy = VIEW_MARGIN - minY;
+    if (maxY > vh - VIEW_MARGIN) dy = vh - VIEW_MARGIN - maxY;
+
+    if (isVerticalLayout()) {
+      subShiftY = dy;
+      subShiftX = dx;
+    } else {
+      subShiftX = dx;
+      subShiftY = dy;
+    }
   }
 
   function openSubRowFor(parentId) {
@@ -403,6 +657,41 @@ window.PressRadialMenu = (function () {
     renderSubRow(true);
   }
 
+  function resolveTagPalette(opt) {
+    if (!opt?.tagPalette) return null;
+    return typeof opt.tagPalette === "function" ? opt.tagPalette() : opt.tagPalette;
+  }
+
+  function clearTagPaletteTimer() {
+    clearTimeout(tagPaletteTimer);
+    tagPaletteTimer = null;
+  }
+
+  function closePairedPalette(animate = false) {
+    if (!tagPaletteActive) return;
+    tagPaletteActive = false;
+    tagPaletteOptionId = null;
+    window.AnchoredTagPalette?.close(animate);
+  }
+
+  function scheduleTagPaletteOpen(opt) {
+    clearTagPaletteTimer();
+    if (!opt?.tagPalette || tagPaletteActive) return;
+    tagPaletteTimer = setTimeout(() => {
+      tagPaletteTimer = null;
+      if (!open || highlightId !== opt.id) return;
+      const btn = fanEl.querySelector(`[data-menu-option="${opt.id}"]`);
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const cfg = resolveTagPalette(opt);
+      const palette = window.AnchoredTagPalette;
+      if (!cfg || !palette?.openFrom) return;
+      tagPaletteActive = true;
+      tagPaletteOptionId = opt.id;
+      palette.openFrom(rect, { ...cfg, paired: true }, null, lastPointer.x, lastPointer.y);
+    }, TAG_PALETTE_HOLD_MS);
+  }
+
   function closeSubRow() {
     submenuParentId = null;
     subOptions = [];
@@ -415,12 +704,23 @@ window.PressRadialMenu = (function () {
   }
 
   function setHighlight(id) {
+    if (tagPaletteActive && id && id !== tagPaletteOptionId) {
+      closePairedPalette(false);
+    }
+    if (id !== highlightId) clearTagPaletteTimer();
     if (id === highlightId) return;
     highlightId = id;
 
+    let subJustOpened = false;
+    const highlighted = options.find((o) => o.id === id);
     const submenuTrigger = options.find((o) => o.submenu && o.id === id);
     if (submenuTrigger) {
+      const hadSubRow = subOptions.length > 0 && submenuParentId === submenuTrigger.id;
       openSubRowFor(submenuTrigger.id);
+      subJustOpened = !hadSubRow && subOptions.length > 0;
+    } else if (highlighted?.tagPalette) {
+      closeSubRow();
+      scheduleTagPaletteOpen(highlighted);
     } else if (id && subOptions.some((o) => o.id === id)) {
       /* keep sub-row open while on a tag pill */
     } else if (id && options.some((o) => o.id === id)) {
@@ -429,7 +729,7 @@ window.PressRadialMenu = (function () {
     /* null id while sub-row open: finger in transit — keep sub-row */
 
     updateHighlight();
-    if (subOptions.length) renderSubRow(false);
+    if (subOptions.length && !subJustOpened) renderSubRow(false);
   }
 
   function hitTest(clientX, clientY) {
@@ -445,6 +745,8 @@ window.PressRadialMenu = (function () {
   }
 
   function closeMenu() {
+    clearTagPaletteTimer();
+    closePairedPalette(false);
     open = false;
     highlightId = null;
     activePointerId = null;
@@ -452,6 +754,7 @@ window.PressRadialMenu = (function () {
     selectionHandled = false;
     fanShiftX = 0;
     subShiftX = 0;
+    subShiftY = 0;
     submenuParentId = null;
     subOptions = [];
     triggerEl.classList.remove("radial-menu-trigger--open");
@@ -487,6 +790,25 @@ window.PressRadialMenu = (function () {
   function finishPointer(activeId) {
     if (!open || activeId !== activePointerId || selectionHandled) return;
     selectionHandled = true;
+    clearTagPaletteTimer();
+
+    if (tagPaletteActive) {
+      const selected = window.AnchoredTagPalette?.finishPairedPointer?.(
+        lastPointer.x,
+        lastPointer.y
+      );
+      tagPaletteActive = false;
+      tagPaletteOptionId = null;
+      try {
+        triggerEl.releasePointerCapture(activeId);
+      } catch {
+        /* ignore */
+      }
+      activePointerId = null;
+      closeMenu();
+      if (selected) return;
+      return;
+    }
 
     runHighlighted();
     if (open) closeMenu();
@@ -512,6 +834,11 @@ window.PressRadialMenu = (function () {
     const opt = findOption(highlightId);
     if (!opt) return false;
 
+    if (opt.tagPalette) {
+      resolveTagPalette(opt)?.onTap?.();
+      return true;
+    }
+
     opt.onSelect?.();
     return true;
   }
@@ -534,6 +861,11 @@ window.PressRadialMenu = (function () {
     el.addEventListener("pointermove", (e) => {
       if (!open || e.pointerId !== activePointerId) return;
       e.preventDefault();
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      if (tagPaletteActive) {
+        window.AnchoredTagPalette?.handlePairedPointer?.(e.clientX, e.clientY);
+      }
       setHighlight(hitTest(e.clientX, e.clientY));
     });
 
@@ -545,16 +877,168 @@ window.PressRadialMenu = (function () {
     el.addEventListener("pointercancel", () => closeMenu());
   }
 
-  function bindCardLongPress(card, getActionOptions) {
+  function openTagPicker(x, y, getTagOptions, opts = {}) {
+    ensureRoot();
+    anchor = { x, y };
+    const tagLayout = opts.layout || pickLayout(x, y, 1);
+    const resolvedTags =
+      typeof getTagOptions === "function" ? getTagOptions() : getTagOptions;
+
+    keepOpenOnSelect = true;
+    layoutMode = tagLayout;
+    fanShiftX = 0;
+    submenuParentId = null;
+    subOptions = [];
+    open = true;
+    highlightId = null;
+    positionUi();
+    triggerEl.classList.add("radial-menu-trigger--open");
+    triggerEl.setAttribute("aria-expanded", "true");
+    setBodyLock(true);
+
+    if (isVerticalLayout()) {
+      options = [];
+      submenuParentId = "tags";
+      subOptions = Array.isArray(resolvedTags) ? resolvedTags : [];
+      syncSubmenuShift();
+      renderFan(false);
+      renderSubRow(true);
+      return;
+    }
+
+    options = [
+      {
+        id: "tags",
+        label: "Tags",
+        icon: opts.parentIcon || "",
+        submenu: () => (typeof getTagOptions === "function" ? getTagOptions() : resolvedTags),
+        submenuKeepOpen: true,
+        onSelect: opts.onMore || (() => {}),
+      },
+    ];
+    fanShiftX = computeFanShift(1, layoutMode);
+    renderFan(true);
+    openSubRowFor("tags");
+  }
+
+  function bindTagButton(btn, { onTap, getTagOptions, onMore, parentIcon, layout } = {}) {
+    const TAP_MAX_MS = 320;
     let startX = 0;
     let startY = 0;
     let pointerId = null;
     let moved = false;
     let longFired = false;
+    let startTime = 0;
+    let longPressTimer = null;
 
     const clearTimer = () => {
       clearTimeout(longPressTimer);
       longPressTimer = null;
+    };
+
+    const onPointerDown = (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      if (open) {
+        e.preventDefault();
+        selectionHandled = false;
+        pointerId = e.pointerId;
+        activePointerId = e.pointerId;
+        try {
+          triggerEl.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      moved = false;
+      longFired = false;
+      selectionHandled = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      startTime = performance.now();
+      pointerId = e.pointerId;
+      clearTimer();
+      btn.classList.add("press-radial-holding");
+      longPressTimer = setTimeout(() => {
+        longFired = true;
+        clearTimer();
+        btn.classList.add("press-radial-armed");
+        navigator.vibrate?.(10);
+        openTagPicker(startX, startY, getTagOptions, { onMore: onMore || onTap, parentIcon, layout });
+        activePointerId = pointerId;
+        try {
+          triggerEl.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+      }, LONG_PRESS_MS);
+    };
+
+    const onPointerMove = (e) => {
+      if (e.pointerId !== pointerId) return;
+      if (!open && Math.hypot(e.clientX - startX, e.clientY - startY) > 10) {
+        clearTimer();
+        moved = true;
+        btn.classList.remove("press-radial-holding");
+      }
+      if (open && e.pointerId === activePointerId) {
+        e.preventDefault();
+        setHighlight(hitTest(e.clientX, e.clientY));
+      }
+    };
+
+    const onPointerUp = (e) => {
+      if (e.pointerId !== pointerId) return;
+      clearTimer();
+      btn.classList.remove("press-radial-holding", "press-radial-armed");
+      if (open && longFired) {
+        e.preventDefault();
+        e.stopPropagation();
+        finishPointer(pointerId);
+        longFired = false;
+        pointerId = null;
+        return;
+      }
+      if (!moved && performance.now() - startTime < TAP_MAX_MS) {
+        e.preventDefault();
+        e.stopPropagation();
+        onTap?.();
+      }
+      pointerId = null;
+    };
+
+    btn.addEventListener("pointerdown", onPointerDown);
+    btn.addEventListener("pointermove", onPointerMove);
+    btn.addEventListener("pointerup", onPointerUp);
+    btn.addEventListener("pointercancel", () => {
+      clearTimer();
+      btn.classList.remove("press-radial-holding", "press-radial-armed");
+    });
+    btn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openTagPicker(e.clientX, e.clientY, getTagOptions, { onMore: onMore || onTap, parentIcon, layout });
+    });
+  }
+
+  function bindCardLongPress(card, getActionOptions, onLongPressStart, onLongPressEnd) {
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+    let moved = false;
+    let longFired = false;
+    let holdLockTimer = null;
+
+    const clearHoldLock = () => {
+      clearTimeout(holdLockTimer);
+      holdLockTimer = null;
+      card.classList.remove("press-radial-holding");
+    };
+
+    const clearTimer = () => {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      clearHoldLock();
     };
 
     const onPointerDown = (e) => {
@@ -580,10 +1064,16 @@ window.PressRadialMenu = (function () {
       pointerId = e.pointerId;
       armedEl = card;
       clearTimer();
+      holdLockTimer = setTimeout(() => {
+        if (moved || pointerId === null) return;
+        card.classList.add("press-radial-holding");
+        window.getSelection()?.removeAllRanges();
+      }, HOLD_LOCK_MS);
       longPressTimer = setTimeout(() => {
         longFired = true;
         clearTimer();
         card.classList.add("press-radial-armed");
+        onLongPressStart?.();
         navigator.vibrate?.(10);
         openMenu(startX, startY, getActionOptions());
         activePointerId = pointerId;
@@ -603,6 +1093,11 @@ window.PressRadialMenu = (function () {
       }
       if (open && e.pointerId === activePointerId) {
         e.preventDefault();
+        lastPointer.x = e.clientX;
+        lastPointer.y = e.clientY;
+        if (tagPaletteActive) {
+          window.AnchoredTagPalette?.handlePairedPointer?.(e.clientX, e.clientY);
+        }
         setHighlight(hitTest(e.clientX, e.clientY));
       }
     };
@@ -610,20 +1105,28 @@ window.PressRadialMenu = (function () {
     const onPointerUp = (e) => {
       if (e.pointerId !== pointerId) return;
       clearTimer();
+      card.classList.remove("press-radial-holding", "press-radial-armed");
       if (open && longFired) {
         e.preventDefault();
         e.stopPropagation();
         finishPointer(pointerId);
         longFired = false;
+        onLongPressEnd?.();
         return;
       }
+      onLongPressEnd?.();
       pointerId = null;
+    };
+
+    const onTouchStart = (e) => {
+      if (e.touches.length > 1) e.preventDefault();
     };
 
     card.addEventListener("pointerdown", onPointerDown);
     card.addEventListener("pointermove", onPointerMove);
     card.addEventListener("pointerup", onPointerUp);
     card.addEventListener("pointercancel", clearTimer);
+    card.addEventListener("touchstart", onTouchStart, { passive: false });
     card.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       openMenu(e.clientX, e.clientY, getActionOptions());
@@ -653,6 +1156,8 @@ window.PressRadialMenu = (function () {
 
   return {
     bindCardLongPress,
+    bindTagButton,
+    openTagPicker,
     refreshSubmenu,
     getAnchor,
     close: closeMenu,

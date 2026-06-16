@@ -80,6 +80,12 @@ class MainActivity : AppCompatActivity() {
         applyVideosFolderUri(uri)
     }
 
+    private val xLoginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) onXAuthChanged()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -120,9 +126,18 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
+        webView.addJavascriptInterface(RolloJsBridge(this), "RolloBridge")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false
         }
+    }
+
+    fun launchXLogin() {
+        xLoginLauncher.launch(Intent(this, XLoginActivity::class.java))
+    }
+
+    fun onXAuthChanged() {
+        webView.evaluateJavascript("window.onRolloXAuthChanged?.()", null)
     }
 
     private fun setupControls() {

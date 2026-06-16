@@ -1,10 +1,24 @@
 import java.net.URI
+import java.util.Properties
 import java.util.zip.ZipInputStream
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+fun loadKeystoreProperties(): Properties? {
+    if (!keystorePropertiesFile.isFile) return null
+    val props = Properties()
+    keystorePropertiesFile.reader(Charsets.UTF_8).use { props.load(it) }
+    return props
+}
+
+fun Properties.prop(name: String): String =
+    getProperty(name) ?: getProperty("\uFEFF$name")
+    ?: error("Missing $name in ${keystorePropertiesFile.absolutePath}")
 
 android {
     namespace = "com.rollo.app"
@@ -34,8 +48,20 @@ android {
         }
     }
 
+    signingConfigs {
+        loadKeystoreProperties()?.let { props ->
+            create("release") {
+                storeFile = rootProject.file(props.prop("storeFile"))
+                storePassword = props.prop("storePassword")
+                keyAlias = props.prop("keyAlias")
+                keyPassword = props.prop("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

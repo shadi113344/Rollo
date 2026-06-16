@@ -1,0 +1,55 @@
+/* Shared inline UI icons */
+.ui-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.action-btn-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-btn-text {
+  line-height: 1.2;
+}
+
+.inline-lock {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.group-star svg {
+  width: 18px;
+  height: 18px;
+}
+
+.group-star.is-default svg {
+  color: #ffd60a;
+}
+
+.hint-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.hint-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.radial-menu-option__icon svg,
+.radial-menu-option__icon .heart-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.feed-control-btn svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}

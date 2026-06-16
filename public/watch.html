@@ -2,15 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Rollo">
+  <meta name="theme-color" content="#000000">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
   <title>Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
+  <link rel="stylesheet" href="/anchored-tag-palette.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -721,7 +726,7 @@
       color: #fff;
       border-radius: 8px;
       padding: 10px 12px;
-      font-size: 14px;
+      font-size: 16px;
     }
 
     .add-row button, .sheet-close {
@@ -863,7 +868,7 @@
   <div id="filtered-empty"></div>
   <div id="feed"></div>
 
-  <div id="seek-bar" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0">
+  <div id="seek-bar" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0">
     <div id="seek-track">
       <div id="seek-track-bg"></div>
       <div id="seek-track-fill"></div>
@@ -888,16 +893,23 @@
         </span>
         <span class="tab-label">Feed</span>
       </a>
+      <a href="/download.html" class="tab-item" id="download-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        </span>
+        <span class="tab-label">Download</span>
+      </a>
     </nav>
   </footer>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div id="unlock-backdrop"></div>
   <div id="unlock-sheet">
     <h2 id="unlock-title">Unlock library</h2>
     <p class="subtitle" id="unlock-subtitle">This library is password protected.</p>
-    <input id="unlock-password" type="password" placeholder="Password" autocomplete="current-password">
+    <label class="sheet-label" for="unlock-password">Password</label>
+    <input id="unlock-password" type="password" placeholder="Enter password" autocomplete="current-password">
     <button id="unlock-submit" type="button">Unlock</button>
     <button id="unlock-cancel" type="button">Cancel</button>
   </div>
@@ -924,13 +936,16 @@
     <button class="sheet-close" id="sheet-close" type="button">Done</button>
   </div>
 
+  <script src="/pwa.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/toast.js"></script>
   <script src="/media.js"></script>
   <script src="/tag-colors.js"></script>
   <script src="/hearts.js"></script>
+  <script src="/icons.js"></script>
   <script src="/groups.js"></script>
   <script src="/bottom-nav.js"></script>
+  <script src="/anchored-tag-palette.js"></script>
   <script>
     const feed = document.getElementById("feed");
     const loading = document.getElementById("loading");
@@ -1288,7 +1303,7 @@
         localStorage.removeItem("selectedTag");
         const empty = document.createElement("span");
         empty.className = "tag-filter-empty";
-        empty.textContent = "No tags yet — tap 🏷 on a video to add one";
+        empty.textContent = "No tags yet — use the tag button on a video to add one";
         tagFilter.appendChild(empty);
         return;
       }
@@ -1417,6 +1432,33 @@
     seekTrack.addEventListener("pointercancel", endSeek);
 
     seekBar.addEventListener("click", (e) => e.stopPropagation());
+
+    seekBar.addEventListener("keydown", (e) => {
+      if (seekBar.classList.contains("hidden")) return;
+      const card = cards[activeIndex];
+      const video = card?.video;
+      if (!video?.duration || card?.isImage) return;
+      const step = e.shiftKey ? 0.1 : 0.02;
+      let ratio = video.currentTime / video.duration;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+        e.preventDefault();
+        ratio = Math.min(1, ratio + step);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+        e.preventDefault();
+        ratio = Math.max(0, ratio - step);
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        ratio = 0;
+      } else if (e.key === "End") {
+        e.preventDefault();
+        ratio = 1;
+      } else {
+        return;
+      }
+      video.currentTime = ratio * video.duration;
+      syncSeekBar(video);
+      showSeekBar();
+    });
 
     function stopSpeed(card) {
       if (!card || card.isImage) return;
@@ -1637,10 +1679,15 @@
       requestAnimationFrame(() => restoreScrollPosition());
     }
 
+    function setMuteBtnIcon(btn) {
+      if (!btn) return;
+      btn.innerHTML = `<span class="feed-control-btn" aria-hidden="true">${RolloIcons.volume(globalMuted, 20)}</span>`;
+    }
+
     function toggleMute(btn) {
       globalMuted = !globalMuted;
       localStorage.setItem("watchMuted", globalMuted ? "1" : "0");
-      btn.textContent = globalMuted ? "🔇" : "🔊";
+      setMuteBtnIcon(btn);
       const card = cards[activeIndex];
       if (card && !card.isImage) card.video.muted = globalMuted;
     }
@@ -1762,13 +1809,13 @@
 
       const tagBtn = document.createElement("button");
       tagBtn.className = "btn";
-      tagBtn.textContent = "🏷";
+      tagBtn.innerHTML = `<span class="feed-control-btn" aria-hidden="true">${RolloIcons.tag(20)}</span>`;
       tagBtn.title = "Edit tags";
 
       const muteBtn = document.createElement("button");
       muteBtn.className = "btn" + (isImage ? " mute-btn-hide" : "");
-      muteBtn.textContent = globalMuted ? "🔇" : "🔊";
       muteBtn.title = "Mute / unmute";
+      setMuteBtnIcon(muteBtn);
       if (isImage) muteBtn.hidden = true;
 
       const mediaSlot = document.createElement("div");
@@ -1794,11 +1841,7 @@
         showChrome(false);
         toggleFavorite(card);
       });
-      tagBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        showChrome(false);
-        openTagSheet(video);
-      });
+      bindFeedTagButton(tagBtn, video);
       muteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         showChrome(true);
@@ -1854,7 +1897,7 @@
         filteredEmpty.innerHTML = viewMode === "favorites"
           ? 'No favorites yet.<br>Tap <span class="heart-wrap sm" style="display:inline-flex;vertical-align:middle;color:#ff4d6d">' + HeartIcon.svg(true) + '</span> on a video to save it here.'
           : viewMode === "tag"
-            ? `No videos tagged “${escapeHtml(selectedTag)}”.<br>Tap 🏷 on a video to add this tag.`
+            ? `No videos tagged “${escapeHtml(selectedTag)}”.<br>Use the tag button on a video to add this tag.`
             : viewMode === "untagged"
               ? "No untagged videos in this library."
               : "No videos match this view.";
@@ -1900,6 +1943,38 @@
       renderTagSheet();
       sheetBackdrop.classList.add("open");
       tagSheet.classList.add("open");
+    }
+
+    function buildFeedPaletteTags(video) {
+      const pool = [...new Set([...(allTags || []), ...(video.tags || [])])].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+      );
+      if (!pool.length) {
+        return [{ id: "tag-add", label: "Add tag", active: false, isAdd: true }];
+      }
+      return pool.map((tag) => ({
+        id: `tag-${tag}`,
+        label: tag,
+        active: video.tags.includes(tag),
+        accent: TagColors.getTagColors(tag).solid,
+      }));
+    }
+
+    function bindFeedTagButton(btn, video) {
+      AnchoredTagPalette.bind(btn, {
+        longPressMs: 400,
+        onTap: () => {
+          showChrome(false);
+          openTagSheet(video);
+        },
+        getTags: () => buildFeedPaletteTags(video),
+        onTagSelect: async (tag) => {
+          editingVideo = video;
+          const name = tag.label;
+          if (video.tags.includes(name)) await removeTag(name);
+          else await addTag(name);
+        },
+      });
     }
 
     function closeTagSheet() {

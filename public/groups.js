@@ -102,10 +102,10 @@ window.VideoGroups = {
     }
   },
 
-  headers() {
-    const active = this.getActive();
-    if (!active) return {};
-    const token = this.getUnlockTokens()[active];
+  headers(groupId) {
+    groupId = groupId || this.getActive();
+    if (!groupId) return {};
+    const token = this.getUnlockTokens()[groupId];
     return token ? { "X-Unlocked": token } : {};
   },
 
@@ -136,9 +136,16 @@ window.VideoGroups = {
 
   apiFetch(url, options = {}, groupId) {
     groupId = groupId || this.getActive();
-    const sep = url.includes("?") ? "&" : "?";
-    const fullUrl = groupId ? `${url}${sep}${this.query(groupId)}` : url;
-    const headers = { ...(options.headers || {}), ...this.headers() };
+    const hasGroup = /[?&]group=/.test(url);
+    let fullUrl = url;
+    if (groupId && !hasGroup) {
+      const sep = url.includes("?") ? "&" : "?";
+      fullUrl = `${url}${sep}${this.query(groupId)}`;
+    }
+    const authGroup = hasGroup
+      ? (new URL(fullUrl, location.origin).searchParams.get("group") || groupId)
+      : groupId;
+    const headers = { ...(options.headers || {}), ...this.headers(authGroup) };
     return fetch(fullUrl, { ...options, headers });
   },
 

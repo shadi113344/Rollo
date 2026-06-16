@@ -23,3 +23,8 @@ app/src/main/assets/libnode/
 # APK output
 *.apk
 *.aab
+
+# Release signing (never commit)
+keystore.properties
+*.jks
+*.keystore

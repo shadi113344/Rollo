@@ -35,6 +35,12 @@ assert.deepStrictEqual(store.getVideoMeta(groupId, "c.mp4").tags, ["Core"]);
 store.deleteVideoMeta(groupId, "c.mp4");
 assert.deepStrictEqual(store.getVideoMeta(groupId, "c.mp4").tags, []);
 
+store.setVideoMeta(groupId, "move.mp4", { tags: ["Travel", "Beach"], favorite: true });
+store.moveVideoMeta(groupId, "Other", "move.mp4", "move.mp4");
+assert.deepStrictEqual(store.getVideoMeta(groupId, "move.mp4").tags, []);
+assert.deepStrictEqual(store.getVideoMeta("Other", "move.mp4").tags, ["Travel", "Beach"]);
+assert.strictEqual(store.getVideoMeta("Other", "move.mp4").favorite, true);
+
 const metaFile = path.join(videosDir, groupId, "_rollo", "meta.json");
 assert.ok(fs.existsSync(metaFile), "meta.json should live inside the library folder");
 

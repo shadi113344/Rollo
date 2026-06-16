@@ -37,6 +37,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".XLoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Rollo" />
+
         <service
             android:name=".RolloService"
             android:exported="false"

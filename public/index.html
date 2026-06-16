@@ -2,16 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Rollo">
+  <meta name="theme-color" content="#0a0a0a">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
   <title>Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
   <link rel="stylesheet" href="/press-radial-menu.css">
+  <link rel="stylesheet" href="/anchored-tag-palette.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -128,7 +133,7 @@
 
     .video-count {
       font-size: 12px;
-      color: #666;
+      color: #9a9a9a;
       margin-top: 2px;
     }
 
@@ -189,7 +194,7 @@
       left: 12px;
       top: 50%;
       transform: translateY(-50%);
-      color: #666;
+      color: #9a9a9a;
       font-size: 16px;
       pointer-events: none;
     }
@@ -204,7 +209,7 @@
       font-size: 15px;
     }
 
-    #search::placeholder { color: #555; }
+    #search::placeholder { color: #8a8a8a; }
 
     .toolbar {
       display: flex;
@@ -334,7 +339,7 @@
       font-size: 26px;
       line-height: 1;
       font-weight: 300;
-      opacity: 0.5;
+      opacity: 1;
       cursor: pointer;
       box-shadow: 0 2px 12px rgba(0,0,0,0.45);
     }
@@ -384,7 +389,7 @@
       grid-column: 1 / -1;
       font-size: 11px;
       font-weight: 600;
-      color: #777;
+      color: #9a9a9a;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       padding: 10px 2px 4px;
@@ -507,8 +512,10 @@
       border-radius: 12px;
       overflow: hidden;
       background: #141414;
+      touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .video-item.pressing {
@@ -521,6 +528,9 @@
       display: block;
       text-decoration: none;
       color: inherit;
+      cursor: pointer;
+      -webkit-user-drag: none;
+      -webkit-touch-callout: none;
     }
 
     .thumb-wrap {
@@ -568,7 +578,6 @@
       opacity: 0.9;
     }
 
-
     .info { padding: 9px 10px 11px; }
 
     .name {
@@ -599,7 +608,7 @@
     #loading, #empty, #no-results {
       text-align: center;
       padding: 48px 24px;
-      color: #666;
+      color: #9a9a9a;
     }
 
     #loading { display: none; }
@@ -694,7 +703,7 @@
       color: #fff;
       border-radius: 8px;
       padding: 10px 12px;
-      font-size: 14px;
+      font-size: 16px;
       width: 100%;
     }
 
@@ -744,6 +753,15 @@
       background: #2c2c2e;
       border-radius: 10px;
       overflow: hidden;
+    }
+
+    #move-group-list {
+      background: #2c2c2e;
+      border-radius: 10px;
+      overflow: hidden;
+      max-height: 50vh;
+      overflow-y: auto;
+      margin-bottom: 12px;
     }
 
     .group-row {
@@ -984,7 +1002,7 @@
       </div>
     </div>
     <div class="tag-filters" id="tag-filters"></div>
-    <div id="toast"></div>
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   </header>
 
   <main>
@@ -1008,12 +1026,13 @@
   <div class="sheet-backdrop" id="group-backdrop"></div>
   <div class="sheet" id="group-sheet">
     <h2>Libraries</h2>
-    <p class="subtitle">Tap to switch · ☆ for default · drag ≡ to reorder</p>
+    <p class="subtitle">Tap to switch · <span class="hint-icon" aria-hidden="true"></span> for default · drag <span class="hint-icon hint-icon-drag" aria-hidden="true"></span> to reorder</p>
     <div id="group-list"></div>
     <div class="group-add-wrap" id="group-add-wrap">
       <button class="group-add-toggle" id="group-add-toggle" type="button">+ Add profile</button>
       <div class="group-add-fields">
-        <input id="new-group-name" type="text" placeholder="New library name…" autocomplete="off">
+        <label class="sheet-label" for="new-group-name">New library name</label>
+        <input id="new-group-name" type="text" placeholder="e.g. Gym, Travel" autocomplete="off">
         <button id="new-group-btn" type="button">Create</button>
       </div>
     </div>
@@ -1024,7 +1043,7 @@
   <div class="sheet-backdrop" id="more-backdrop"></div>
   <div class="sheet" id="more-sheet">
     <h2>More</h2>
-    <button class="action-btn" id="group-settings-btn" type="button">🔒 Group lock & name</button>
+    <button class="action-btn" id="group-settings-btn" type="button"></button>
     <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
     <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
     <button class="action-btn cancel" id="more-close" type="button">Close</button>
@@ -1035,10 +1054,10 @@
   <div class="sheet" id="action-sheet">
     <h2 id="action-title">Video</h2>
     <p class="subtitle" id="action-subtitle"></p>
-    <button class="action-btn" data-action="favorite" type="button" id="action-favorite-btn">♡ Favorite</button>
-    <button class="action-btn" data-action="tag" type="button">🏷 Edit tags</button>
-    <button class="action-btn" data-action="rename" type="button">✎ Edit name</button>
-    <button class="action-btn danger" data-action="delete" type="button">🗑 Delete video</button>
+    <button class="action-btn" data-action="favorite" type="button" id="action-favorite-btn"></button>
+    <button class="action-btn" data-action="tag" type="button"></button>
+    <button class="action-btn" data-action="rename" type="button"></button>
+    <button class="action-btn danger" data-action="delete" type="button"></button>
     <button class="action-btn cancel" data-action="cancel" type="button">Cancel</button>
   </div>
 
@@ -1080,12 +1099,22 @@
     <button class="action-btn cancel" id="delete-cancel" type="button">Cancel</button>
   </div>
 
+  <!-- Move to profile -->
+  <div class="sheet-backdrop" id="move-backdrop"></div>
+  <div class="sheet" id="move-sheet">
+    <h2>Move to profile</h2>
+    <p class="subtitle" id="move-subtitle"></p>
+    <div class="group-list" id="move-group-list"></div>
+    <button class="action-btn cancel" id="move-cancel" type="button">Cancel</button>
+  </div>
+
   <!-- Unlock group -->
   <div class="sheet-backdrop" id="unlock-backdrop"></div>
   <div class="sheet" id="unlock-sheet">
     <h2 id="unlock-title">Unlock group</h2>
     <p class="subtitle" id="unlock-subtitle"></p>
-    <input class="unlock-input" id="unlock-password" type="password" placeholder="Password" autocomplete="current-password">
+    <label class="sheet-label" for="unlock-password">Password</label>
+    <input class="unlock-input" id="unlock-password" type="password" placeholder="Enter password" autocomplete="current-password">
     <button class="sheet-primary" id="unlock-submit" type="button">Unlock</button>
     <button class="action-btn cancel" id="unlock-cancel" type="button">Cancel</button>
   </div>
@@ -1137,16 +1166,25 @@
         </span>
         <span class="tab-label">Feed</span>
       </a>
+      <a href="/download.html" class="tab-item" id="download-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        </span>
+        <span class="tab-label">Download</span>
+      </a>
     </nav>
   </footer>
 
+  <script src="/pwa.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/media.js"></script>
   <script src="/tag-colors.js"></script>
   <script src="/hearts.js"></script>
+  <script src="/icons.js"></script>
   <script src="/groups.js"></script>
   <script src="/bottom-nav.js"></script>
   <script src="/press-radial-menu.js"></script>
+  <script src="/anchored-tag-palette.js"></script>
   <script>
     const grid = document.getElementById("grid");
     const loading = document.getElementById("loading");
@@ -1216,6 +1254,11 @@
     const deleteBackdrop = document.getElementById("delete-backdrop");
     const deleteSheet = document.getElementById("delete-sheet");
     const deleteSubtitle = document.getElementById("delete-subtitle");
+    const moveBackdrop = document.getElementById("move-backdrop");
+    const moveSheet = document.getElementById("move-sheet");
+    const moveSubtitle = document.getElementById("move-subtitle");
+    const moveGroupList = document.getElementById("move-group-list");
+    const moveCancel = document.getElementById("move-cancel");
     const deleteConfirm = document.getElementById("delete-confirm");
     const deleteCancel = document.getElementById("delete-cancel");
     const feedLink = document.getElementById("feed-link");
@@ -1268,9 +1311,9 @@
     let sortMode = localStorage.getItem("sortMode") || "tags";
     let activeVideo = null;
     const thumbCache = new Map();
-    const THUMB_CACHE_PREFIX = "thumb:v5:";
-    const MAX_THUMB_LS_ENTRIES = 80;
-    const MAX_THUMB_LOADS = 2;
+    const THUMB_CACHE_PREFIX = "thumb:v6:";
+    const MAX_THUMB_LS_ENTRIES = 120;
+    const MAX_THUMB_LOADS = 4;
     let thumbLoads = 0;
     const thumbWaitQueue = [];
     let thumbObserver = null;
@@ -1338,6 +1381,12 @@
       return `${THUMB_CACHE_PREFIX}${VideoGroups.getActive()}/${name}`;
     }
 
+    function thumbServerUrl(name, groupId) {
+      groupId = groupId || VideoGroups.getActive();
+      const path = `/api/videos/${encodeURIComponent(name)}/thumb?group=${encodeURIComponent(groupId)}`;
+      return VideoGroups.mediaUrl(path, groupId);
+    }
+
     function pruneThumbCache() {
       try {
         const keys = [];
@@ -1368,6 +1417,24 @@
       wrap.dataset.thumbUrl = url;
       wrap.dataset.thumbName = name;
       if (showCachedThumb(wrap, name)) return;
+
+      if (!MediaHelpers.isImageFile(name)) {
+        const img = document.createElement("img");
+        img.className = "thumb-img";
+        img.alt = "";
+        img.decoding = "async";
+        img.loading = "lazy";
+        img.src = thumbServerUrl(name);
+        const onFail = () => {
+          img.remove();
+          thumbObserver.observe(wrap);
+        };
+        img.addEventListener("load", () => markThumbReady(wrap), { once: true });
+        img.addEventListener("error", onFail, { once: true });
+        wrap.prepend(img);
+        return;
+      }
+
       thumbObserver.observe(wrap);
     }
 
@@ -1521,7 +1588,8 @@
       const active = allGroups.find((g) => g.id === activeId);
       const label = active?.displayName || active?.name || "Rollo";
       const activeLocked = active?.locked && !VideoGroups.hasUnlockToken(active?.id);
-      groupPickerLabel.textContent = label + (activeLocked ? " 🔒" : "");
+      groupPickerLabel.innerHTML =
+        escapeHtml(label) + (activeLocked ? `<span class="inline-lock" aria-hidden="true">${RolloIcons.lock(14)}</span>` : "");
       groupPicker.classList.remove("no-switch");
 
       groupListEl.innerHTML = "";
@@ -1537,7 +1605,7 @@
         const mainBtn = document.createElement("button");
         mainBtn.type = "button";
         mainBtn.className = "group-main";
-        mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${lockedNow ? " 🔒" : ""}</span><span class="group-main-meta">${meta}</span>`;
+        mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${lockedNow ? `<span class="inline-lock" aria-hidden="true">${RolloIcons.lock(12)}</span>` : ""}</span><span class="group-main-meta">${meta}</span>`;
         mainBtn.addEventListener("click", () => {
           closeGroupSheet();
           selectGroup(group.id);
@@ -1548,7 +1616,7 @@
         starBtn.className = "group-star" + (group.id === defaultId ? " is-default" : "");
         starBtn.title = group.id === defaultId ? "Default profile" : "Set as default";
         starBtn.setAttribute("aria-label", starBtn.title);
-        starBtn.textContent = group.id === defaultId ? "★" : "☆";
+        starBtn.innerHTML = RolloIcons.star(group.id === defaultId, 18);
         starBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           setDefaultGroup(group.id);
@@ -2032,9 +2100,31 @@
       return true;
     }
 
+    function frameBrightness(video) {
+      try {
+        if (!video.videoWidth) return 0;
+        const w = 48;
+        const h = Math.max(1, Math.round(w * (video.videoHeight / video.videoWidth)));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        }
+        return sum / (data.length / 4);
+      } catch {
+        return 255;
+      }
+    }
+
     function saveThumbToCache(name, video) {
       try {
         if (!video.videoWidth) return;
+        if (frameBrightness(video) < 12) return;
         const w = 180;
         const h = Math.max(1, Math.round(w * (video.videoHeight / video.videoWidth)));
         const canvas = document.createElement("canvas");
@@ -2105,48 +2195,139 @@
         video.remove();
         done?.();
       };
-      const seek = () => {
-        if (!video.duration || !isFinite(video.duration)) { finish(); return; }
-        const t = Math.min(Math.max(video.duration * 0.08, 0.5), 8);
-        video.addEventListener("seeked", finish, { once: true });
-        try { video.currentTime = t; } catch { finish(); }
+      const seeks = [2, 4, 7, 11, 1, 15, 0.5];
+      let seekIdx = 0;
+      const trySeek = () => {
+        if (!video.duration || !isFinite(video.duration)) {
+          finish();
+          return;
+        }
+        if (seekIdx >= seeks.length) {
+          finish();
+          return;
+        }
+        const raw = seeks[seekIdx++];
+        const t = Math.min(Math.max(raw, 0.1), Math.max(0.1, video.duration - 0.05));
+        video.addEventListener(
+          "seeked",
+          () => {
+            if (frameBrightness(video) >= 12 || seekIdx >= seeks.length) finish();
+            else trySeek();
+          },
+          { once: true }
+        );
+        try {
+          video.currentTime = t;
+        } catch {
+          finish();
+        }
       };
-      if (video.readyState >= 1) seek();
+      if (video.readyState >= 1) trySeek();
       else {
-        video.addEventListener("loadedmetadata", seek, { once: true });
+        video.addEventListener("loadedmetadata", trySeek, { once: true });
         video.addEventListener("error", finish, { once: true });
         video.load();
       }
     }
 
-    const MAX_SUB_TAGS = 8;
+    const MAX_SUB_MOVE = 7;
 
-    function buildTagSubOptions(video) {
+    function videoSourceGroup(video) {
+      return video.group || VideoGroups.getActive();
+    }
+
+    function buildMoveSubOptions(video) {
+      const sourceId = videoSourceGroup(video);
+      const pool = sortGroupsForDisplay(allGroups).filter((g) => g.id !== sourceId);
+      const groups = pool.slice(0, MAX_SUB_MOVE);
+      const opts = groups.map((g) => ({
+        id: `move-${g.id}`,
+        label: g.locked ? `${g.displayName || g.name} 🔒` : (g.displayName || g.name || g.id),
+        onSelect: () => moveVideoToGroup(video, g.id),
+      }));
+      if (pool.length > MAX_SUB_MOVE) {
+        opts.push({
+          id: "move-more",
+          label: "More…",
+          onSelect: () => openMoveSheetFromRadial(video),
+        });
+      }
+      return opts;
+    }
+
+    function renderMoveSheet(video) {
+      const sourceId = videoSourceGroup(video);
+      moveSubtitle.textContent = `Move "${displayName(video)}" to another profile. Tags and favorites are kept.`;
+      moveGroupList.innerHTML = "";
+      sortGroupsForDisplay(allGroups)
+        .filter((g) => g.id !== sourceId)
+        .forEach((g) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "group-main";
+          const name = g.displayName || g.name || g.id;
+          const lockedNow = !!g.locked;
+          btn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${lockedNow ? `<span class="inline-lock" aria-hidden="true">${RolloIcons.lock(12)}</span>` : ""}</span><span class="group-main-meta">${lockedNow ? "Locked" : "Move here"}</span>`;
+          btn.addEventListener("click", () => {
+            closeSheet(moveBackdrop, moveSheet);
+            moveVideoToGroup(video, g.id);
+          });
+          const row = document.createElement("div");
+          row.className = "group-row";
+          row.appendChild(btn);
+          moveGroupList.appendChild(row);
+        });
+    }
+
+    function openMoveSheetFromRadial(video) {
+      activeVideo = video;
+      renderMoveSheet(video);
+      openSheet(moveBackdrop, moveSheet);
+    }
+
+    async function moveVideoToGroup(video, targetGroupId) {
+      PressRadialMenu.close();
+      const sourceGroup = videoSourceGroup(video);
+      if (targetGroupId === sourceGroup) return;
+      try {
+        const res = await VideoGroups.apiFetch(
+          `/api/videos/${encodeURIComponent(video.name)}/move?group=${encodeURIComponent(sourceGroup)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetGroup: targetGroupId }),
+          },
+          sourceGroup
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(data.error || "Could not move video");
+          return;
+        }
+        allVideos = allVideos.filter((v) => v.name !== video.name);
+        const target = allGroups.find((g) => g.id === targetGroupId);
+        const targetLabel = target?.displayName || target?.name || targetGroupId;
+        showToast(`Moved to ${targetLabel}`);
+        await refreshTags();
+        renderGrid();
+      } catch (err) {
+        showToast(err?.message || "Could not move video");
+      }
+    }
+
+    function buildProfilePaletteTags(video) {
       const pool = [...new Set([...(allTags || []), ...(video.tags || [])])].sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base" })
       );
-      const tags = pool.slice(0, MAX_SUB_TAGS);
-      const opts = tags.map((tag) => ({
+      if (!pool.length) {
+        return [{ id: "tag-add", label: "Add tag", active: false, isAdd: true }];
+      }
+      return pool.map((tag) => ({
         id: `tag-${tag}`,
         label: tag,
         active: video.tags.includes(tag),
         accent: TagColors.getTagColors(tag).solid,
-        onSelect: () => toggleTagForRadial(video, tag),
       }));
-      if (pool.length > MAX_SUB_TAGS || !pool.length) {
-        opts.push({
-          id: "tag-more",
-          label: pool.length ? "More…" : "Add tag",
-          onSelect: () => {
-            PressRadialMenu.close();
-            activeVideo = video;
-            tagInput.value = "";
-            renderTagSheet();
-            openSheet(tagBackdrop, tagSheet);
-          },
-        });
-      }
-      return opts;
     }
 
     function openTagSheetFromRadial(video) {
@@ -2161,34 +2342,51 @@
         {
           id: "favorite",
           label: video.favorite ? "Remove favorite" : "Add favorite",
-          icon: video.favorite ? "♥" : "♡",
+          icon: RolloIcons.heart(video.favorite),
           onSelect: () => toggleFavoriteFromRadial(video),
         },
         {
           id: "tag",
           label: "Edit tags",
-          icon: "🏷",
-          submenu: () => buildTagSubOptions(video),
-          onSelect: () => openTagSheetFromRadial(video),
+          icon: RolloIcons.tag(22),
+          tagPalette: () => ({
+            layout: "horizontal",
+            scrollLock: "#app-scroll",
+            getTags: () => buildProfilePaletteTags(video),
+            onTap: () => openTagSheetFromRadial(video),
+            onTagSelect: async (tag) => {
+              activeVideo = video;
+              const name = tag.label;
+              if (video.tags.includes(name)) await removeTag(name);
+              else await addTag(name);
+            },
+          }),
         },
         {
           id: "rename",
           label: "Edit name",
-          icon: "✎",
+          icon: RolloIcons.edit(22),
           onSelect: () => openRenameFromRadial(video),
+        },
+        {
+          id: "move",
+          label: "Move to…",
+          icon: RolloIcons.move(22),
+          submenu: () => buildMoveSubOptions(video),
+          onSelect: () => openMoveSheetFromRadial(video),
         },
         {
           id: "delete",
           label: "Delete video",
-          icon: "🗑",
+          icon: RolloIcons.trash(22),
           tone: "delete",
           onSelect: () => openDeleteFromRadial(video),
         },
       ];
     }
 
-    function bindLongPress(el, video) {
-      PressRadialMenu.bindCardLongPress(el, () => getVideoActionOptions(video));
+    function bindLongPress(el, video, onLongPressStart, onLongPressEnd) {
+      PressRadialMenu.bindCardLongPress(el, () => getVideoActionOptions(video), onLongPressStart, onLongPressEnd);
     }
 
     function openRenameFromRadial(video) {
@@ -2205,20 +2403,29 @@
       openSheet(deleteBackdrop, deleteSheet);
     }
 
-    async function toggleTagForRadial(video, tag) {
-      activeVideo = video;
-      if (video.tags.includes(tag)) await removeTag(tag);
-      else await addTag(tag);
-    }
-
     function appendVideoCard(video) {
       const card = document.createElement("div");
       card.className = "video-item";
       card.dataset.filename = video.name;
 
-      const link = document.createElement("a");
+      let thumbNavBlocked = false;
+      const link = document.createElement("div");
       link.className = "thumb-link";
-      link.href = watchUrl(video);
+      link.setAttribute("role", "link");
+      link.tabIndex = 0;
+      link.addEventListener("click", (e) => {
+        if (thumbNavBlocked || PressRadialMenu.isOpen() || AnchoredTagPalette.isOpen()) {
+          e.preventDefault();
+          return;
+        }
+        location.href = watchUrl(video);
+      });
+      link.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!PressRadialMenu.isOpen()) location.href = watchUrl(video);
+        }
+      });
 
       const wrap = document.createElement("div");
       wrap.className = "thumb-wrap";
@@ -2264,7 +2471,7 @@
 
       card.append(link, info);
       grid.appendChild(card);
-      bindLongPress(card, video);
+      bindLongPress(card, video, () => { thumbNavBlocked = true; }, () => { thumbNavBlocked = false; });
       observeThumb(wrap, video.url, video.name);
     }
 
@@ -2326,7 +2533,11 @@
       actionTitle.textContent = video.displayName || stripExt(video.name);
       actionSubtitle.textContent = video.name;
       if (actionFavoriteBtn) {
-        actionFavoriteBtn.textContent = video.favorite ? "Remove favorite" : "♡ Add to favorites";
+        RolloIcons.setActionBtn(
+          actionFavoriteBtn,
+          RolloIcons.heart(video.favorite),
+          video.favorite ? "Remove favorite" : "Add to favorites"
+        );
       }
       openSheet(actionBackdrop, actionSheet);
     }
@@ -2535,6 +2746,8 @@
     deleteConfirm.addEventListener("click", deleteVideo);
     deleteCancel.addEventListener("click", () => closeSheet(deleteBackdrop, deleteSheet));
     deleteBackdrop.addEventListener("click", () => closeSheet(deleteBackdrop, deleteSheet));
+    moveCancel.addEventListener("click", () => closeSheet(moveBackdrop, moveSheet));
+    moveBackdrop.addEventListener("click", () => closeSheet(moveBackdrop, moveSheet));
     actionBackdrop.addEventListener("click", () => closeSheet(actionBackdrop, actionSheet));
 
     groupPicker.addEventListener("click", openGroupSheet);
@@ -2784,6 +2997,32 @@
         showToast(err.message || "Import failed.");
       }
     });
+
+    function initSheetIcons() {
+      RolloIcons.setActionBtn(groupSettingsBtn, RolloIcons.lock(18), "Group lock & name");
+      RolloIcons.setActionBtn(
+        document.querySelector('#action-sheet [data-action="tag"]'),
+        RolloIcons.tag(18),
+        "Edit tags"
+      );
+      RolloIcons.setActionBtn(
+        document.querySelector('#action-sheet [data-action="rename"]'),
+        RolloIcons.edit(18),
+        "Edit name"
+      );
+      RolloIcons.setActionBtn(
+        document.querySelector('#action-sheet [data-action="delete"]'),
+        RolloIcons.trash(18),
+        "Delete video"
+      );
+      RolloIcons.setActionBtn(actionFavoriteBtn, RolloIcons.heart(false), "Favorite");
+      const hintStar = document.querySelector("#group-sheet .subtitle .hint-icon:not(.hint-icon-drag)");
+      const hintDrag = document.querySelector("#group-sheet .hint-icon-drag");
+      if (hintStar) hintStar.innerHTML = RolloIcons.star(false, 14);
+      if (hintDrag) hintDrag.innerHTML = RolloIcons.drag(14);
+    }
+
+    initSheetIcons();
 
     async function init() {
       loading.hidden = false;

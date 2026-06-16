@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Rollo</string>
+    <string name="app_name">Rollo-Server</string>
     <string name="notification_channel">Rollo server</string>
     <string name="notification_title">Rollo is running</string>
     <string name="notification_text">Media library available on your network</string>
@@ -62,4 +62,8 @@
     <string name="exit_message">This stops the Rollo server and closes the app. Open Rollo again when you want the server back.</string>
     <string name="exit_confirm">Stop and exit</string>
     <string name="exit_button">Stop server &amp; exit</string>
+    <string name="x_login_title">Sign in to X</string>
+    <string name="x_login_done">Done — save login</string>
+    <string name="x_login_saved">X login saved for downloads</string>
+    <string name="x_login_not_ready">Finish signing in to X first, then tap Done</string>
 </resources>

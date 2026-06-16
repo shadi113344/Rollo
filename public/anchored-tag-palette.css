@@ -1,0 +1,146 @@
+/* Frameless long-press tag chip flyout (speed-dial burst) */
+
+body.tag-palette-active {
+  overflow: hidden;
+  touch-action: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  overscroll-behavior: none;
+}
+
+body.tag-palette-active #feed {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none;
+}
+
+body.tag-palette-active #app-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none;
+}
+
+.tag-flyout-root {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  pointer-events: none;
+}
+
+.tag-flyout-backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.tag-flyout-root--open .tag-flyout-backdrop {
+  pointer-events: auto;
+}
+
+.tag-flyout-chips {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 221;
+}
+
+.tag-flyout-chip {
+  position: fixed;
+  left: var(--chip-x, 0);
+  top: var(--chip-y, 0);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: var(--chip-w, auto);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+  contain: layout style;
+  transition:
+    left 0.42s cubic-bezier(0.28, 1.02, 0.38, 1),
+    top 0.42s cubic-bezier(0.28, 1.02, 0.38, 1),
+    padding 0.4s cubic-bezier(0.28, 1.02, 0.38, 1),
+    font-size 0.4s cubic-bezier(0.28, 1.02, 0.38, 1),
+    min-height 0.4s cubic-bezier(0.28, 1.02, 0.38, 1),
+    width 0.4s cubic-bezier(0.28, 1.02, 0.38, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.tag-flyout-root--opening .tag-flyout-chip {
+  transition: none !important;
+}
+
+.tag-flyout-chip--enter {
+  animation: tag-flyout-burst 0.46s cubic-bezier(0.22, 1.18, 0.36, 1) both;
+  animation-delay: calc(var(--chip-i, 0) * 28ms);
+  transition: none !important;
+}
+
+.tag-flyout-chip--exit {
+  animation: tag-flyout-burst 0.22s cubic-bezier(0.4, 0, 0.75, 0.2) reverse both;
+  animation-delay: calc(var(--chip-i, 0) * 14ms);
+  transition: none !important;
+}
+
+@keyframes tag-flyout-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--fly-dx, 0), var(--fly-dy, 0)) scale(0.52);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+  }
+}
+
+.tag-flyout-root--open .tag-flyout-chip {
+  pointer-events: auto;
+}
+
+.tag-flyout-chip--preview {
+  z-index: 6;
+  min-height: 44px;
+  padding: 12px 22px;
+  font-size: 16px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--tag-accent, #8cf) 60%, #fff),
+    0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+.tag-flyout-chip--preview.tag-flyout-chip--selected {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--tag-accent, #8cf) 75%, #fff),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.tag-flyout-root--paired {
+  pointer-events: none;
+}
+
+.tag-flyout-root--paired.tag-flyout-root--open .tag-flyout-chip {
+  pointer-events: auto;
+}
+
+.controls .btn.tag-palette-holding,
+.controls .btn.tag-palette-armed {
+  touch-action: none;
+}
+

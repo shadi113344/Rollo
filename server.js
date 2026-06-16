@@ -31,6 +31,8 @@ const {
   hashPassword,
   verifyPassword,
 } = require("./lib/groups");
+const { createDownloader } = require("./lib/downloader");
+const { createThumbService, thumbPath } = require("./lib/thumbs");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3847;
@@ -47,6 +49,23 @@ const metadataStore = createMetadataStore(videosDir, metadataPath);
 const groupsStore = createGroupsStore(videosDir, groupsPath);
 const groupAuth = createGroupAuth(groupsStore);
 const { makeUnlockToken, isGroupUnlocked, isGroupLocked } = groupAuth;
+
+const downloader = createDownloader({
+  onComplete(groupId, filename) {
+    invalidateVideoListCache(groupId);
+    if (filename) {
+      downloader.checkAvailability().then(() => {
+        thumbService.ensureThumb(groupId, filename).catch(() => {});
+      });
+    }
+  },
+  dataDir,
+});
+
+const thumbService = createThumbService(videosDir, () => {
+  const info = downloader.getInfo?.();
+  return info?.ffmpegPath || null;
+});
 
 const videoListCache = new Map();
 
@@ -214,6 +233,7 @@ function isGroupUnlockedForRequest(groupId, req) {
 }
 
 function requireGroup(groupId, req, res) {
+  if (Array.isArray(groupId)) groupId = groupId[0];
   if (!groupId) {
     res.status(400).json({ error: "group query parameter required" });
     return false;
@@ -519,6 +539,32 @@ app.get("/api/videos", (req, res) => {
   res.json(videos);
 });
 
+app.get("/api/videos/:filename/thumb", async (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const filename = decodeURIComponent(req.params.filename);
+  if (!listVideoFilesCached(groupId).includes(filename)) {
+    return res.status(404).end();
+  }
+
+  const existing = thumbPath(videosDir, groupId, filename);
+  if (thumbService.thumbExists(groupId, filename)) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    return res.sendFile(existing);
+  }
+
+  try {
+    await downloader.checkAvailability();
+    const thumb = await thumbService.ensureThumb(groupId, filename);
+    if (!thumb) return res.status(404).end();
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.sendFile(thumb);
+  } catch {
+    res.status(500).end();
+  }
+});
+
 function sanitizeUploadName(originalName, mime) {
   let ext = getFileExt(originalName).toLowerCase();
   if (!ext || !MEDIA_RE.test("x" + ext)) ext = extFromMime(mime);
@@ -593,6 +639,70 @@ app.get("/api/access", (req, res) => {
   res.json(getAccessInfo(PORT));
 });
 
+app.get("/api/downloader/status", async (_req, res) => {
+  await downloader.checkAvailability(true);
+  res.json(downloader.getInfo());
+});
+
+app.post("/api/download", async (req, res) => {
+  const groupId = req.query.group || req.body?.groupId;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const url = req.body?.url;
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "url required" });
+  }
+
+  try {
+    const outputDir = path.join(videosDir, groupId);
+    const quality = req.body?.quality;
+    const job = await downloader.startDownload({ url, groupId, outputDir, quality });
+    res.status(202).json(job);
+  } catch (err) {
+    if (err.code === "X_SIGN_IN_REQUIRED") {
+      return res.status(401).json({ error: err.message, code: err.code });
+    }
+    res.status(400).json({ error: err.message || "Download failed to start" });
+  }
+});
+
+app.get("/api/download/:jobId", (req, res) => {
+  const job = downloader.getJob(req.params.jobId);
+  if (!job) return res.status(404).json({ error: "Download job not found" });
+  res.json(job);
+});
+
+app.get("/api/downloads", (req, res) => {
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const jobs = downloader.listJobs(limit).map((job) => {
+    if (job.status === "completed" && job.groupId && job.filename) {
+      const meta = metadataStore.getVideoMeta(job.groupId, job.filename);
+      return { ...job, tags: meta.tags || [] };
+    }
+    return job;
+  });
+  res.json(jobs);
+});
+
+app.delete("/api/downloader/x-session", (_req, res) => {
+  try {
+    downloader.clearXSession();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Could not clear X session" });
+  }
+});
+
+app.post("/api/downloader/x-session/confirm", async (_req, res) => {
+  try {
+    const result = await downloader.confirmXSession();
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Could not confirm X session" });
+  }
+});
+
 app.put("/api/videos/:filename/metadata", (req, res) => {
   const groupId = req.query.group;
   if (!requireGroup(groupId, req, res)) return;
@@ -647,6 +757,51 @@ app.put("/api/videos/:filename/rename", (req, res) => {
   res.json(buildVideo(groupId, newName));
 });
 
+app.post("/api/videos/:filename/move", (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const targetGroup = String(req.body?.targetGroup || "").trim();
+  if (!targetGroup) return res.status(400).json({ error: "targetGroup required" });
+  if (!listGroupIds().includes(targetGroup)) {
+    return res.status(404).json({ error: "Target library not found" });
+  }
+  if (targetGroup === groupId) {
+    return res.status(400).json({ error: "Video is already in this library" });
+  }
+
+  const filename = decodeURIComponent(req.params.filename);
+  if (!listVideoFilesCached(groupId).includes(filename)) {
+    return res.status(404).json({ error: "Video not found" });
+  }
+
+  const targetFiles = listVideoFilesCached(targetGroup);
+  let destName = filename;
+  if (targetFiles.includes(destName)) {
+    const ext = getFileExt(filename);
+    const base = stripExt(filename);
+    let n = 1;
+    while (targetFiles.includes(`${base} (${n})${ext}`)) n += 1;
+    destName = `${base} (${n})${ext}`;
+  }
+
+  try {
+    fs.renameSync(
+      path.join(videosDir, groupId, filename),
+      path.join(videosDir, targetGroup, destName)
+    );
+    invalidateVideoListCache(groupId);
+    invalidateVideoListCache(targetGroup);
+  } catch {
+    return res.status(500).json({ error: "Could not move file" });
+  }
+
+  metadataStore.moveVideoMeta(groupId, targetGroup, filename, destName);
+  thumbService.moveThumb(groupId, targetGroup, filename, destName);
+
+  res.json(buildVideo(targetGroup, destName));
+});
+
 app.delete("/api/videos/:filename", (req, res) => {
   const groupId = req.query.group;
   if (!requireGroup(groupId, req, res)) return;
@@ -664,6 +819,7 @@ app.delete("/api/videos/:filename", (req, res) => {
   }
 
   metadataStore.deleteVideoMeta(groupId, filename);
+  thumbService.deleteThumb(groupId, filename);
 
   res.json({ ok: true });
 });
@@ -765,9 +921,16 @@ if (migratedGroups.migrated > 0) {
   console.log(`[Rollo] Migrated ${migratedGroups.migrated} lock settings into library _rollo/group.json files`);
 }
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", async () => {
   if (!process.env.VIDEO_SECRET) {
     console.warn("[Rollo] VIDEO_SECRET is not set — unlock tokens use a local default.");
+  }
+  const ytdlpOk = await downloader.checkAvailability();
+  const ytdlpInfo = downloader.getInfo();
+  if (ytdlpOk) {
+    console.log(`[Rollo] downloader: yt-dlp ready (${ytdlpInfo.command})`);
+  } else {
+    console.warn("[Rollo] downloader: yt-dlp not found — install with: winget install yt-dlp");
   }
   console.log(`[Rollo] videos: ${videosDir}`);
   console.log(`[Rollo] data:   ${dataDir}`);

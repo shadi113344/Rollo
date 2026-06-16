@@ -33,7 +33,14 @@ cd android
 
 Gradle also runs `ensureLibnode` before each build if `jniLibs/` is empty.
 
-# 3. Open android/ in Android Studio and Build > Build APK(s)
+# 3. One-time release signing (same key every build — fewer Play Protect warnings)
+cd android
+powershell -ExecutionPolicy Bypass -File setup-release-keystore.ps1   # Windows
+# or: ./setup-release-keystore.sh                                     # macOS/Linux
+
+# 4. Open android/ in Android Studio and Build > Build APK(s)
+#    Or from repo root:
+npm run build:android:release
 
 The native `rollo-node` library implements the JNI bridge that calls `node::Start()` (required by nodejs-mobile).
 ```
@@ -42,7 +49,25 @@ Or from Android Studio: **File → Open → `android/`** → run on device.
 
 ## Install on phone
 
-Sideload the APK from `android/app/build/outputs/apk/debug/app-debug.apk`.
+**Use the signed release APK** (not debug) for sideloading:
+
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+Build it with `npm run build:android:release` from the repo root.
+
+### Release signing
+
+| File | Purpose |
+|------|---------|
+| `android/rollo-release.jks` | Your private signing key — **back this up** |
+| `android/keystore.properties` | Passwords (gitignored) |
+| `android/setup-release-keystore.ps1` | Creates both files once |
+
+Always sign releases with the **same** `rollo-release.jks`. Reinstalling an update signed with the same key upgrades in place; a new debug or ad-hoc key triggers Play Protect’s “unknown developer” warning again.
+
+Play Protect may still show **Install anyway** the first time you sideload — that’s normal. Publishing via Google Play internal testing removes it for testers.
 
 On first launch:
 

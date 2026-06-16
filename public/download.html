@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rollo">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+  <title>Downloader — Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/icons.css">
+  <link rel="stylesheet" href="/bottom-nav.css">
+  <link rel="stylesheet" href="/press-radial-menu.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+    }
+
+    #app-scroll {
+      min-height: 100%;
+      padding-bottom: var(--bottom-ui-inset);
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10, 10, 10, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid #1f1f1f;
+      padding: calc(12px + env(safe-area-inset-top)) 16px 14px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #9a9a9a;
+      line-height: 1.4;
+    }
+
+    main {
+      padding: 16px;
+      max-width: 560px;
+    }
+
+    .card {
+      background: #141414;
+      border: 1px solid #242424;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8a8a8a;
+      margin-bottom: 8px;
+    }
+
+    select, input[type="url"], input[type="text"], input[type="password"] {
+      width: 100%;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background: #0f0f0f;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    select:focus, input:focus {
+      border-color: #666;
+    }
+
+    input::placeholder {
+      color: #8a8a8a;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .url-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .primary-btn {
+      border: none;
+      border-radius: 10px;
+      background: #fff;
+      color: #000;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 18px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .primary-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .warn-banner {
+      background: #2a1f10;
+      border: 1px solid #5c4520;
+      color: #f0d090;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 14px;
+    }
+
+    .status-card {
+      display: none;
+    }
+
+    .status-card.visible {
+      display: block;
+    }
+
+    .status-title {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .status-sub {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: #9a9a9a;
+      word-break: break-all;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: #2a2a2a;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #fff;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .status-meta {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #9a9a9a;
+    }
+
+    .status-error {
+      color: #ff8f8f;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .status-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #2a2a2a;
+    }
+
+    .status-action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      border: 1px solid #3a3a3a;
+      border-radius: 10px;
+      background: #222;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .status-action-btn:active {
+      background: #333;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .history-action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 40px;
+      border: 1px solid #3a3a3a;
+      border-radius: 10px;
+      background: #222;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    #move-sheet-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 50;
+    }
+
+    #move-sheet {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 51;
+      background: #1a1a1a;
+      border-radius: 16px 16px 0 0;
+      padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    #move-sheet h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    #move-sheet-subtitle {
+      margin: 0 0 14px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .move-group-btn {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background: #222;
+      color: #fff;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .move-group-btn:active {
+      background: #2e2e2e;
+    }
+
+    #move-sheet.open,
+    #move-sheet-backdrop.open {
+      display: block;
+    }
+
+    #move-sheet.open {
+      transform: translateY(0);
+    }
+
+    .history-title {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ccc;
+    }
+
+    .history-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .history-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #222;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .history-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .history-item span {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .history-item a {
+      color: #9ec5ff;
+      text-decoration: none;
+      -webkit-touch-callout: none;
+    }
+
+    #x-disconnect-btn {
+      background: #333;
+      color: #fff;
+    }
+
+    /* Tag chips on history items */
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 3px 10px 3px 10px;
+      font-size: 12px;
+      color: #ccc;
+      cursor: default;
+    }
+
+    .tag-chip.removable {
+      padding-right: 6px;
+    }
+
+    .tag-chip-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border: none;
+      background: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      border-radius: 999px;
+    }
+
+    .tag-chip-remove:hover { color: #fff; }
+
+    .add-tag-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px dashed #444;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .add-tag-btn:hover { border-color: #777; color: #ccc; }
+
+    .add-tag-btn.press-radial-armed,
+    .btn.press-radial-armed {
+      opacity: 0.88;
+    }
+
+    /* Tag sheet */
+    #tag-sheet-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 60;
+    }
+
+    #tag-sheet {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 61;
+      background: #1a1a1a;
+      border-radius: 16px 16px 0 0;
+      padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform .25s ease;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    #tag-sheet h3 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag-sheet-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tag-sheet-input-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tag-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tag-suggestion {
+      background: #242424;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 5px 13px;
+      font-size: 13px;
+      color: #ccc;
+      cursor: pointer;
+    }
+
+    .tag-suggestion:hover { background: #2e2e2e; }
+    .tag-suggestion.selected { background: #fff; color: #000; border-color: #fff; }
+
+    .tag-sheet-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tag-sheet-actions button {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #tag-sheet-cancel { background: #333; color: #fff; }
+
+    .sheet-input {
+      width: 100%;
+      margin-bottom: 12px;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background: #0f0f0f;
+      color: #fff;
+      padding: 12px 14px;
+      font-size: 16px;
+    }
+
+    body.sheet-open {
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      left: 0;
+      right: 0;
+    }
+
+    #tag-sheet.open,
+    #unlock-sheet.open {
+      transform: translateY(0);
+    }
+
+    #tag-sheet-backdrop.open,
+    #unlock-backdrop.open {
+      display: block;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app-scroll">
+    <header>
+      <h1>Browser Downloader</h1>
+      <p>Paste a video link from YouTube, X, TikTok, Reddit, and hundreds of other sites.</p>
+    </header>
+
+    <main>
+      <div class="warn-banner" id="ytdlp-warn" hidden>
+        yt-dlp is not installed on this server. On your PC run:
+        <strong>winget install yt-dlp</strong>, then restart Rollo.
+      </div>
+
+      <div class="warn-banner" id="ffmpeg-warn" hidden>
+        ffmpeg not found. Install with <strong>winget install Gyan.FFmpeg</strong>, then restart Rollo.
+      </div>
+
+      <div class="card" id="x-auth-card">
+        <label class="field-label">X / Twitter</label>
+        <p id="x-auth-status" style="margin:0 0 12px;font-size:13px;color:#9a9a9a;line-height:1.45">
+          Checking…
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="primary-btn" id="x-connect-btn" type="button">Sign in to X</button>
+          <button class="primary-btn" id="x-disconnect-btn" type="button" style="background:#333;color:#fff" hidden>Sign out</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="field-label" for="library-select">Save to library</label>
+        <select id="library-select" aria-label="Library"></select>
+
+        <label class="field-label" for="quality-select" style="margin-top:14px">Quality</label>
+        <select id="quality-select" aria-label="Download quality">
+          <option value="fast" selected>720p Fast (recommended)</option>
+          <option value="hd">1080p</option>
+          <option value="best">Best available</option>
+        </select>
+
+        <label class="field-label" for="url-input" style="margin-top:14px">Video link</label>
+        <div class="url-row">
+          <input id="url-input" type="url" inputmode="url" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="primary-btn" id="download-btn" type="button">Download</button>
+        </div>
+      </div>
+
+      <div class="card status-card" id="status-card" aria-live="polite">
+        <p class="status-title" id="status-title">Downloading…</p>
+        <p class="status-sub" id="status-url"></p>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="status-meta" id="status-meta"></p>
+        <p class="status-error" id="status-error" hidden></p>
+        <div class="status-actions" id="status-actions" hidden></div>
+      </div>
+
+      <div class="card" id="history-card" hidden>
+        <h2 class="history-title">Recent downloads</h2>
+        <ul class="history-list" id="history-list"></ul>
+      </div>
+    </main>
+  </div>
+
+  <footer id="bottom-dock">
+    <nav id="tab-bar" aria-label="Main">
+      <div class="tab-profile-wrap">
+        <button type="button" class="tab-item" id="profile-tab">
+          <span class="tab-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.6-6 7-6s7 2 7 6"/></svg>
+          </span>
+          <span class="tab-label">Profile</span>
+        </button>
+        <div class="profile-switch-menu" id="profile-switch-menu" hidden role="menu" aria-label="Switch profile"></div>
+      </div>
+      <a href="/watch.html" class="tab-item" id="feed-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="tab-label">Feed</span>
+      </a>
+      <a href="/download.html" class="tab-item active" id="download-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        </span>
+        <span class="tab-label">Download</span>
+      </a>
+    </nav>
+  </footer>
+
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Tag sheet -->
+  <div id="tag-sheet-backdrop"></div>
+  <div id="tag-sheet" role="dialog" aria-modal="true" aria-label="Tag video">
+    <h3>Tag this video</h3>
+    <p id="tag-sheet-filename" style="margin:0 0 12px;font-size:12px;color:#888;word-break:break-all"></p>
+    <div class="tag-sheet-input-row">
+      <input id="tag-new-input" type="text" placeholder="New tag…" autocapitalize="off" spellcheck="false">
+      <button class="primary-btn" id="tag-add-btn" type="button">Add</button>
+    </div>
+    <p id="tag-suggestions-label" style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a8a8a">Library tags</p>
+    <div class="tag-suggestions" id="tag-suggestions"></div>
+    <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a8a8a">Current tags</p>
+    <div class="tag-row" id="tag-sheet-current"></div>
+    <div class="tag-sheet-actions" style="margin-top:16px">
+      <button id="tag-sheet-save" type="button">Save</button>
+      <button id="tag-sheet-cancel" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <div id="move-sheet-backdrop"></div>
+  <div id="move-sheet" role="dialog" aria-modal="true" aria-label="Move to profile">
+    <h3>Move to profile</h3>
+    <p id="move-sheet-subtitle">Tags and favorites are kept.</p>
+    <div id="move-group-list"></div>
+    <button type="button" class="primary-btn" id="move-sheet-cancel" style="width:100%;margin-top:8px;background:#333">Cancel</button>
+  </div>
+
+  <div id="unlock-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50"></div>
+  <div id="unlock-sheet" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:51;background:#1a1a1a;border-radius:16px 16px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .25s ease">
+    <h2 id="unlock-title" style="margin:0 0 4px;font-size:16px">Unlock library</h2>
+    <p id="unlock-subtitle" style="margin:0 0 14px;font-size:12px;color:#888">This library is password protected.</p>
+    <label class="field-label" for="unlock-password">Password</label>
+    <input id="unlock-password" type="password" class="sheet-input" placeholder="Enter password" autocomplete="current-password">
+    <button id="unlock-submit" type="button" class="primary-btn" style="width:100%;margin-bottom:8px">Unlock</button>
+    <button id="unlock-cancel" type="button" style="width:100%;border:none;border-radius:10px;background:#333;color:#fff;padding:12px">Cancel</button>
+  </div>
+
+  <script src="/pwa.js"></script>
+  <script src="/layout-metrics.js"></script>
+  <script src="/groups.js"></script>
+  <script src="/bottom-nav.js"></script>
+  <script src="/toast.js"></script>
+  <script src="/tag-colors.js"></script>
+  <script src="/icons.js"></script>
+  <script src="/press-radial-menu.js"></script>
+  <script>
+    const librarySelect = document.getElementById("library-select");
+    const qualitySelect = document.getElementById("quality-select");
+    const urlInput = document.getElementById("url-input");
+    const downloadBtn = document.getElementById("download-btn");
+    const ytdlpWarn = document.getElementById("ytdlp-warn");
+    const ffmpegWarn = document.getElementById("ffmpeg-warn");
+    const xAuthStatus = document.getElementById("x-auth-status");
+    const xConnectBtn = document.getElementById("x-connect-btn");
+    const xDisconnectBtn = document.getElementById("x-disconnect-btn");
+    const statusCard = document.getElementById("status-card");
+    const statusTitle = document.getElementById("status-title");
+    const statusUrl = document.getElementById("status-url");
+    const progressFill = document.getElementById("progress-fill");
+    const statusMeta = document.getElementById("status-meta");
+    const statusError = document.getElementById("status-error");
+    const statusActions = document.getElementById("status-actions");
+    const historyCard = document.getElementById("history-card");
+    const historyList = document.getElementById("history-list");
+    const unlockBackdrop = document.getElementById("unlock-backdrop");
+    const unlockSheet = document.getElementById("unlock-sheet");
+    const unlockTitle = document.getElementById("unlock-title");
+    const unlockSubtitle = document.getElementById("unlock-subtitle");
+    const unlockPassword = document.getElementById("unlock-password");
+    const unlockSubmit = document.getElementById("unlock-submit");
+    const unlockCancel = document.getElementById("unlock-cancel");
+    const moveSheetBackdrop = document.getElementById("move-sheet-backdrop");
+    const moveSheet = document.getElementById("move-sheet");
+    const moveSheetSubtitle = document.getElementById("move-sheet-subtitle");
+    const moveGroupList = document.getElementById("move-group-list");
+    const moveSheetCancel = document.getElementById("move-sheet-cancel");
+
+    let allGroups = [];
+    let activeJobId = null;
+    let pollTimer = null;
+    let pendingUnlockGroup = null;
+    let ytdlpAvailable = false;
+    let moveJob = null;
+    let lastCompletedJob = null;
+
+    const STATUS_LABELS = {
+      queued: "Queued",
+      downloading: "Downloading",
+      processing: "Processing",
+      completed: "Completed",
+      failed: "Failed",
+    };
+
+    function showToast(msg) {
+      Toast.show(msg);
+    }
+
+    let sheetScrollY = 0;
+    let openSheetCount = 0;
+
+    function lockPageForSheet() {
+      if (openSheetCount === 0) {
+        sheetScrollY = window.scrollY;
+        document.body.classList.add("sheet-open");
+        document.body.style.top = `-${sheetScrollY}px`;
+      }
+      openSheetCount += 1;
+    }
+
+    function unlockPageForSheet() {
+      openSheetCount = Math.max(0, openSheetCount - 1);
+      if (openSheetCount === 0) {
+        document.body.classList.remove("sheet-open");
+        document.body.style.top = "";
+        window.scrollTo(0, sheetScrollY);
+      }
+    }
+
+    function openSheet(backdrop, sheet, focusEl) {
+      lockPageForSheet();
+      backdrop.classList.add("open");
+      sheet.classList.add("open");
+      backdrop.style.display = "block";
+      sheet.style.display = "block";
+      requestAnimationFrame(() => {
+        sheet.style.transform = "translateY(0)";
+        if (focusEl) {
+          setTimeout(() => focusEl.focus({ preventScroll: true }), 300);
+        }
+      });
+    }
+
+    function closeSheet(backdrop, sheet) {
+      backdrop.classList.remove("open");
+      sheet.classList.remove("open");
+      sheet.style.transform = "translateY(100%)";
+      backdrop.style.display = "none";
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setTimeout(() => {
+        sheet.style.display = "none";
+        unlockPageForSheet();
+      }, 250);
+    }
+
+    function openUnlock(group) {
+      pendingUnlockGroup = group;
+      unlockTitle.textContent = `Unlock ${group.displayName || group.name || group.id}`;
+      unlockSubtitle.textContent = "Enter the library password to save downloads here.";
+      unlockPassword.value = "";
+      openSheet(unlockBackdrop, unlockSheet, unlockPassword);
+    }
+
+    function closeUnlock() {
+      closeSheet(unlockBackdrop, unlockSheet);
+      pendingUnlockGroup = null;
+    }
+
+    async function submitUnlock() {
+      if (!pendingUnlockGroup) return;
+      const password = unlockPassword.value;
+      const res = await fetch(`/api/groups/${encodeURIComponent(pendingUnlockGroup.id)}/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || "Wrong password");
+        return;
+      }
+      VideoGroups.setUnlockToken(pendingUnlockGroup.id, data.token);
+      closeUnlock();
+      await loadGroups();
+      librarySelect.value = pendingUnlockGroup?.id || VideoGroups.getActive();
+      showToast("Library unlocked.");
+    }
+
+    unlockSubmit.addEventListener("click", submitUnlock);
+    unlockCancel.addEventListener("click", closeUnlock);
+    unlockBackdrop.addEventListener("click", closeUnlock);
+    unlockPassword.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitUnlock();
+    });
+
+    function renderLibraryOptions() {
+      librarySelect.innerHTML = "";
+      allGroups.forEach((group) => {
+        const opt = document.createElement("option");
+        opt.value = group.id;
+        const locked = group.locked && !VideoGroups.hasUnlockToken(group.id);
+        opt.textContent = (group.displayName || group.name || group.id) + (locked ? " (locked)" : "");
+        opt.disabled = locked;
+        librarySelect.appendChild(opt);
+      });
+      const active = VideoGroups.getActive();
+      if (active && [...librarySelect.options].some((o) => o.value === active && !o.disabled)) {
+        librarySelect.value = active;
+      }
+    }
+
+    async function loadGroups() {
+      const res = await fetch("/api/groups", { headers: VideoGroups.headers() });
+      const data = await res.json();
+      allGroups = Array.isArray(data) ? data : data.groups || [];
+      renderLibraryOptions();
+    }
+
+    const hasAndroidBridge = () => typeof window.RolloBridge?.connectX === "function";
+
+    function updateXAuthUi(connected) {
+      if (connected) {
+        xAuthStatus.textContent = "Signed in to X. Video links from X should download (including sensitive posts your account can view).";
+        xConnectBtn.hidden = true;
+        xDisconnectBtn.hidden = false;
+      } else {
+        xAuthStatus.textContent = "X/Twitter links need one quick sign-in. Works the same on PC and phone.";
+        xConnectBtn.hidden = false;
+        xDisconnectBtn.hidden = true;
+      }
+    }
+
+    async function checkDownloader() {
+      try {
+        const res = await fetch("/api/downloader/status");
+        const data = await res.json();
+        ytdlpAvailable = !!data.available;
+        ytdlpWarn.hidden = ytdlpAvailable;
+        ffmpegWarn.hidden = !ytdlpAvailable || !!data.ffmpeg;
+        downloadBtn.disabled = !ytdlpAvailable;
+        if (data.defaultQuality) qualitySelect.value = data.defaultQuality;
+        updateXAuthUi(!!data.cookies || (hasAndroidBridge() && window.RolloBridge.isXConnected()));
+      } catch {
+        ytdlpAvailable = false;
+        ytdlpWarn.hidden = false;
+        ffmpegWarn.hidden = true;
+        downloadBtn.disabled = true;
+        updateXAuthUi(false);
+      }
+    }
+
+    async function signOutX() {
+      if (hasAndroidBridge()) {
+        window.RolloBridge.disconnectX();
+        updateXAuthUi(false);
+        showToast("Signed out of X");
+        return;
+      }
+      await fetch("/api/downloader/x-session", { method: "DELETE" });
+      updateXAuthUi(false);
+      showToast("Signed out of X");
+    }
+
+    function signInX() {
+      const ret = encodeURIComponent(`/download.html?${VideoGroups.query(librarySelect.value || VideoGroups.getActive())}`);
+      location.href = `/x-login.html?return=${ret}`;
+    }
+
+    window.onRolloXAuthChanged = () => {
+      const connected = window.RolloBridge?.isXConnected?.() ?? false;
+      updateXAuthUi(connected);
+      if (connected) showToast("Signed in to X");
+    };
+
+    xConnectBtn.addEventListener("click", signInX);
+    xDisconnectBtn.addEventListener("click", signOutX);
+
+    function formatStatus(job) {
+      return STATUS_LABELS[job.status] || job.status;
+    }
+
+    function updateStatusUi(job) {
+      statusCard.classList.add("visible");
+      statusTitle.textContent = job.title || formatStatus(job);
+      statusUrl.textContent = job.url;
+      progressFill.style.width = `${Math.max(0, Math.min(100, job.progress || 0))}%`;
+      const parts = [formatStatus(job)];
+      if (job.progress > 0 && job.status !== "completed" && job.status !== "failed") {
+        parts.push(`${Math.round(job.progress)}%`);
+      }
+      if (job.filename) parts.push(job.filename);
+      statusMeta.textContent = parts.join(" · ");
+      statusError.hidden = !job.error;
+      statusError.textContent = job.error || "";
+      if (job.status === "completed" && job.filename && job.groupId) {
+        lastCompletedJob = job;
+      }
+      renderJobActions(statusActions, job);
+    }
+
+    function renderJobActions(container, job) {
+      if (!container) return;
+      const show = job.status === "completed" && job.filename && job.groupId;
+      container.hidden = !show;
+      container.innerHTML = "";
+      if (!show) return;
+
+      const tagBtn = document.createElement("button");
+      tagBtn.type = "button";
+      tagBtn.className = "status-action-btn";
+      tagBtn.innerHTML = `${RolloIcons.tag(20)} Tag`;
+      bindDownloadTagButton(tagBtn, job);
+
+      const moveBtn = document.createElement("button");
+      moveBtn.type = "button";
+      moveBtn.className = "status-action-btn";
+      moveBtn.innerHTML = `${RolloIcons.move(20)} Move`;
+      moveBtn.addEventListener("click", () => openMoveSheetForJob(job));
+
+      container.append(tagBtn, moveBtn);
+    }
+
+    function openMoveSheetForJob(job) {
+      if (!job?.filename || !job?.groupId) return;
+      moveJob = job;
+      moveSheetSubtitle.textContent = `Move "${job.filename}" to another profile. Tags are kept.`;
+      moveGroupList.innerHTML = "";
+      allGroups
+        .filter((g) => g.id !== job.groupId)
+        .forEach((g) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "move-group-btn";
+          const name = g.displayName || g.name || g.id;
+          btn.textContent = g.locked ? `${name} (locked)` : name;
+          btn.addEventListener("click", () => {
+            closeSheet(moveSheetBackdrop, moveSheet);
+            moveJobToGroup(job, g.id);
+          });
+          moveGroupList.appendChild(btn);
+        });
+      openSheet(moveSheetBackdrop, moveSheet);
+    }
+
+    async function moveJobToGroup(job, targetGroupId) {
+      if (!job?.filename || !job?.groupId || targetGroupId === job.groupId) return;
+      try {
+        const res = await VideoGroups.apiFetch(
+          `/api/videos/${encodeURIComponent(job.filename)}/move?group=${encodeURIComponent(job.groupId)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetGroup: targetGroupId }),
+          },
+          job.groupId
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(data.error || "Could not move video");
+          return;
+        }
+        const target = allGroups.find((g) => g.id === targetGroupId);
+        const label = target?.displayName || target?.name || targetGroupId;
+        job.groupId = targetGroupId;
+        if (data.name) job.filename = data.name;
+        showToast(`Moved to ${label}`);
+        if (lastCompletedJob?.filename === job.filename) lastCompletedJob = job;
+        renderJobActions(statusActions, job);
+        loadHistory();
+      } catch (err) {
+        showToast(err?.message || "Could not move video");
+      }
+    }
+
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    async function pollJob(jobId) {
+      const res = await fetch(`/api/download/${encodeURIComponent(jobId)}`);
+      if (!res.ok) return null;
+      return res.json();
+    }
+
+    function startPolling(jobId) {
+      stopPolling();
+      activeJobId = jobId;
+      const tick = async () => {
+        const job = await pollJob(jobId);
+        if (!job) return;
+        updateStatusUi(job);
+        if (job.status === "completed") {
+          stopPolling();
+          activeJobId = null;
+          downloadBtn.disabled = !ytdlpAvailable;
+          showToast(`Saved to ${job.groupId}`);
+          urlInput.value = "";
+          loadHistory();
+        } else if (job.status === "failed") {
+          stopPolling();
+          activeJobId = null;
+          downloadBtn.disabled = !ytdlpAvailable;
+          showToast(job.error || "Download failed");
+          loadHistory();
+        }
+      };
+      tick();
+      pollTimer = setInterval(tick, 1000);
+    }
+
+    // ── Tag sheet ─────────────────────────────────────────────────────────────
+    const tagSheetBackdrop = document.getElementById("tag-sheet-backdrop");
+    const tagSheet = document.getElementById("tag-sheet");
+    const tagSheetFilename = document.getElementById("tag-sheet-filename");
+    const tagNewInput = document.getElementById("tag-new-input");
+    const tagAddBtn = document.getElementById("tag-add-btn");
+    const tagSuggestions = document.getElementById("tag-suggestions");
+    const tagSuggestionsLabel = document.getElementById("tag-suggestions-label");
+    const tagSheetCurrent = document.getElementById("tag-sheet-current");
+    const tagSheetSave = document.getElementById("tag-sheet-save");
+    const tagSheetCancel = document.getElementById("tag-sheet-cancel");
+
+    let tagJob = null;
+    let tagPending = new Set();
+
+    async function fetchJobTags(job) {
+      if (!job?.filename || !job?.groupId) return job?.tags || [];
+      try {
+        const res = await VideoGroups.apiFetch("/api/videos", {}, job.groupId);
+        if (!res.ok) return job.tags || [];
+        const videos = await res.json();
+        const match = (videos || []).find((v) => v.name === job.filename);
+        return match?.tags || job.tags || [];
+      } catch {
+        return job.tags || [];
+      }
+    }
+
+    async function saveJobTags(job, tags) {
+      const res = await VideoGroups.apiFetch(
+        `/api/videos/${encodeURIComponent(job.filename)}/metadata?group=${encodeURIComponent(job.groupId)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags }),
+        },
+        job.groupId
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save tags");
+      job.tags = tags;
+      return data;
+    }
+
+    async function toggleJobTag(job, tag) {
+      const set = new Set(job.tags || []);
+      if (set.has(tag)) set.delete(tag);
+      else set.add(tag);
+      await saveJobTags(job, [...set]);
+      if (tagJob?.filename === job.filename) tagPending = new Set(job.tags);
+      loadHistory();
+    }
+
+    let libraryTagsCache = [];
+
+    async function refreshLibraryTags(groupId) {
+      if (!groupId) {
+        libraryTagsCache = [];
+        return;
+      }
+      try {
+        const res = await VideoGroups.apiFetch("/api/tags", {}, groupId);
+        libraryTagsCache = res.ok ? await res.json() : [];
+        if (!Array.isArray(libraryTagsCache)) libraryTagsCache = [];
+      } catch {
+        libraryTagsCache = [];
+      }
+    }
+
+    function buildDownloadTagOptions(job) {
+      const pool = [...new Set([...libraryTagsCache, ...(job.tags || [])])].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+      );
+      if (!pool.length) {
+        return [
+          {
+            id: "tag-add",
+            label: "Add tag",
+            onSelect: () => openTagSheet(job),
+          },
+        ];
+      }
+      return pool.map((tag) => ({
+        id: `tag-${tag}`,
+        label: tag,
+        active: (job.tags || []).includes(tag),
+        accent: TagColors.getTagColors(tag).solid,
+        onSelect: () => {
+          toggleJobTag(job, tag)
+            .then(() => PressRadialMenu.refreshSubmenu())
+            .catch((err) => showToast(err?.message || "Could not save tag"));
+        },
+      }));
+    }
+
+    async function openTagSheet(job) {
+      tagJob = job;
+      const tags = await fetchJobTags(job);
+      job.tags = tags;
+      tagPending = new Set(tags);
+      tagSheetFilename.textContent = job.filename || job.title || job.url;
+      tagNewInput.value = "";
+      renderTagSheetCurrent();
+      await loadTagSuggestions(job.groupId);
+      openSheet(tagSheetBackdrop, tagSheet, tagNewInput);
+    }
+
+    function closeTagSheet() {
+      closeSheet(tagSheetBackdrop, tagSheet);
+      tagJob = null;
+    }
+
+    function bindDownloadTagButton(btn, job) {
+      PressRadialMenu.bindTagButton(btn, {
+        onTap: () => openTagSheet(job),
+        getTagOptions: () => buildDownloadTagOptions(job),
+        onMore: () => openTagSheet(job),
+        parentIcon: RolloIcons.tag(22),
+      });
+    }
+
+    function renderTagSheetCurrent() {
+      tagSheetCurrent.innerHTML = "";
+      if (tagPending.size === 0) {
+        tagSheetCurrent.innerHTML = '<span style="font-size:12px;color:#555">No tags yet</span>';
+      }
+      tagPending.forEach((tag) => {
+        const chip = document.createElement("span");
+        chip.className = "tag-chip removable";
+        chip.textContent = tag;
+        const rem = document.createElement("button");
+        rem.className = "tag-chip-remove";
+        rem.textContent = "×";
+        rem.setAttribute("aria-label", `Remove ${tag}`);
+        rem.onclick = () => { tagPending.delete(tag); renderTagSheetCurrent(); renderSuggestionSelected(); };
+        chip.appendChild(rem);
+        tagSheetCurrent.appendChild(chip);
+      });
+    }
+
+    function renderSuggestionSelected() {
+      tagSuggestions.querySelectorAll(".tag-suggestion").forEach((el) => {
+        el.classList.toggle("selected", tagPending.has(el.dataset.tag));
+      });
+    }
+
+    async function loadTagSuggestions(groupId) {
+      tagSuggestions.innerHTML = "";
+      tagSuggestionsLabel.hidden = false;
+      await refreshLibraryTags(groupId);
+      const tags = libraryTagsCache;
+      if (!tags.length) {
+        tagSuggestionsLabel.hidden = true;
+        return;
+      }
+      tags.forEach((tag) => {
+          const btn = document.createElement("button");
+          btn.className = "tag-suggestion" + (tagPending.has(tag) ? " selected" : "");
+          btn.textContent = tag;
+          btn.dataset.tag = tag;
+          btn.type = "button";
+          btn.onclick = () => {
+            if (tagPending.has(tag)) tagPending.delete(tag);
+            else tagPending.add(tag);
+            renderTagSheetCurrent();
+            renderSuggestionSelected();
+          };
+          tagSuggestions.appendChild(btn);
+        });
+    }
+
+    function addNewTag() {
+      const t = tagNewInput.value.trim();
+      if (!t) return;
+      tagPending.add(t);
+      tagNewInput.value = "";
+      renderTagSheetCurrent();
+      renderSuggestionSelected();
+    }
+
+    tagAddBtn.addEventListener("click", addNewTag);
+    tagNewInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addNewTag(); });
+    tagSheetCancel.addEventListener("click", closeTagSheet);
+    tagSheetBackdrop.addEventListener("click", closeTagSheet);
+    moveSheetCancel.addEventListener("click", () => closeSheet(moveSheetBackdrop, moveSheet));
+    moveSheetBackdrop.addEventListener("click", () => closeSheet(moveSheetBackdrop, moveSheet));
+
+    tagSheetSave.addEventListener("click", async () => {
+      if (!tagJob?.filename || !tagJob?.groupId) { closeTagSheet(); return; }
+      const tags = [...tagPending];
+      try {
+        await saveJobTags(tagJob, tags);
+        closeTagSheet();
+        loadHistory();
+        showToast(tags.length ? `Tags saved: ${tags.join(", ")}` : "Tags cleared");
+      } catch (err) {
+        showToast(err?.message || "Failed to save tags");
+      }
+    });
+
+    // ── History rendering ─────────────────────────────────────────────────────
+    function renderHistory(jobs) {
+      if (!jobs.length) {
+        historyCard.hidden = true;
+        return;
+      }
+      historyCard.hidden = false;
+      historyList.innerHTML = "";
+      jobs.forEach((job) => {
+        const li = document.createElement("li");
+        li.className = "history-item";
+        const title = document.createElement("strong");
+        title.textContent = job.title || job.filename || job.url;
+        const meta = document.createElement("span");
+        const bits = [formatStatus(job), job.groupId];
+        if (job.filename) bits.push(job.filename);
+        meta.textContent = bits.join(" · ");
+        li.appendChild(title);
+        li.appendChild(meta);
+
+        // Tag chips + action buttons (completed downloads only)
+        if (job.status === "completed" && job.filename && job.groupId) {
+          const tagRow = document.createElement("div");
+          tagRow.className = "tag-row";
+          const tags = job.tags || [];
+          tags.forEach((tag) => {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.textContent = tag;
+            tagRow.appendChild(chip);
+          });
+          li.appendChild(tagRow);
+
+          const actions = document.createElement("div");
+          actions.className = "history-actions";
+          const tagBtn = document.createElement("button");
+          tagBtn.type = "button";
+          tagBtn.className = "history-action-btn";
+          tagBtn.innerHTML = `${RolloIcons.tag(18)} ${tags.length ? "Edit tags" : "Tag"}`;
+          bindDownloadTagButton(tagBtn, job);
+          const moveBtn = document.createElement("button");
+          moveBtn.type = "button";
+          moveBtn.className = "history-action-btn";
+          moveBtn.innerHTML = `${RolloIcons.move(18)} Move`;
+          moveBtn.addEventListener("click", () => openMoveSheetForJob(job));
+          actions.append(tagBtn, moveBtn);
+          li.appendChild(actions);
+        }
+
+        if (job.status === "completed" && job.groupId) {
+          const link = document.createElement("a");
+          link.href = `/?group=${encodeURIComponent(job.groupId)}`;
+          link.textContent = "Open library";
+          link.style.display = "inline-block";
+          link.style.marginTop = "6px";
+          li.appendChild(link);
+        }
+        historyList.appendChild(li);
+      });
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/downloads?limit=10");
+        const jobs = await res.json();
+        const list = Array.isArray(jobs) ? jobs : [];
+        const groupId = librarySelect.value || VideoGroups.getActive();
+        await refreshLibraryTags(groupId);
+        renderHistory(list);
+      } catch {
+        historyCard.hidden = true;
+      }
+    }
+
+    async function startDownload() {
+      const url = urlInput.value.trim();
+      if (!url) {
+        showToast("Paste a link first");
+        urlInput.focus();
+        return;
+      }
+
+      const groupId = librarySelect.value;
+      if (!groupId) {
+        showToast("Choose a library");
+        return;
+      }
+
+      const group = allGroups.find((g) => g.id === groupId);
+      if (group?.locked && !VideoGroups.hasUnlockToken(groupId)) {
+        openUnlock(group);
+        return;
+      }
+
+      VideoGroups.setActive(groupId);
+      downloadBtn.disabled = true;
+      statusError.hidden = true;
+
+      try {
+        const res = await fetch(`/api/download?${VideoGroups.query(groupId)}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...VideoGroups.headers(),
+          },
+          body: JSON.stringify({ url, quality: qualitySelect.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.locked && group) {
+            openUnlock(group);
+            return;
+          }
+          if (data.code === "X_SIGN_IN_REQUIRED") {
+            const ret = encodeURIComponent(`/download.html?${VideoGroups.query(groupId)}`);
+            location.href = `/x-login.html?return=${ret}`;
+            return;
+          }
+          throw new Error(data.error || "Download failed to start");
+        }
+        updateStatusUi(data);
+        startPolling(data.id);
+      } catch (err) {
+        downloadBtn.disabled = !ytdlpAvailable;
+        showToast(err.message || "Download failed");
+      }
+    }
+
+    downloadBtn.addEventListener("click", startDownload);
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") startDownload();
+    });
+
+    librarySelect.addEventListener("change", () => {
+      VideoGroups.setActive(librarySelect.value);
+      refreshLibraryTags(librarySelect.value);
+    });
+
+    BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
+    BottomNav.init({
+      getGroups: () => allGroups,
+      onSelectGroup: (id) => {
+        VideoGroups.setActive(id);
+        const group = allGroups.find((g) => g.id === id);
+        if (group?.locked && !VideoGroups.hasUnlockToken(id)) {
+          openUnlock(group);
+          return;
+        }
+        location.href = `/?group=${encodeURIComponent(id)}`;
+      },
+    });
+
+    (async function init() {
+      await Promise.all([loadGroups(), checkDownloader(), loadHistory()]);
+    })();
+  </script>
+</body>
+</html>

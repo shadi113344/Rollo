@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0a0a0a">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/xLoginToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#141414"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:title="@string/x_login_title"
+        app:titleTextColor="#FFFFFF" />
+
+    <WebView
+        android:id="@+id/xLoginWebView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/xLoginDone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="@string/x_login_done"
+        app:backgroundTint="#FFFFFF"
+        android:textColor="#000000" />
+
+</LinearLayout>

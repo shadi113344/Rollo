@@ -23,6 +23,9 @@ _restore_debug/
 # Local editor settings
 .vscode/
 
+# Local knowledge-graph artifacts
+graphify-out/
+
 # OS / editor
 .DS_Store
 Thumbs.db

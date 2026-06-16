@@ -72,3 +72,23 @@ Locked libraries require a password; unlock tokens are stored in the browser and
 ```bash
 npm test
 ```
+
+## Graphify (optional)
+
+Graphify is available in this project for codebase knowledge graph workflows.
+
+```bash
+npm run graphify
+```
+
+Useful commands:
+
+```bash
+# incremental refresh after file changes
+npm run graphify:update
+
+# ask questions against an existing graph
+npm run graphify:query -- "Where is group auth handled?"
+```
+
+Outputs are written to `graphify-out/` locally (ignored by git).
