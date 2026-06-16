@@ -30,6 +30,7 @@
 <body class="page-connect page-profile">
   <div id="app-scroll">
     <header class="connect-header">
+      <a href="/" class="connect-back">← Profile</a>
       <h1>Servers</h1>
       <p class="connect-lead">Home Wi‑Fi uses LAN first so you don’t burn mobile data. Away from home, Tailscale is tried automatically.</p>
     </header>
@@ -38,6 +39,12 @@
       <button type="button" class="connect-tool-btn primary" id="add-this-btn">Add this device</button>
       <button type="button" class="connect-tool-btn" id="refresh-btn">Refresh</button>
     </div>
+
+    <div class="connect-toolbar" style="padding-top:0">
+      <button type="button" class="connect-tool-btn" id="backup-btn">Backup list</button>
+      <button type="button" class="connect-tool-btn" id="restore-btn">Restore list</button>
+    </div>
+    <input type="file" id="restore-input" accept="application/json,.json" hidden>
 
     <div class="connect-search" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
@@ -72,12 +79,6 @@
           <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
         </span>
         <span class="tab-label">Download</span>
-      </a>
-      <a href="/connect.html" class="tab-item tab-item-servers active" id="servers-tab" aria-current="page">
-        <span class="tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1.5"/><rect x="2" y="11" width="20" height="6" rx="1.5"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
-        </span>
-        <span class="tab-label">Servers</span>
       </a>
     </nav>
   </footer>
@@ -325,6 +326,30 @@
     });
 
     document.getElementById("add-manual-btn").addEventListener("click", () => openEdit(null));
+
+    document.getElementById("backup-btn").addEventListener("click", () => {
+      const count = RolloServers.exportBackup();
+      summaryEl.textContent = count
+        ? `Backed up ${count} server${count === 1 ? "" : "s"}`
+        : "Nothing to back up yet";
+    });
+
+    const restoreInput = document.getElementById("restore-input");
+    document.getElementById("restore-btn").addEventListener("click", () => restoreInput.click());
+    restoreInput.addEventListener("change", async () => {
+      const file = restoreInput.files?.[0];
+      restoreInput.value = "";
+      if (!file) return;
+      const existing = RolloServers.getList().length;
+      if (existing && !confirm("Replace your saved server list with this backup?")) return;
+      try {
+        const restored = await RolloServers.importBackupFile(file);
+        summaryEl.textContent = `Restored ${restored.length} server${restored.length === 1 ? "" : "s"}`;
+        refreshAll();
+      } catch (err) {
+        alert(err.message || "Could not restore backup");
+      }
+    });
 
     document.getElementById("edit-cancel").addEventListener("click", closeEdit);
     editBackdrop.addEventListener("click", closeEdit);

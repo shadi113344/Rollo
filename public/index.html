@@ -354,7 +354,168 @@
     }
 
     .upload-fab:active { opacity: 0.65; }
-    .upload-fab.uploading { opacity: 0.35; pointer-events: none; }
+    .upload-fab.uploading { opacity: 0.55; }
+
+    #upload-queue {
+      position: fixed;
+      left: 12px;
+      right: 68px;
+      bottom: calc(var(--bottom-ui-inset) + 12px);
+      z-index: 25;
+      max-height: min(38vh, 220px);
+      display: flex;
+      flex-direction: column;
+      border-radius: 14px;
+      background: rgba(18, 18, 18, 0.96);
+      border: 1px solid #2a2a2a;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    #upload-queue.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .upload-queue-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid #242424;
+      flex-shrink: 0;
+    }
+
+    .upload-queue-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .upload-queue-list {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .upload-queue-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 2px 8px;
+      align-items: center;
+      padding: 8px 10px 8px 12px;
+      border-bottom: 1px solid #1f1f1f;
+    }
+
+    .upload-queue-item:last-child {
+      border-bottom: none;
+    }
+
+    .upload-queue-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .upload-queue-status {
+      grid-column: 1;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .upload-queue-item[data-status="uploading"] .upload-queue-status {
+      color: #8ec5ff;
+    }
+
+    .upload-queue-item[data-status="done"] .upload-queue-status {
+      color: #6ee787;
+    }
+
+    .upload-queue-item[data-status="failed"] .upload-queue-status {
+      color: #ff8fa3;
+    }
+
+    .upload-queue-item[data-status="cancelled"] .upload-queue-status {
+      color: rgba(255, 255, 255, 0.35);
+    }
+
+    .upload-queue-bar-wrap {
+      grid-column: 1 / -1;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .upload-queue-item[data-status="pending"] .upload-queue-bar-wrap,
+    .upload-queue-item[data-status="done"] .upload-queue-bar-wrap,
+    .upload-queue-item[data-status="cancelled"] .upload-queue-bar-wrap,
+    .upload-queue-item[data-status="failed"] .upload-queue-bar-wrap {
+      opacity: 0.35;
+    }
+
+    .upload-queue-item[data-status="done"] .upload-queue-bar {
+      width: 100% !important;
+      background: #6ee787;
+    }
+
+    .upload-queue-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #5b7cff, #8ec5ff);
+      transition: width 0.15s ease;
+    }
+
+    .upload-queue-item[data-status="pending"] .upload-queue-bar {
+      width: 0 !important;
+    }
+
+    .upload-queue-cancel {
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+      align-self: center;
+    }
+
+    .upload-queue-cancel:active {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .upload-queue-item[data-status="done"] .upload-queue-cancel,
+    .upload-queue-item[data-status="failed"] .upload-queue-cancel,
+    .upload-queue-item[data-status="cancelled"] .upload-queue-cancel {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    @supports (height: 100lvh) {
+      .ios-standalone #upload-queue {
+        bottom: calc(var(--bottom-ui-inset) + 8px);
+      }
+    }
 
     #toast {
       font-size: 12px;
@@ -1024,6 +1185,12 @@
   </div>
 
   <button class="upload-fab" id="upload-fab" type="button" title="Upload video" aria-label="Upload video">+</button>
+  <div id="upload-queue" hidden aria-live="polite">
+    <div class="upload-queue-head">
+      <span class="upload-queue-title" id="upload-queue-title">Uploading</span>
+    </div>
+    <div class="upload-queue-list" id="upload-queue-list"></div>
+  </div>
   <input id="import-input" type="file" accept=".csv,text/csv" hidden>
   <input id="upload-input" type="file" accept="image/*,video/*,.gif,.heic,.heif,.png,.jpg,.jpeg,.webp,.bmp,.avif,.mp4,.webm,.mov,.m4v,.mkv,.avi" multiple hidden>
 
@@ -1178,12 +1345,6 @@
         </span>
         <span class="tab-label">Download</span>
       </a>
-      <a href="/connect.html" class="tab-item tab-item-servers" id="servers-tab">
-        <span class="tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1.5"/><rect x="2" y="11" width="20" height="6" rx="1.5"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
-        </span>
-        <span class="tab-label">Servers</span>
-      </a>
     </nav>
   </footer>
 
@@ -1235,6 +1396,14 @@
     const newGroupBtn = document.getElementById("new-group-btn");
     const uploadFab = document.getElementById("upload-fab");
     const uploadInput = document.getElementById("upload-input");
+    const uploadQueuePanel = document.getElementById("upload-queue");
+    const uploadQueueList = document.getElementById("upload-queue-list");
+    const uploadQueueTitle = document.getElementById("upload-queue-title");
+    const uploadQueue = {
+      items: [],
+      running: false,
+      cleanupTimer: null,
+    };
     const moreBtn = document.getElementById("more-btn");
     const moreBackdrop = document.getElementById("more-backdrop");
     const moreSheet = document.getElementById("more-sheet");
@@ -1379,8 +1548,7 @@
       });
     }
 
-    async function readJsonResponse(res) {
-      const text = await res.text();
+    function parseJsonText(text) {
       try {
         return JSON.parse(text);
       } catch {
@@ -1389,6 +1557,11 @@
         }
         throw new Error(text.slice(0, 100) || "Request failed");
       }
+    }
+
+    async function readJsonResponse(res) {
+      const text = await res.text();
+      return parseJsonText(text);
     }
 
     function thumbCacheKey(name) {
@@ -2692,32 +2865,213 @@
 
     async function uploadVideos(files) {
       if (!files.length) return;
+      const items = files.map((file) => ({
+        id: `up-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        status: "pending",
+        progress: 0,
+        error: "",
+        xhr: null,
+      }));
+      uploadQueue.items.push(...items);
+      showUploadQueue();
+      renderUploadQueue();
+      if (!uploadQueue.running) processUploadQueue();
+    }
+
+    function showUploadQueue() {
+      clearTimeout(uploadQueue.cleanupTimer);
+      uploadQueuePanel.hidden = false;
+      requestAnimationFrame(() => uploadQueuePanel.classList.add("visible"));
       uploadFab.classList.add("uploading");
-      showToast(`Uploading ${files.length} video${files.length > 1 ? "s" : ""}…`);
+    }
 
-      const form = new FormData();
-      files.forEach((file) => form.append("videos", file));
+    function hideUploadQueueSoon() {
+      clearTimeout(uploadQueue.cleanupTimer);
+      uploadQueue.cleanupTimer = setTimeout(() => {
+        if (uploadQueue.items.some((item) => item.status === "pending" || item.status === "uploading")) return;
+        uploadQueuePanel.classList.remove("visible");
+        setTimeout(() => {
+          if (!uploadQueue.items.some((item) => item.status === "pending" || item.status === "uploading")) {
+            uploadQueuePanel.hidden = true;
+            uploadQueue.items = [];
+            uploadQueueList.innerHTML = "";
+          }
+        }, 220);
+        uploadFab.classList.remove("uploading");
+      }, 2400);
+    }
 
-      try {
-        const res = await fetch(`/api/videos/upload?${VideoGroups.query()}`, {
-          method: "POST",
-          headers: VideoGroups.headers(),
-          body: form,
+    function uploadQueueSummary() {
+      const total = uploadQueue.items.length;
+      const finished = uploadQueue.items.filter((item) =>
+        item.status === "done" || item.status === "failed" || item.status === "cancelled"
+      ).length;
+      const uploading = uploadQueue.items.some((item) => item.status === "uploading");
+      const pending = uploadQueue.items.filter((item) => item.status === "pending").length;
+      const done = uploadQueue.items.filter((item) => item.status === "done").length;
+      if (uploading) return `Uploading ${finished + 1} of ${total}`;
+      if (pending && done) return `${done} done · ${pending} waiting`;
+      if (pending) return `${pending} waiting`;
+      if (done) return `Uploaded ${done}`;
+      return "Uploads";
+    }
+
+    function uploadStatusLabel(item) {
+      if (item.status === "pending") return "Waiting";
+      if (item.status === "uploading") {
+        return item.progress > 0 ? `${Math.round(item.progress * 100)}%` : "Uploading…";
+      }
+      if (item.status === "done") return "Done";
+      if (item.status === "cancelled") return "Cancelled";
+      return item.error || "Failed";
+    }
+
+    function renderUploadQueue() {
+      uploadQueueTitle.textContent = uploadQueueSummary();
+      uploadQueueList.innerHTML = "";
+      uploadQueue.items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "upload-queue-item";
+        row.dataset.status = item.status;
+        row.dataset.id = item.id;
+
+        const name = document.createElement("div");
+        name.className = "upload-queue-name";
+        name.textContent = item.file.name;
+        name.title = item.file.name;
+
+        const status = document.createElement("div");
+        status.className = "upload-queue-status";
+        status.textContent = uploadStatusLabel(item);
+
+        const barWrap = document.createElement("div");
+        barWrap.className = "upload-queue-bar-wrap";
+        const bar = document.createElement("div");
+        bar.className = "upload-queue-bar";
+        bar.style.width = `${Math.round((item.progress || 0) * 100)}%`;
+        barWrap.appendChild(bar);
+
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "upload-queue-cancel";
+        cancel.setAttribute("aria-label", `Cancel upload for ${item.file.name}`);
+        cancel.textContent = "×";
+        cancel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          cancelUploadItem(item.id);
         });
-        const data = await readJsonResponse(res);
-        if (res.status === 403) {
-          const group = allGroups.find((g) => g.id === VideoGroups.getActive());
-          if (group) openUnlockSheet(group);
-          return;
+
+        row.append(name, status, barWrap, cancel);
+        uploadQueueList.appendChild(row);
+      });
+    }
+
+    function cancelUploadItem(id) {
+      const item = uploadQueue.items.find((entry) => entry.id === id);
+      if (!item) return;
+      if (item.status === "done" || item.status === "failed" || item.status === "cancelled") return;
+      item.status = "cancelled";
+      if (item.xhr) item.xhr.abort();
+      renderUploadQueue();
+      hideUploadQueueSoon();
+    }
+
+    function uploadSingleFile(item) {
+      const form = new FormData();
+      form.append("videos", item.file);
+      const url = `/api/videos/upload?${VideoGroups.query()}`;
+      const headers = VideoGroups.headers();
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        item.xhr = xhr;
+        xhr.open("POST", url);
+        Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+        xhr.upload.addEventListener("progress", (e) => {
+          if (item.status === "cancelled") return;
+          item.progress = e.lengthComputable ? e.loaded / e.total : item.progress || 0;
+          renderUploadQueue();
+        });
+        xhr.addEventListener("load", () => {
+          item.xhr = null;
+          if (item.status === "cancelled") {
+            reject(new Error("cancelled"));
+            return;
+          }
+          resolve({ status: xhr.status, text: xhr.responseText });
+        });
+        xhr.addEventListener("error", () => {
+          item.xhr = null;
+          reject(new Error("Upload failed"));
+        });
+        xhr.addEventListener("abort", () => {
+          item.xhr = null;
+          reject(new Error("cancelled"));
+        });
+        xhr.send(form);
+      });
+    }
+
+    async function processUploadQueue() {
+      uploadQueue.running = true;
+      let uploadedCount = 0;
+      let failedCount = 0;
+
+      while (true) {
+        const item = uploadQueue.items.find((entry) => entry.status === "pending");
+        if (!item) break;
+
+        item.status = "uploading";
+        item.progress = 0;
+        renderUploadQueue();
+
+        try {
+          const res = await uploadSingleFile(item);
+          if (item.status === "cancelled") continue;
+
+          const data = parseJsonText(res.text);
+          if (res.status === 403) {
+            const group = allGroups.find((g) => g.id === VideoGroups.getActive());
+            item.status = "failed";
+            item.error = "Locked library";
+            if (group) openUnlockSheet(group);
+            failedCount++;
+            renderUploadQueue();
+            break;
+          }
+          if (res.status < 200 || res.status >= 300) {
+            throw new Error(data.error || "Upload failed");
+          }
+          item.status = "done";
+          item.progress = 1;
+          uploadedCount++;
+        } catch (err) {
+          if (item.status === "cancelled" || err.message === "cancelled") {
+            item.status = "cancelled";
+          } else {
+            item.status = "failed";
+            item.error = err.message || "Upload failed";
+            failedCount++;
+          }
         }
-        if (!res.ok) throw new Error(data.error || "Upload failed");
+        renderUploadQueue();
+      }
+
+      uploadQueue.running = false;
+
+      if (uploadedCount) {
         await loadGroups();
         await loadVideosData();
-        showToast(`Uploaded ${data.count} video${data.count > 1 ? "s" : ""}.`);
-      } catch (err) {
-        showToast(err.message || "Upload failed.");
-      } finally {
-        uploadFab.classList.remove("uploading");
+        showToast(`Uploaded ${uploadedCount} file${uploadedCount > 1 ? "s" : ""}.`);
+      } else if (failedCount) {
+        showToast("Some uploads failed.");
+      }
+
+      hideUploadQueueSoon();
+
+      if (uploadQueue.items.some((entry) => entry.status === "pending")) {
+        processUploadQueue();
       }
     }
 

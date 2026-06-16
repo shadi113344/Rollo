@@ -12,6 +12,19 @@
   padding: calc(env(safe-area-inset-top, 0px) + 12px) var(--connect-pad) 8px;
 }
 
+.connect-back {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.connect-back:active {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .connect-header h1 {
   margin: 0;
   font-size: 28px;

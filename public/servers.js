@@ -201,6 +201,56 @@ window.RolloServers = (function () {
     });
   }
 
+  function restoreBackup(raw) {
+    const list = Array.isArray(raw) ? raw : raw?.servers;
+    if (!Array.isArray(list)) {
+      throw new Error("Invalid backup file");
+    }
+    const cleaned = list
+      .map((s) => ({
+        id: s?.id || newId(),
+        name: String(s?.name || "Server").trim() || "Server",
+        lanUrl: normalizeUrl(s?.lanUrl),
+        remoteUrl: normalizeUrl(s?.remoteUrl),
+      }))
+      .filter((s) => s.lanUrl || s.remoteUrl);
+    saveList(cleaned);
+    return cleaned;
+  }
+
+  function exportBackup() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      servers: getList(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `rollo-servers-${stamp}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return payload.servers.length;
+  }
+
+  function importBackupFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          resolve(restoreBackup(data));
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error("Could not read backup file"));
+        }
+      };
+      reader.onerror = () => reject(reader.error || new Error("Could not read backup file"));
+      reader.readAsText(file);
+    });
+  }
+
   return {
     getList,
     saveList,
@@ -217,6 +267,9 @@ window.RolloServers = (function () {
     probeServer,
     fetchThisDevice,
     addThisDevice,
+    exportBackup,
+    importBackupFile,
+    restoreBackup,
     PROBE_LAN_MS,
     PROBE_REMOTE_MS,
   };
