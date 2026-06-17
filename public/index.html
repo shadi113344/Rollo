@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/a11y.css">
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/profile-extras.css">
+  <link rel="stylesheet" href="/video-details.css">
   <link rel="stylesheet" href="/profile-chrome.css">
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
@@ -75,7 +76,7 @@
     .group-picker {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       border: none;
       background: none;
       color: var(--rollo-text);
@@ -102,38 +103,33 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 7px;
-      border: 1px solid var(--rollo-border);
-      background: var(--rollo-surface);
+      width: auto;
+      height: auto;
+      margin-top: 1px;
+      border: none;
+      background: transparent;
       color: var(--rollo-muted);
-      transition: transform 0.22s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      transition: transform 0.22s ease, color 0.15s ease;
     }
 
     .group-chev svg {
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       stroke: currentColor;
       fill: none;
-      stroke-width: 2.25;
+      stroke-width: 2.5;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
     .group-picker.open .group-chev {
       transform: rotate(180deg);
-      background: var(--rollo-accent-bg);
-      border-color: var(--rollo-accent-border);
       color: var(--rollo-accent-text);
     }
 
-    .group-picker:active .group-chev {
-      background: var(--rollo-surface-pressed);
-    }
-
+    .group-picker:active .group-chev,
     .group-picker.open:active .group-chev {
-      background: var(--rollo-accent-bg);
+      opacity: 0.75;
     }
 
     .video-count {
@@ -1250,6 +1246,7 @@
               <button class="menu-item sort-btn" data-sort="date-asc" type="button" role="menuitem">Oldest</button>
               <button class="menu-item sort-btn" data-sort="name" type="button" role="menuitem">Name</button>
               <button class="menu-item sort-btn active" data-sort="tags" type="button" role="menuitem">By tag</button>
+              <button class="menu-item sort-btn" data-sort="duration" type="button" role="menuitem">By duration</button>
               <button class="menu-item sort-btn fav-sort" data-sort="favorites" type="button" role="menuitem">
                 <span class="heart-wrap sm"></span> Favorites first
               </button>
@@ -1274,11 +1271,14 @@
       </div>
     </div>
     <div class="tags-panel" id="tags-panel">
-      <button type="button" class="tags-toggle" id="tags-toggle" aria-expanded="false" aria-controls="tag-filters">
-        <span class="tags-toggle-label">Tags</span>
-        <span class="tags-count" id="tags-count"></span>
-        <span class="tags-chev" aria-hidden="true">▾</span>
-      </button>
+      <div class="tags-panel-header">
+        <button type="button" class="tags-toggle" id="tags-toggle" aria-expanded="false" aria-controls="tag-filters">
+          <span class="tags-toggle-label">Tags</span>
+          <span class="tags-count" id="tags-count"></span>
+          <span class="tags-chev" aria-hidden="true">▾</span>
+        </button>
+        <button type="button" class="tags-manage-btn" id="tags-manage-btn">Edit tags</button>
+      </div>
       <div class="tag-filters" id="tag-filters" hidden></div>
     </div>
     <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -1440,6 +1440,14 @@
     <button class="action-btn cancel" id="bulk-tag-cancel" type="button">Cancel</button>
   </div>
 
+  <div class="sheet-backdrop" id="tags-manage-backdrop"></div>
+  <div class="sheet" id="tags-manage-sheet">
+    <h2>Library tags</h2>
+    <p class="subtitle">Rename or delete tags across this library.</p>
+    <div class="tag-manage-list" id="tags-manage-list"></div>
+    <button class="action-btn cancel" id="tags-manage-close" type="button">Done</button>
+  </div>
+
   <footer id="bottom-dock">
     <nav id="tab-bar" aria-label="Main">
       <div class="tab-profile-wrap">
@@ -1478,6 +1486,8 @@
   <script src="/theme.js"></script>
   <script src="/i18n.js"></script>
   <script src="/settings.js"></script>
+  <script src="/media-duration.js"></script>
+  <script src="/video-details.js"></script>
   <script src="/profile-extras.js"></script>
   <script>
     const grid = document.getElementById("grid");
@@ -1657,6 +1667,7 @@
       "date-asc": "Oldest",
       name: "Name",
       tags: "By tag",
+      duration: "By duration",
       favorites: "Favorites first",
     };
 
@@ -2126,11 +2137,7 @@
     }
 
     function promptUnlock(group, options = {}) {
-      const pickerOpen = groupSheet.classList.contains("open");
-      const inlineRow = options.inlineRow
-        || (pickerOpen
-          ? groupListEl.querySelector(`.group-row[data-group-id="${CSS.escape(group.id)}"]`)
-          : null);
+      const inlineRow = options.inlineRow || null;
 
       RolloUnlockFlow.open(group, {
         inlineRow,
@@ -2262,6 +2269,7 @@
       loading.hidden = true;
       renderFilters();
       renderGrid();
+      probeMissingDurations(allVideos);
     }
 
     function displayName(v) {
@@ -2276,7 +2284,7 @@
     }
 
     function appendTagDots(wrap, tags) {
-      if (!tags?.length) return;
+      if (!tags?.length) return null;
       const dots = document.createElement("div");
       dots.className = "thumb-tag-dots";
       dots.setAttribute("aria-label", tags.join(", "));
@@ -2295,6 +2303,173 @@
         dots.appendChild(more);
       }
       wrap.appendChild(dots);
+      return dots;
+    }
+
+    function updateThumbDurationBadge(wrap, video) {
+      if (!wrap || video.mediaType === "image") return;
+      const sec = video.durationSec;
+      const label = RolloDuration?.formatShort?.(sec);
+      if (!label) return;
+      let badge = wrap.querySelector(".thumb-duration");
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "thumb-duration";
+        wrap.appendChild(badge);
+      }
+      badge.textContent = label;
+    }
+
+    function bindTagDotsPalette(wrap, video) {
+      const dots = wrap.querySelector(".thumb-tag-dots");
+      if (!dots || !window.AnchoredTagPalette?.bind) return;
+      dots.classList.add("interactive");
+      dots.addEventListener("pointerdown", (e) => e.stopPropagation());
+      AnchoredTagPalette.bind(dots, {
+        longPressMs: 380,
+        scrollLock: "#app-scroll",
+        layout: "horizontal",
+        getTags: () => buildProfilePaletteTags(video),
+        onTap: () => openTagSheetFromRadial(video),
+        onTagSelect: async (tag) => {
+          activeVideo = video;
+          const name = tag.label;
+          if (video.tags.includes(name)) await removeTag(name);
+          else await addTag(name);
+        },
+      });
+    }
+
+    async function probeVideoMeta(video) {
+      if (!video || video.mediaType === "image" || video.durationSec) return;
+      try {
+        const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}/probe`, {
+          method: "POST",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.durationSec) video.durationSec = data.durationSec;
+        if (data.width) video.width = data.width;
+        if (data.height) video.height = data.height;
+        const card = grid.querySelector(`.video-item[data-filename="${CSS.escape(video.name)}"]`);
+        updateThumbDurationBadge(card?.querySelector(".thumb-wrap"), video);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function probeMissingDurations(videos) {
+      const queue = videos.filter((v) => v.mediaType !== "image" && !v.durationSec);
+      let i = 0;
+      const next = () => {
+        if (i >= queue.length) {
+          if (sortMode === "duration") renderGrid();
+          return;
+        }
+        probeVideoMeta(queue[i++]).finally(() => setTimeout(next, 50));
+      };
+      next();
+    }
+
+    async function shareVideo(video) {
+      const url = VideoGroups.watchShareUrl(video);
+      const title = displayName(video);
+      const result = await VideoGroups.shareNative({ title, url });
+      if (result.ok && result.method === "clipboard") showToast("Link copied.");
+      else if (!result.ok && !result.cancelled) showToast("Could not share.");
+    }
+
+    function openVideoDetails(video) {
+      RolloVideoDetails.open(video, {
+        escapeHtml,
+        stripExt,
+        onShare: shareVideo,
+        onEditTags: openTagSheetFromRadial,
+        onRename: openRenameFromRadial,
+        onDelete: openDeleteFromRadial,
+      });
+    }
+
+    function renderTagsManageList() {
+      const listEl = document.getElementById("tags-manage-list");
+      if (!listEl) return;
+      listEl.innerHTML = "";
+      if (!allTags.length) {
+        listEl.textContent = "No tags yet.";
+        return;
+      }
+      allTags.forEach((tag) => {
+        const row = document.createElement("div");
+        row.className = "tag-manage-item";
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "tag-chip filter-btn";
+        chip.textContent = tag;
+        TagColors.styleTagEl(chip, tag, { muted: true });
+        const renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.className = "icon-btn";
+        renameBtn.title = "Rename tag";
+        renameBtn.innerHTML = RolloIcons.edit(16);
+        renameBtn.addEventListener("click", () => renameLibraryTag(tag));
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "icon-btn";
+        deleteBtn.title = "Delete tag";
+        deleteBtn.innerHTML = RolloIcons.trash(16);
+        deleteBtn.addEventListener("click", () => deleteLibraryTag(tag));
+        row.append(chip, renameBtn, deleteBtn);
+        listEl.appendChild(row);
+      });
+    }
+
+    function openTagsManageSheet() {
+      renderTagsManageList();
+      openSheet(document.getElementById("tags-manage-backdrop"), document.getElementById("tags-manage-sheet"));
+    }
+
+    async function renameLibraryTag(oldTag) {
+      const newTag = prompt("Rename tag", oldTag);
+      if (!newTag) return;
+      const trimmed = newTag.trim();
+      if (!trimmed || trimmed === oldTag) return;
+      try {
+        const res = await VideoGroups.apiFetch("/api/tags/rename", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ oldTag, newTag: trimmed }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Rename failed");
+        if (selectedTags.has(oldTag)) {
+          selectedTags.delete(oldTag);
+          selectedTags.add(trimmed);
+          saveSelectedTags();
+        }
+        await refreshTags();
+        await loadVideosData();
+        renderTagsManageList();
+        showToast(`Renamed to “${trimmed}”.`);
+      } catch (err) {
+        showToast(err.message || "Could not rename tag");
+      }
+    }
+
+    async function deleteLibraryTag(tag) {
+      if (!confirm(`Remove “${tag}” from all videos in this library?`)) return;
+      try {
+        const res = await VideoGroups.apiFetch(`/api/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Delete failed");
+        selectedTags.delete(tag);
+        saveSelectedTags();
+        await refreshTags();
+        await loadVideosData();
+        renderTagsManageList();
+        showToast(`Removed tag “${tag}”.`);
+      } catch (err) {
+        showToast(err.message || "Could not delete tag");
+      }
     }
 
     function updateNamesToggleBtn() {
@@ -2330,6 +2505,8 @@
             if (a.favorite !== b.favorite) return (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
             return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
           });
+        case "duration":
+          return sorted.sort((a, b) => (a.durationSec || 0) - (b.durationSec || 0));
         case "date-desc":
         default:
           return sorted.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
@@ -2745,6 +2922,11 @@
           finish();
           return;
         }
+        const item = allVideos.find((x) => x.name === name);
+        if (item && !item.durationSec) {
+          item.durationSec = Math.round(video.duration * 10) / 10;
+          updateThumbDurationBadge(wrap, item);
+        }
         if (seekIdx >= seeks.length) {
           finish();
           return;
@@ -2883,6 +3065,12 @@
     function getVideoActionOptions(video) {
       return [
         {
+          id: "info",
+          label: "Details",
+          icon: RolloIcons.info(22),
+          onSelect: () => openVideoDetails(video),
+        },
+        {
           id: "favorite",
           label: video.favorite ? "Remove favorite" : "Add favorite",
           icon: RolloIcons.heart(video.favorite),
@@ -2975,6 +3163,8 @@
       wrap.appendChild(Object.assign(document.createElement("div"), { className: "thumb-placeholder" }));
 
       appendTagDots(wrap, video.tags);
+      bindTagDotsPalette(wrap, video);
+      updateThumbDurationBadge(wrap, video);
 
       if (video.favorite) {
         const fav = document.createElement("span");
@@ -3050,6 +3240,26 @@
         let lastGroup = null;
         const renderOne = (video) => {
           const group = video.tags[0] || "Untagged";
+          if (group !== lastGroup) {
+            const header = document.createElement("div");
+            header.className = "group-header";
+            header.textContent = group;
+            grid.appendChild(header);
+            lastGroup = group;
+          }
+          appendVideoCard(video);
+        };
+        if (profileExtrasApi?.renderVirtualSlice) {
+          profileExtrasApi.renderVirtualSlice(videos, (video) => renderOne(video));
+        } else {
+          videos.forEach(renderOne);
+        }
+      } else if (sortMode === "duration") {
+        const buckets = RolloDuration.computeBuckets(videos.map((v) => v.durationSec || 0));
+        let lastGroup = null;
+        const renderOne = (video) => {
+          const bucket = RolloDuration.bucketForDuration(video.durationSec, buckets);
+          const group = bucket?.label || "Unknown duration";
           if (group !== lastGroup) {
             const header = document.createElement("div");
             header.className = "group-header";
@@ -3508,6 +3718,14 @@
       tagsExpanded = !tagsExpanded;
       localStorage.setItem("tagsExpanded", tagsExpanded ? "1" : "0");
       applyTagsExpanded();
+    });
+
+    document.getElementById("tags-manage-btn")?.addEventListener("click", openTagsManageSheet);
+    document.getElementById("tags-manage-close")?.addEventListener("click", () => {
+      closeSheet(document.getElementById("tags-manage-backdrop"), document.getElementById("tags-manage-sheet"));
+    });
+    document.getElementById("tags-manage-backdrop")?.addEventListener("click", () => {
+      closeSheet(document.getElementById("tags-manage-backdrop"), document.getElementById("tags-manage-sheet"));
     });
 
     actionSheet.addEventListener("click", (e) => {

@@ -1,5 +1,5 @@
 /**
- * Feed UX: PiP, swipe-down to profile, double-tap like, earlier preload, lock badge, captions.
+ * Feed UX: PiP, swipe-down to profile, double-tap like, earlier preload, captions.
  */
 window.RolloFeedExtras = (function () {
   let hooks = null;
@@ -8,56 +8,12 @@ window.RolloFeedExtras = (function () {
   let lastTapAt = 0;
   let lastTapIndex = -1;
 
-  function addLockBadge() {
-    const chrome = document.getElementById("chrome-top");
-    if (!chrome || chrome.querySelector("#feed-lock-badge")) return;
-    const group = hooks?.getActiveGroup?.();
-    const locked = hooks?.isGroupLocked?.(group);
-    const badge = document.createElement("span");
-    badge.id = "feed-lock-badge";
-    badge.className = "feed-lock-badge";
-    badge.hidden = !locked;
-    badge.title = locked ? "This library is locked" : "";
-    badge.innerHTML = window.RolloIcons?.lock(14) || "🔒";
-    chrome.insertBefore(badge, chrome.firstChild);
-  }
-
-  function updateLockBadge() {
-    const badge = document.getElementById("feed-lock-badge");
-    if (!badge) return;
-    const locked = hooks?.isGroupLocked?.(hooks?.getActiveGroup?.());
-    badge.hidden = !locked;
-  }
-
   function addPipButton() {
     /* PiP is created inline in watch.html createCard for correct control-stack alignment. */
   }
 
-  function addCaption(card, video) {
-    const caption = (video.displayName || "").trim();
-    if (!caption) return null;
-    const el = document.createElement("div");
-    el.className = "feed-caption allow-select";
-    el.contentEditable = hooks?.onSaveCaption ? "true" : "false";
-    el.setAttribute("role", hooks?.onSaveCaption ? "textbox" : "note");
-    el.setAttribute("aria-label", "Caption");
-    el.spellcheck = false;
-    el.textContent = caption || "";
-    if (hooks?.onSaveCaption) {
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          el.blur();
-        }
-      });
-      el.addEventListener("blur", () => {
-        const next = el.textContent.trim();
-        const prev = (video.displayName || "").trim();
-        if (next && next !== prev) hooks.onSaveCaption(video, next);
-      });
-    }
-    card.appendChild(el);
-    return el;
+  function addCaption() {
+    /* Caption lives on #seek-bar in watch.html */
   }
 
   function setupSwipeDown() {
@@ -117,14 +73,12 @@ window.RolloFeedExtras = (function () {
 
   function init(options) {
     hooks = options;
-    addLockBadge();
     setupSwipeDown();
     return {
       addPipButton,
       addCaption,
       bindDoubleTapLike,
       patchPreload,
-      updateLockBadge,
     };
   }
 

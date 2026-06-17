@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
   <link rel="stylesheet" href="/profile-extras.css">
+  <link rel="stylesheet" href="/video-details.css">
   <link rel="stylesheet" href="/theme.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -87,6 +88,11 @@
       padding: calc(8px + env(safe-area-inset-top)) 12px 10px;
       background: transparent;
       transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    #video-counter {
+      margin-left: auto;
+      flex-shrink: 0;
     }
 
     #chrome-top.hidden {
@@ -812,28 +818,31 @@
 </head>
 <body>
   <header id="chrome-top">
-    <div class="mode-menu" id="mode-menu">
-      <button class="mode-toggle" id="mode-toggle" type="button" aria-expanded="false" aria-controls="mode-row">
-        <span id="mode-toggle-label">In order</span>
-        <span class="mode-toggle-chev" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </span>
-      </button>
-      <div class="mode-panel-wrap">
-        <div class="mode-panel">
-          <div class="mode-row" id="mode-row">
-            <button class="mode-btn active" data-mode="order">In order</button>
-            <button class="mode-btn" data-mode="shuffle">Shuffle</button>
-            <button class="mode-btn fav-mode" data-mode="favorites" type="button">
-              <span class="heart-wrap sm" id="fav-mode-heart"></span> Favorites
-            </button>
-            <button class="mode-btn" data-mode="tag">By tag</button>
-          </div>
-          <div class="tag-filter-wrap" id="tag-filter-wrap" aria-hidden="true">
-            <div class="tag-filter" id="tag-filter"></div>
+    <div class="chrome-top-left">
+      <div class="mode-menu" id="mode-menu">
+        <button class="mode-toggle" id="mode-toggle" type="button" aria-expanded="false" aria-controls="mode-row">
+          <span id="mode-toggle-label">In order</span>
+          <span class="mode-toggle-chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </button>
+        <div class="mode-panel-wrap">
+          <div class="mode-panel">
+            <div class="mode-row" id="mode-row">
+              <button class="mode-btn active" data-mode="order">In order</button>
+              <button class="mode-btn" data-mode="shuffle">Shuffle</button>
+              <button class="mode-btn fav-mode" data-mode="favorites" type="button">
+                <span class="heart-wrap sm" id="fav-mode-heart"></span> Favorites
+              </button>
+              <button class="mode-btn" data-mode="tag">By tag</button>
+            </div>
+            <div class="tag-filter-wrap" id="tag-filter-wrap" aria-hidden="true">
+              <div class="tag-filter" id="tag-filter"></div>
+            </div>
           </div>
         </div>
       </div>
+      <button type="button" class="feed-info-btn" id="feed-info-btn" aria-label="File details" title="File details" hidden>i</button>
     </div>
     <span id="video-counter"></span>
   </header>
@@ -844,6 +853,7 @@
   <div id="feed"></div>
 
   <div id="seek-bar" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0">
+    <div id="feed-caption" class="feed-caption hidden" aria-hidden="true"></div>
     <div id="seek-track">
       <div id="seek-track-bg"></div>
       <div id="seek-track-fill"></div>
@@ -912,6 +922,8 @@
   <script src="/anchored-tag-palette.js"></script>
   <script src="/theme.js"></script>
   <script src="/feed-extras.js"></script>
+  <script src="/media-duration.js"></script>
+  <script src="/video-details.js"></script>
   <script>
     const feed = document.getElementById("feed");
     const loading = document.getElementById("loading");
@@ -937,6 +949,8 @@
     const seekTrack = document.getElementById("seek-track");
     const seekTrackFill = document.getElementById("seek-track-fill");
     const seekThumb = document.getElementById("seek-thumb");
+    const feedCaptionEl = document.getElementById("feed-caption");
+    const feedInfoBtn = document.getElementById("feed-info-btn");
 
     const profileTab = document.getElementById("profile-tab");
     const feedTab = document.getElementById("feed-tab");
@@ -1071,7 +1085,6 @@
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
       updateNavLinks();
-      feedExtrasApi?.updateLockBadge?.();
       loading.style.display = "block";
       loading.textContent = "Loading videos…";
       await init();
@@ -1108,8 +1121,9 @@
       cards.forEach((card) => {
         card.overlay?.classList.toggle("hidden", !visible);
         card.controls?.classList.toggle("hidden", !visible);
-        card.captionEl?.classList.toggle("hidden", !visible);
       });
+      feedCaptionEl?.classList.toggle("hidden", !visible);
+      if (feedInfoBtn) feedInfoBtn.hidden = !visible;
 
       clearTimeout(chromeHideTimer);
       if (visible && autoHide) {
@@ -1212,6 +1226,8 @@
             if (a.favorite !== b.favorite) return (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
             return feedDisplayName(a).localeCompare(feedDisplayName(b), undefined, { sensitivity: "base" });
           });
+        case "duration":
+          return sorted.sort((a, b) => (a.durationSec || 0) - (b.durationSec || 0));
         case "date-desc":
         default:
           return sorted.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
@@ -1333,6 +1349,12 @@
     modeToggle.addEventListener("click", (e) => {
       e.stopPropagation();
       setModeMenuOpen(!modeMenu.classList.contains("open"));
+    });
+
+    feedInfoBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const video = cards[activeIndex]?.videoData;
+      if (video) openFeedVideoDetails(video);
     });
 
     modeRow.addEventListener("click", (e) => {
@@ -1789,6 +1811,86 @@
       if (!isFeedScrolling) unloadDistantCards(index);
     }
 
+    function updateFeedCaption(video) {
+      if (!feedCaptionEl) return;
+      const text = (video?.displayName || "").trim();
+      feedCaptionEl.textContent = text;
+      feedCaptionEl.hidden = !text;
+      feedCaptionEl.setAttribute("aria-hidden", text ? "false" : "true");
+    }
+
+    async function probeFeedVideoMeta(video) {
+      if (!video || video.mediaType === "image" || video.durationSec) return;
+      try {
+        const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}/probe`, {
+          method: "POST",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.durationSec) video.durationSec = data.durationSec;
+        if (data.width) video.width = data.width;
+        if (data.height) video.height = data.height;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    async function shareFeedVideo(video) {
+      const url = VideoGroups.watchShareUrl(video);
+      const title = video.displayName || stripExt(video.name);
+      const result = await VideoGroups.shareNative({ title, url });
+      if (result.ok && result.method === "clipboard") Toast.show("Link copied.");
+      else if (!result.ok && !result.cancelled) Toast.show("Could not share.");
+    }
+
+    async function renameFeedVideo(video) {
+      const next = prompt("New name", video.displayName || stripExt(video.name));
+      if (!next) return;
+      const trimmed = next.trim();
+      if (!trimmed) return;
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}/rename`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        Toast.show(data.error || "Rename failed");
+        return;
+      }
+      const idx = allVideos.findIndex((v) => v.name === video.name);
+      if (idx >= 0) allVideos[idx] = data;
+      rebuildFeed();
+      Toast.show("Renamed.");
+    }
+
+    async function deleteFeedVideo(video) {
+      if (!confirm(`Delete “${video.name}” permanently?`)) return;
+      const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        Toast.show(data.error || "Delete failed");
+        return;
+      }
+      allVideos = allVideos.filter((v) => v.name !== video.name);
+      rebuildFeed();
+      Toast.show("Deleted.");
+    }
+
+    function openFeedVideoDetails(video) {
+      if (!video) return;
+      RolloVideoDetails.open(video, {
+        escapeHtml,
+        stripExt,
+        onShare: shareFeedVideo,
+        onEditTags: openTagSheet,
+        onRename: renameFeedVideo,
+        onDelete: deleteFeedVideo,
+      });
+    }
+
     function playCard(index) {
       if (index < 0 || index >= cards.length) return;
 
@@ -1821,6 +1923,9 @@
       seekBar.classList.toggle("hidden", !!active?.isImage);
       syncSeekBar(active?.isImage ? null : active?.video);
       updateCounter();
+      updateFeedCaption(active?.videoData);
+      if (active?.videoData) probeFeedVideoMeta(active.videoData);
+      if (feedInfoBtn) feedInfoBtn.hidden = false;
       showChrome(true);
     }
 
@@ -1994,7 +2099,6 @@
 
       const card = {
         el, video: media, isImage, hint, progress, muteBtn, favBtn, aspectBtn, tagsEl, timeEl, overlay,
-        captionEl: null,
         leftHint, rightHint, leftOverlay, rightOverlay, videoData: video,
       };
 
@@ -2017,7 +2121,6 @@
 
       attachMediaGestures(card);
 
-      card.captionEl = feedExtrasApi?.addCaption?.(el, video) || null;
       feedExtrasApi?.bindDoubleTapLike?.(el, video, () => toggleFavorite(card));
 
       if (!isImage) {
@@ -2239,10 +2342,6 @@
       if (!feedExtrasApi) {
         feedExtrasApi = RolloFeedExtras.init({
           getActiveGroup: () => VideoGroups.getActive(),
-          isGroupLocked: (id) => {
-            const g = allGroups.find((x) => x.id === id);
-            return !!(g?.locked && !VideoGroups.hasUnlockToken(id));
-          },
           goProfile: () => {
             const qs = VideoGroups.query();
             location.href = qs ? `/?${qs}` : "/";
@@ -2251,15 +2350,7 @@
           ensureCardSrc: (i, preload) => {
             if (cards[i]) ensureCardSrc(cards[i], preload);
           },
-          onSaveCaption: async (video, displayName) => {
-            await saveMetadata(video.name, { displayName });
-            video.displayName = displayName;
-            const card = cards.find((c) => c.videoData?.name === video.name);
-            if (card?.captionEl) card.captionEl.textContent = displayName;
-          },
         });
-      } else {
-        feedExtrasApi.updateLockBadge?.();
       }
 
       RolloNetSpeed.mount({ variant: "feed" });

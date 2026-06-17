@@ -212,4 +212,31 @@ window.VideoGroups = {
     if (preferred && this.isGroupAccessible(preferred)) return preferred.id;
     return this.pickDefaultGroup(groups);
   },
+
+  watchShareUrl(video, groupId) {
+    if (!video?.name) return location.href;
+    groupId = groupId || video.group || this.getActive();
+    const params = new URLSearchParams();
+    if (groupId) params.set("group", groupId);
+    params.set("video", video.name);
+    return new URL(`/watch.html?${params}`, location.origin).href;
+  },
+
+  async shareNative({ title, url }) {
+    const payload = { title: title || "Rollo", url };
+    try {
+      if (navigator.share && (!navigator.canShare || navigator.canShare(payload))) {
+        await navigator.share(payload);
+        return { ok: true, method: "share" };
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return { ok: false, cancelled: true };
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      return { ok: true, method: "clipboard" };
+    } catch {
+      return { ok: false };
+    }
+  },
 };

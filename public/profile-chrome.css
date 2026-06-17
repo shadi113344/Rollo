@@ -200,6 +200,12 @@ html[data-theme="light"] .filter-segment .segment-btn.active {
   margin-top: 10px;
 }
 
+.tags-panel-header .tags-toggle {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
 .tags-panel:not(.has-tags) {
   display: none;
 }

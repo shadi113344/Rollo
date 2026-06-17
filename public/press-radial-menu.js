@@ -496,6 +496,7 @@ window.PressRadialMenu = (function () {
     if (menuRelayoutRaf) cancelAnimationFrame(menuRelayoutRaf);
     menuRelayoutRaf = requestAnimationFrame(() => {
       menuRelayoutRaf = null;
+      if (root?.classList.contains("radial-menu-root--opening")) return;
       relayoutPrimaryFan();
       relayoutSubFan();
     });
@@ -945,7 +946,10 @@ window.PressRadialMenu = (function () {
     triggerEl.setAttribute("aria-expanded", "true");
     setBodyLock(true);
     root.classList.add("radial-menu-root--opening");
-    setTimeout(() => root?.classList.remove("radial-menu-root--opening"), 520);
+    setTimeout(() => {
+      root?.classList.remove("radial-menu-root--opening");
+      scheduleMenuRelayout();
+    }, 520);
     renderFan(true);
     renderSubRow(false);
   }

@@ -38,6 +38,7 @@ const { mergeAllConflicts } = require("./lib/conflict-merge");
 const { resolveVideoSecret, assertProductionSecret } = require("./lib/video-secret");
 const { createBasicAuthMiddleware } = require("./lib/basic-auth");
 const { createThumbService, thumbPath } = require("./lib/thumbs");
+const { ffprobePathFromFfmpeg, probeMedia } = require("./lib/probe");
 
 resolveVideoSecret(dataDir);
 try {
@@ -299,8 +300,10 @@ app.use(
 );
 
 function buildVideo(groupId, filename) {
-  const stat = fs.statSync(path.join(videosDir, groupId, filename));
+  const filePath = path.join(videosDir, groupId, filename);
+  const stat = fs.statSync(filePath);
   const relPath = metaKey(groupId, filename);
+  const meta = metadataStore.getVideoMeta(groupId, filename);
   return {
     name: filename,
     group: groupId,
@@ -308,8 +311,9 @@ function buildVideo(groupId, filename) {
     displayName: stripExt(filename),
     url: `/videos/${encodeURIComponent(groupId)}/${encodeURIComponent(filename)}`,
     mtime: stat.mtimeMs,
+    size: stat.size,
     mediaType: mediaTypeFor(filename),
-    ...metadataStore.getVideoMeta(groupId, filename),
+    ...meta,
   };
 }
 
@@ -888,6 +892,84 @@ app.put("/api/videos/:filename/metadata", (req, res) => {
 
   metadataStore.setVideoMeta(groupId, filename, current);
   res.json(current);
+});
+
+app.post("/api/videos/:filename/probe", async (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const filename = decodeURIComponent(req.params.filename);
+  if (!listVideoFilesCached(groupId).includes(filename)) {
+    return res.status(404).json({ error: "Video not found" });
+  }
+  if (mediaTypeFor(filename) === "image") {
+    return res.json({ durationSec: null, width: null, height: null });
+  }
+
+  const current = metadataStore.getVideoMeta(groupId, filename);
+  if (current.durationSec && current.width && current.height) {
+    return res.json({
+      durationSec: current.durationSec,
+      width: current.width,
+      height: current.height,
+    });
+  }
+
+  try {
+    await downloader.checkAvailability();
+    const ffmpeg = downloader.getInfo?.()?.ffmpegPath;
+    const ffprobe = ffprobePathFromFfmpeg(ffmpeg);
+    const input = path.join(videosDir, groupId, filename);
+    const probed = await probeMedia(ffprobe, input);
+    if (probed) {
+      const next = { ...current, ...probed };
+      metadataStore.setVideoMeta(groupId, filename, next);
+      return res.json(probed);
+    }
+  } catch {
+    /* fall through */
+  }
+  res.json({ durationSec: current.durationSec || null, width: current.width || null, height: current.height || null });
+});
+
+app.post("/api/tags/rename", (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const oldTag = String(req.body?.oldTag || "").trim();
+  const newTag = String(req.body?.newTag || "").trim();
+  if (!oldTag || !newTag) return res.status(400).json({ error: "oldTag and newTag required" });
+  if (oldTag === newTag) return res.json({ updated: 0 });
+
+  let updated = 0;
+  for (const filename of listVideoFilesCached(groupId)) {
+    const meta = metadataStore.getVideoMeta(groupId, filename);
+    if (!meta.tags.includes(oldTag)) continue;
+    meta.tags = [...new Set(meta.tags.map((t) => (t === oldTag ? newTag : t)))];
+    metadataStore.setVideoMeta(groupId, filename, meta);
+    updated++;
+  }
+  metadataStore.invalidateCache(groupId);
+  res.json({ updated, newTag });
+});
+
+app.delete("/api/tags/:tag", (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+
+  const tag = decodeURIComponent(req.params.tag).trim();
+  if (!tag) return res.status(400).json({ error: "tag required" });
+
+  let updated = 0;
+  for (const filename of listVideoFilesCached(groupId)) {
+    const meta = metadataStore.getVideoMeta(groupId, filename);
+    if (!meta.tags.includes(tag)) continue;
+    meta.tags = meta.tags.filter((t) => t !== tag);
+    metadataStore.setVideoMeta(groupId, filename, meta);
+    updated++;
+  }
+  metadataStore.invalidateCache(groupId);
+  res.json({ updated });
 });
 
 app.put("/api/videos/:filename/rename", (req, res) => {

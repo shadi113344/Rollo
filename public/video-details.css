@@ -1,0 +1,218 @@
+/* Shared bottom-sheet chrome (profile + feed). */
+.sheet-backdrop.video-details-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 35;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.sheet-backdrop.video-details-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet.video-details-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 36;
+  background: var(--rollo-sheet-bg, #1a1a1a);
+  color: var(--rollo-text, #e8e8e8);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+
+.sheet.video-details-sheet.open {
+  transform: translateY(0);
+}
+
+.sheet.video-details-sheet h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.video-details-sheet .video-details-actions .action-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: var(--rollo-action-bg, rgba(255, 255, 255, 0.08));
+  color: inherit;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 15px;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.video-details-sheet .action-btn.danger {
+  color: #ff6b6b;
+}
+
+.video-details-sheet .video-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.video-details-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.video-details-label {
+  color: var(--rollo-muted, #8a8a8a);
+  flex-shrink: 0;
+}
+
+.video-details-value {
+  text-align: right;
+  word-break: break-word;
+}
+
+.video-details-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thumb-duration {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.thumb-tag-dots.interactive {
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.tags-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.tags-manage-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--rollo-border, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: var(--rollo-fg, #e8e8e8);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tags-manage-btn:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tag-manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.tag-manage-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-manage-item .tag-chip {
+  flex: 1;
+  text-align: left;
+}
+
+.tag-manage-item .icon-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+
+#chrome-top .chrome-top-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+#chrome-top .feed-info-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#chrome-top .feed-info-btn:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+#seek-bar .feed-caption {
+  position: absolute;
+  left: 10px;
+  bottom: 24px;
+  right: 56px;
+  z-index: 2;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  max-height: 2.7em;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+#seek-bar .feed-caption.hidden {
+  opacity: 0;
+}
+
+#seek-bar .feed-caption[contenteditable="true"] {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 8px;
+  border-radius: 6px;
+  max-height: none;
+}

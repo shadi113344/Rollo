@@ -242,6 +242,13 @@
   pointer-events: none;
 }
 
+#group-sheet.group-sheet--unlocking .group-inline-unlock {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+}
+
 #app-scroll.unlock-dimmed > header,
 #app-scroll.unlock-dimmed > main {
   filter: blur(3px) saturate(0.92);

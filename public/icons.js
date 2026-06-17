@@ -108,6 +108,14 @@
       btn.innerHTML = this.actionLabel(iconHtml, text);
     },
 
+    info(size) {
+      return svg('<circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/>', size);
+    },
+
+    share(size) {
+      return svg('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/>', size);
+    },
+
     heart(filled) {
       return window.HeartIcon ? HeartIcon.svg(!!filled) : "";
     },
