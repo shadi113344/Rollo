@@ -1108,6 +1108,7 @@
       cards.forEach((card) => {
         card.overlay?.classList.toggle("hidden", !visible);
         card.controls?.classList.toggle("hidden", !visible);
+        card.captionEl?.classList.toggle("hidden", !visible);
       });
 
       clearTimeout(chromeHideTimer);
@@ -1847,9 +1848,7 @@
 
       const overlay = document.createElement("div");
       overlay.className = "overlay";
-      const displayName = video.displayName || stripExt(video.name);
       overlay.innerHTML = `
-        <div class="title">${escapeHtml(displayName)}</div>
         <div class="card-tags"></div>
         <div class="time-label">0:00</div>
       `;
@@ -1914,6 +1913,7 @@
 
       const card = {
         el, video: media, isImage, hint, progress, muteBtn, favBtn, aspectBtn, tagsEl, timeEl, overlay,
+        captionEl: null,
         leftHint, rightHint, leftOverlay, rightOverlay, videoData: video,
       };
 
@@ -1936,7 +1936,7 @@
 
       attachMediaGestures(card);
 
-      feedExtrasApi?.addCaption?.(el, video);
+      card.captionEl = feedExtrasApi?.addCaption?.(el, video) || null;
       feedExtrasApi?.bindDoubleTapLike?.(el, video, () => toggleFavorite(card));
 
       if (!isImage) {
@@ -2181,8 +2181,8 @@
           onSaveCaption: async (video, displayName) => {
             await saveMetadata(video.name, { displayName });
             video.displayName = displayName;
-            const title = cards.find((c) => c.videoData?.name === video.name)?.overlay?.querySelector(".title");
-            if (title) title.textContent = displayName;
+            const card = cards.find((c) => c.videoData?.name === video.name);
+            if (card?.captionEl) card.captionEl.textContent = displayName;
           },
         });
       } else {

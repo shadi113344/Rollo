@@ -80,7 +80,7 @@ object AndroidDownloadWorker {
             }
 
             var lastPct = -1
-            YoutubeDL.getInstance().execute(request) { progress, _ ->
+            YoutubeDL.getInstance().execute(request) { progress, _, _ ->
                 val pct = progress.toInt().coerceIn(0, 99)
                 if (pct != lastPct) {
                     lastPct = pct

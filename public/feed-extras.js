@@ -34,8 +34,8 @@ window.RolloFeedExtras = (function () {
   }
 
   function addCaption(card, video) {
-    const caption = video.displayName || (video.name || "").replace(/\.[^.]+$/, "");
-    if (!caption && !hooks?.onSaveCaption) return;
+    const caption = (video.displayName || "").trim();
+    if (!caption) return null;
     const el = document.createElement("div");
     el.className = "feed-caption allow-select";
     el.contentEditable = hooks?.onSaveCaption ? "true" : "false";
@@ -52,11 +52,12 @@ window.RolloFeedExtras = (function () {
       });
       el.addEventListener("blur", () => {
         const next = el.textContent.trim();
-        const prev = (video.displayName || (video.name || "").replace(/\.[^.]+$/, "")).trim();
+        const prev = (video.displayName || "").trim();
         if (next && next !== prev) hooks.onSaveCaption(video, next);
       });
     }
     card.appendChild(el);
+    return el;
   }
 
   function setupSwipeDown() {
