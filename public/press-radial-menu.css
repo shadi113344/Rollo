@@ -32,35 +32,19 @@ body.menu-active #app-scroll {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  pointer-events: auto;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
   z-index: 201;
-  --menu-ring: color-mix(in srgb, #fff 32%, #444);
-  --menu-dot-r: 5.5px;
-  --menu-dot-size: 2px;
-}
-
-.radial-menu-trigger::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--menu-dot-size);
-  height: var(--menu-dot-size);
-  margin: calc(var(--menu-dot-size) / -2) 0 0 calc(var(--menu-dot-size) / -2);
-  border-radius: 50%;
-  background: var(--menu-ring);
-  box-shadow:
-    0 calc(var(--menu-dot-r) * -1) 0 0 var(--menu-ring),
-    calc(var(--menu-dot-r) * 0.866) calc(var(--menu-dot-r) * -0.5) 0 0 var(--menu-ring),
-    calc(var(--menu-dot-r) * 0.866) calc(var(--menu-dot-r) * 0.5) 0 0 var(--menu-ring),
-    0 var(--menu-dot-r) 0 0 var(--menu-ring),
-    calc(var(--menu-dot-r) * -0.866) calc(var(--menu-dot-r) * 0.5) 0 0 var(--menu-ring),
-    calc(var(--menu-dot-r) * -0.866) calc(var(--menu-dot-r) * -0.5) 0 0 var(--menu-ring);
 }
 
 .radial-menu-trigger--open {
-  --menu-ring: #fff;
-  transform: scale(1.05);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.radial-menu-trigger::before {
+  display: none;
 }
 
 .radial-menu-fan {

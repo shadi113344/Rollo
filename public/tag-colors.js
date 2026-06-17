@@ -25,7 +25,7 @@
     return PALETTE[hashTag(tag) % PALETTE.length];
   }
 
-  function styleTagEl(el, tag, { active = false } = {}) {
+  function styleTagEl(el, tag, { active = false, muted = false } = {}) {
     const c = getTagColors(tag);
     el.style.borderWidth = "1px";
     el.style.borderStyle = "solid";
@@ -33,11 +33,21 @@
       el.style.background = c.solid;
       el.style.color = "#111";
       el.style.borderColor = c.solid;
-    } else {
-      el.style.background = c.bg;
-      el.style.color = c.color;
-      el.style.borderColor = c.border;
+      el.style.borderLeftWidth = "1px";
+      return;
     }
+    if (muted) {
+      el.style.background = "var(--rollo-surface-2)";
+      el.style.color = "var(--rollo-muted)";
+      el.style.borderColor = "var(--rollo-border)";
+      el.style.borderLeftWidth = "3px";
+      el.style.borderLeftColor = c.solid;
+      return;
+    }
+    el.style.background = c.bg;
+    el.style.color = c.color;
+    el.style.borderColor = c.border;
+    el.style.borderLeftWidth = "1px";
   }
 
   window.TagColors = { getTagColors, styleTagEl };

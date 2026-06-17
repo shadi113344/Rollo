@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/a11y.css">
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/profile-extras.css">
+  <link rel="stylesheet" href="/profile-chrome.css">
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
@@ -583,10 +584,10 @@
     #grid.size-xs .video-item { border-radius: 8px; }
     #grid.size-xs .info { padding: 6px 7px 8px; }
     #grid.size-xs .name { font-size: 10px; -webkit-line-clamp: 1; }
-    #grid.size-xs .tags { display: none; }
     #grid.size-xs .play-badge { font-size: 18px; }
     #grid.size-xs .fav-badge { width: 22px; height: 22px; top: 4px; right: 4px; font-size: 11px; }
     #grid.size-xs .fav-badge .heart-icon { width: 11px; height: 11px; }
+    #grid.size-xs .thumb-tag-dot { width: 5px; height: 5px; }
 
     .group-header {
       grid-column: 1 / -1;
@@ -783,22 +784,65 @@
 
     .info { padding: 9px 10px 11px; }
 
+    .video-item:not(:has(.info)) .thumb-wrap {
+      border-radius: 12px;
+    }
+
+    .thumb-tag-dots {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 3;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      max-width: calc(100% - 12px);
+      pointer-events: none;
+    }
+
+    body.bulk-select-mode .thumb-tag-dots {
+      top: auto;
+      bottom: 6px;
+      left: 6px;
+    }
+
+    .thumb-tag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+      flex-shrink: 0;
+    }
+
+    .thumb-tag-dot-more {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      min-width: 12px;
+      height: 12px;
+      padding: 0 3px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.55) !important;
+      color: #fff;
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1;
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
     .name {
       font-size: 12px;
       font-weight: 600;
       line-height: 1.35;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
       overflow: hidden;
-      word-break: break-word;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 5px;
+      display: none;
     }
 
     .tag {
@@ -1172,54 +1216,77 @@
       </div>
       <div class="header-actions">
         <button class="icon-btn" id="search-toggle" type="button" title="Search" aria-label="Search">⌕</button>
-        <a href="/settings.html" class="icon-btn" id="settings-link" title="Settings" aria-label="Settings"></a>
-        <button class="icon-btn" id="more-btn" type="button" title="More" aria-label="More">⋯</button>
-        <a href="/watch.html" class="feed-link" id="feed-link">Feed ↗</a>
+        <div class="menu-wrap settings-wrap" id="settings-wrap">
+          <button type="button" class="icon-btn" id="settings-btn" title="Settings · hold for library" aria-label="Settings" aria-haspopup="menu"></button>
+          <div class="menu-popover library-quick-menu" id="library-quick-menu" hidden role="menu">
+            <div class="tools-section-label">Library</div>
+            <button class="menu-item" id="group-settings-btn" type="button" role="menuitem"></button>
+            <button class="menu-item" id="export-btn" type="button" role="menuitem">Export tags (CSV)</button>
+            <button class="menu-item" id="import-btn" type="button" role="menuitem">Import tags (CSV)</button>
+            <a class="menu-item" href="/connect.html" id="servers-link" data-i18n="nav.servers" role="menuitem">Servers</a>
+            <button class="menu-item" id="sync-merge-btn" type="button" hidden role="menuitem">Merge Syncthing conflicts</button>
+            <p id="more-version"></p>
+          </div>
+        </div>
+        <a href="/watch.html" class="feed-icon-btn" id="feed-link" title="Feed" aria-label="Feed"></a>
       </div>
     </div>
     <div class="search-wrap" id="search-wrap">
       <input id="search" type="search" placeholder="Search videos…" autocomplete="off">
     </div>
     <div class="toolbar">
-      <div class="primary-filters" id="primary-filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn fav-filter" data-filter="favorites" type="button">
+      <div class="filter-segment primary-filters" id="primary-filters" role="tablist" aria-label="Filter library">
+        <button class="segment-btn filter-btn active" data-filter="all" type="button" role="tab">All</button>
+        <button class="segment-btn filter-btn fav-filter" data-filter="favorites" type="button" role="tab">
           <span class="heart-wrap sm" id="fav-filter-heart"></span> Favorites
         </button>
       </div>
-      <div class="control-menus">
+      <div class="toolbar-menus">
         <div class="menu-wrap" id="sort-menu-wrap">
-          <button class="menu-btn" id="sort-menu-btn" type="button" title="Sort" aria-label="Sort">⇅</button>
-          <div class="menu-popover" id="sort-menu" hidden>
-            <button class="menu-item sort-btn" data-sort="date-desc" type="button">Newest</button>
-            <button class="menu-item sort-btn" data-sort="date-asc" type="button">Oldest</button>
-            <button class="menu-item sort-btn" data-sort="name" type="button">Name</button>
-            <button class="menu-item sort-btn active" data-sort="tags" type="button">By tag</button>
-            <button class="menu-item sort-btn fav-sort" data-sort="favorites" type="button">
-              <span class="heart-wrap sm"></span> Favorites first
-            </button>
+          <button class="icon-btn toolbar-sort-btn" id="sort-menu-btn" type="button" title="Sort" aria-label="Sort" aria-haspopup="menu"></button>
+          <div class="menu-popover toolbar-popover sort-popover" id="sort-popover" hidden role="menu">
+            <div id="sort-menu">
+              <button class="menu-item sort-btn" data-sort="date-desc" type="button" role="menuitem">Newest</button>
+              <button class="menu-item sort-btn" data-sort="date-asc" type="button" role="menuitem">Oldest</button>
+              <button class="menu-item sort-btn" data-sort="name" type="button" role="menuitem">Name</button>
+              <button class="menu-item sort-btn active" data-sort="tags" type="button" role="menuitem">By tag</button>
+              <button class="menu-item sort-btn fav-sort" data-sort="favorites" type="button" role="menuitem">
+                <span class="heart-wrap sm"></span> Favorites first
+              </button>
+            </div>
           </div>
         </div>
-        <button class="menu-btn" id="bulk-select-btn" type="button" title="Select videos" aria-label="Select videos" data-i18n="profile.select">Select</button>
-        <button class="menu-btn" id="profile-view-btn" type="button" title="Grid view" aria-label="Grid view">▦</button>
-        <div class="menu-wrap" id="size-menu-wrap">
-          <button class="menu-btn" id="size-menu-btn" type="button" title="Grid size" aria-label="Grid size">▣</button>
-          <div class="menu-popover" id="size-menu" hidden>
-            <button class="menu-item view-btn active" data-size="xs" type="button">XS — extra small</button>
-            <button class="menu-item view-btn" data-size="sm" type="button">S — small</button>
-            <button class="menu-item view-btn" data-size="md" type="button">M — medium</button>
-            <button class="menu-item view-btn" data-size="lg" type="button">L — large</button>
+        <div class="menu-wrap" id="view-menu-wrap">
+          <button class="icon-btn toolbar-view-btn" id="view-menu-btn" type="button" title="View" aria-label="View" aria-haspopup="menu"></button>
+          <div class="menu-popover toolbar-popover view-popover" id="view-popover" hidden role="menu">
+            <button class="menu-item" id="bulk-select-btn" type="button" role="menuitem">Select videos</button>
+            <button class="menu-item" id="profile-view-btn" type="button" role="menuitem">Collections view</button>
+            <button class="menu-item" id="toggle-names-btn" type="button" role="menuitem">File names</button>
+            <div class="view-size-section" id="view-size-section">
+              <div class="view-size-header">
+                <span>Grid size</span>
+                <span id="grid-size-label">XS</span>
+              </div>
+              <input type="range" id="grid-size-slider" class="grid-size-slider" min="0" max="3" step="1" value="0" aria-label="Grid size">
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="tag-filters" id="tag-filters"></div>
+    <div class="tags-panel" id="tags-panel">
+      <button type="button" class="tags-toggle" id="tags-toggle" aria-expanded="false" aria-controls="tag-filters">
+        <span class="tags-toggle-label">Tags</span>
+        <span class="tags-count" id="tags-count"></span>
+        <span class="tags-chev" aria-hidden="true">▾</span>
+      </button>
+      <div class="tag-filters" id="tag-filters" hidden></div>
+    </div>
     <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   </header>
 
   <main>
     <div id="loading" hidden>Loading videos…</div>
-    <div id="empty">No media yet.<br>Tap <strong>+</strong> to upload, or add files to the <code>videos</code> folder.</div>
+    <div id="empty">No media yet.<br>Tap <strong>+</strong> to upload or download.</div>
     <div id="no-results">No videos match your search or filter.</div>
     <div id="collection-header">
       <button type="button" id="collection-back" aria-label="Back to collections">←</button>
@@ -1231,14 +1298,14 @@
   </div>
 
   <div id="bulk-action-bar" hidden role="toolbar" aria-label="Bulk selection">
-    <span data-bulk-count>0 selected</span>
-    <div style="display:flex;gap:8px">
-      <button type="button" class="icon-btn" id="bulk-tag-btn" data-i18n="profile.bulkTag">Tag</button>
-      <button type="button" class="icon-btn" id="bulk-cancel-btn" data-i18n="profile.cancelSelect">Cancel</button>
+    <span class="bulk-count" data-bulk-count>0 selected</span>
+    <div class="bulk-bar-actions">
+      <button type="button" class="bulk-bar-btn" id="bulk-tag-btn" data-i18n="profile.bulkTag">Tag</button>
+      <button type="button" class="bulk-bar-btn bulk-bar-btn-muted" id="bulk-cancel-btn" data-i18n="profile.cancelSelect">Cancel</button>
     </div>
   </div>
 
-  <button class="upload-fab" id="upload-fab" type="button" title="Upload video" aria-label="Upload video">+</button>
+  <button class="upload-fab" id="upload-fab" type="button" title="Add to library" aria-label="Add to library">+</button>
   <div id="upload-queue" hidden aria-live="polite">
     <div class="upload-queue-head">
       <span class="upload-queue-title" id="upload-queue-title">Uploading</span>
@@ -1247,6 +1314,14 @@
   </div>
   <input id="import-input" type="file" accept=".csv,text/csv" hidden>
   <input id="upload-input" type="file" accept="image/*,video/*,.gif,.heic,.heif,.png,.jpg,.jpeg,.webp,.bmp,.avif,.mp4,.webm,.mov,.m4v,.mkv,.avi" multiple hidden>
+
+  <div class="sheet-backdrop" id="add-backdrop"></div>
+  <div class="sheet" id="add-sheet">
+    <h2>Add to library</h2>
+    <button class="action-btn" id="add-upload-btn" type="button">Upload photos &amp; videos</button>
+    <a class="action-btn" id="add-download-btn" href="/download.html">Download from URL</a>
+    <button class="action-btn cancel" id="add-cancel-btn" type="button">Cancel</button>
+  </div>
 
   <!-- Group picker -->
   <div class="sheet-backdrop" id="group-backdrop"></div>
@@ -1263,19 +1338,6 @@
       </div>
     </div>
     <button class="action-btn cancel group-sheet-done" id="group-close" type="button">Done</button>
-  </div>
-
-  <!-- More menu -->
-  <div class="sheet-backdrop" id="more-backdrop"></div>
-  <div class="sheet" id="more-sheet">
-    <h2>More</h2>
-    <button class="action-btn" id="group-settings-btn" type="button"></button>
-    <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
-    <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
-    <a class="action-btn" href="/connect.html" id="servers-link" data-i18n="nav.servers">Servers</a>
-    <button class="action-btn" id="sync-merge-btn" type="button" hidden>Merge Syncthing conflicts</button>
-    <p class="subtitle" id="more-version" style="margin:4px 0 0;font-size:12px;color:#666"></p>
-    <button class="action-btn cancel" id="more-close" type="button">Close</button>
   </div>
 
   <!-- Long-press action menu -->
@@ -1395,12 +1457,6 @@
         </span>
         <span class="tab-label">Feed</span>
       </a>
-      <a href="/download.html" class="tab-item" id="download-tab">
-        <span class="tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-        </span>
-        <span class="tab-label">Download</span>
-      </a>
     </nav>
   </footer>
 
@@ -1435,11 +1491,21 @@
     const favFilterHeart = document.getElementById("fav-filter-heart");
     const favSortHeart = document.querySelector(".fav-sort .heart-wrap");
     const tagFiltersEl = document.getElementById("tag-filters");
-    const sortMenuBtn = document.getElementById("sort-menu-btn");
+    const tagsPanel = document.getElementById("tags-panel");
+    const tagsToggle = document.getElementById("tags-toggle");
+    const tagsCount = document.getElementById("tags-count");
     const sortMenu = document.getElementById("sort-menu");
-    const sizeMenuBtn = document.getElementById("size-menu-btn");
-    const sizeMenu = document.getElementById("size-menu");
+    const sortPopover = document.getElementById("sort-popover");
+    const sortMenuBtn = document.getElementById("sort-menu-btn");
+    const viewPopover = document.getElementById("view-popover");
+    const viewMenuBtn = document.getElementById("view-menu-btn");
+    const viewSizeSection = document.getElementById("view-size-section");
+    const gridSizeSlider = document.getElementById("grid-size-slider");
+    const gridSizeLabel = document.getElementById("grid-size-label");
+    const settingsBtn = document.getElementById("settings-btn");
+    const libraryQuickMenu = document.getElementById("library-quick-menu");
     const profileViewBtn = document.getElementById("profile-view-btn");
+    const toggleNamesBtn = document.getElementById("toggle-names-btn");
     const collectionHeader = document.getElementById("collection-header");
     const collectionBack = document.getElementById("collection-back");
     const collectionTitle = document.getElementById("collection-title");
@@ -1458,6 +1524,11 @@
     const newGroupBtn = document.getElementById("new-group-btn");
     const uploadFab = document.getElementById("upload-fab");
     const uploadInput = document.getElementById("upload-input");
+    const addBackdrop = document.getElementById("add-backdrop");
+    const addSheet = document.getElementById("add-sheet");
+    const addUploadBtn = document.getElementById("add-upload-btn");
+    const addDownloadBtn = document.getElementById("add-download-btn");
+    const addCancelBtn = document.getElementById("add-cancel-btn");
     const uploadQueuePanel = document.getElementById("upload-queue");
     const uploadQueueList = document.getElementById("upload-queue-list");
     const uploadQueueTitle = document.getElementById("upload-queue-title");
@@ -1466,14 +1537,10 @@
       running: false,
       cleanupTimer: null,
     };
-    const moreBtn = document.getElementById("more-btn");
-    const moreBackdrop = document.getElementById("more-backdrop");
-    const moreSheet = document.getElementById("more-sheet");
     const moreVersion = document.getElementById("more-version");
     const syncConflictBanner = document.getElementById("sync-conflict-banner");
     const feedLink = document.getElementById("feed-link");
-    const settingsLink = document.getElementById("settings-link");
-    const moreClose = document.getElementById("more-close");
+    let settingsHref = "/settings.html";
     const exportBtn = document.getElementById("export-btn");
     const importBtn = document.getElementById("import-btn");
     const importInput = document.getElementById("import-input");
@@ -1550,6 +1617,7 @@
     let collectionTag = null;
     let gridSize = localStorage.getItem("gridSize") || "xs";
     let sortMode = localStorage.getItem("sortMode") || "tags";
+    let showGridNames = localStorage.getItem("showGridNames") !== "0";
     let activeVideo = null;
     const thumbCache = new Map();
     const THUMB_CACHE_PREFIX = "thumb:v6:";
@@ -1569,41 +1637,68 @@
     };
 
     const SIZE_LABELS = { xs: "XS", sm: "S", md: "M", lg: "L" };
+    const GRID_SIZES = ["xs", "sm", "md", "lg"];
+    const SETTINGS_LONG_PRESS_MS = 480;
+
+    let tagsExpanded = localStorage.getItem("tagsExpanded") === "1";
+    let settingsPressTimer = null;
+    let settingsLongPressFired = false;
 
     function closeMenus(except) {
-      [sortMenu, sizeMenu].forEach((menu) => {
-        if (menu === except) return;
+      [sortPopover, viewPopover, libraryQuickMenu].forEach((menu) => {
+        if (!menu || menu === except) return;
         menu.hidden = true;
       });
-      sortMenuBtn.classList.toggle("open", !sortMenu.hidden);
-      sizeMenuBtn.classList.toggle("open", !sizeMenu.hidden);
+      sortMenuBtn?.classList.toggle("open", sortPopover && !sortPopover.hidden);
+      viewMenuBtn?.classList.toggle("open", viewPopover && !viewPopover.hidden);
+      settingsBtn?.classList.toggle("open", libraryQuickMenu && !libraryQuickMenu.hidden);
     }
 
     function toggleMenu(menu, btn) {
       const willOpen = menu.hidden;
       closeMenus(willOpen ? menu : null);
       menu.hidden = !willOpen;
-      btn.classList.toggle("open", willOpen);
+      btn?.classList.toggle("open", willOpen);
+    }
+
+    function updateToolbarBtns() {
+      sortMenuBtn?.classList.toggle("non-default", sortMode !== "tags");
+      const viewCustom =
+        gridSize !== "xs" ||
+        profileView === "collections" ||
+        document.body.classList.contains("bulk-select-mode") ||
+        !showGridNames;
+      viewMenuBtn?.classList.toggle("non-default", viewCustom);
     }
 
     function updateSortMenuBtn() {
-      const label = SORT_LABELS[sortMode] || "Sort";
-      sortMenuBtn.title = `Sort: ${label}`;
-      sortMenuBtn.setAttribute("aria-label", sortMenuBtn.title);
-      sortMenuBtn.classList.toggle("non-default", sortMode !== "tags");
-      sortMenu.querySelectorAll(".sort-btn").forEach((btn) => {
+      sortMenu?.querySelectorAll(".sort-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.sort === sortMode);
       });
+      const label = SORT_LABELS[sortMode] || "Sort";
+      if (sortMenuBtn) {
+        sortMenuBtn.title = `Sort: ${label}`;
+        sortMenuBtn.setAttribute("aria-label", sortMenuBtn.title);
+      }
+      updateToolbarBtns();
     }
 
-    function updateSizeMenuBtn() {
-      const label = SIZE_LABELS[gridSize] || "M";
-      sizeMenuBtn.title = `Grid: ${label}`;
-      sizeMenuBtn.setAttribute("aria-label", sizeMenuBtn.title);
-      sizeMenuBtn.classList.toggle("non-default", gridSize !== "xs");
-      sizeMenu.querySelectorAll(".view-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.size === gridSize);
-      });
+    function updateGridSizeSlider() {
+      const idx = GRID_SIZES.indexOf(gridSize);
+      const safeIdx = idx >= 0 ? idx : 0;
+      if (gridSizeSlider) gridSizeSlider.value = String(safeIdx);
+      if (gridSizeLabel) gridSizeLabel.textContent = SIZE_LABELS[gridSize] || "XS";
+      updateToolbarBtns();
+    }
+
+    function applyTagsExpanded() {
+      const hasTags = allTags.length > 0;
+      tagsPanel?.classList.toggle("has-tags", hasTags);
+      if (!hasTags) return;
+      tagFiltersEl.hidden = !tagsExpanded;
+      tagsToggle?.classList.toggle("expanded", tagsExpanded);
+      tagsToggle?.setAttribute("aria-expanded", String(tagsExpanded));
+      if (tagsCount) tagsCount.textContent = `(${allTags.length})`;
     }
 
     function parseJsonText(text) {
@@ -1774,9 +1869,12 @@
       const q = VideoGroups.query();
       const profileHref = q ? `/?${q}` : "/";
       const feedHref = q ? `/watch.html?${q}` : "/watch.html";
-      const settingsHref = q ? `/settings.html?${q}` : "/settings.html";
+      const downloadHref = q ? `/download.html?${q}` : "/download.html";
+      settingsHref = q ? `/settings.html?${q}` : "/settings.html";
       feedLink.href = feedHref;
-      if (settingsLink) settingsLink.href = settingsHref;
+      if (addDownloadBtn) addDownloadBtn.href = downloadHref;
+      const serversLink = document.getElementById("servers-link");
+      if (serversLink) serversLink.href = q ? `/connect.html?${q}` : "/connect.html";
       BottomNav.setProfileHref(profileHref);
       feedTab.href = feedHref;
     }
@@ -2136,6 +2234,49 @@
       return v.displayName || stripExt(v.name);
     }
 
+    const GRID_NAME_MAX = 10;
+
+    function gridDisplayName(v) {
+      const full = displayName(v);
+      return full.length > GRID_NAME_MAX ? `${full.slice(0, GRID_NAME_MAX)}…` : full;
+    }
+
+    function appendTagDots(wrap, tags) {
+      if (!tags?.length) return;
+      const dots = document.createElement("div");
+      dots.className = "thumb-tag-dots";
+      dots.setAttribute("aria-label", tags.join(", "));
+      const max = 5;
+      tags.slice(0, max).forEach((tag) => {
+        const dot = document.createElement("span");
+        dot.className = "thumb-tag-dot";
+        dot.title = tag;
+        dot.style.background = TagColors.getTagColors(tag).solid;
+        dots.appendChild(dot);
+      });
+      if (tags.length > max) {
+        const more = document.createElement("span");
+        more.className = "thumb-tag-dot thumb-tag-dot-more";
+        more.textContent = `+${tags.length - max}`;
+        dots.appendChild(more);
+      }
+      wrap.appendChild(dots);
+    }
+
+    function updateNamesToggleBtn() {
+      if (!toggleNamesBtn) return;
+      toggleNamesBtn.classList.toggle("active", showGridNames);
+      toggleNamesBtn.textContent = "File names";
+    }
+
+    function toggleShowGridNames() {
+      showGridNames = !showGridNames;
+      localStorage.setItem("showGridNames", showGridNames ? "1" : "0");
+      updateNamesToggleBtn();
+      updateToolbarBtns();
+      renderGrid();
+    }
+
     function sortVideos(list) {
       const sorted = [...list];
       switch (sortMode) {
@@ -2208,8 +2349,8 @@
     function updateProfileChrome() {
       const inCollections = profileView === "collections";
       const collectionsTop = inCollections && !collectionTag;
-      tagFiltersEl.style.display = collectionsTop ? "none" : "";
-      sizeMenuBtn.parentElement.style.display = collectionsTop ? "none" : "";
+      tagsPanel.style.display = collectionsTop ? "none" : "";
+      if (viewSizeSection) viewSizeSection.style.display = collectionsTop ? "none" : "";
       collectionHeader.classList.toggle("visible", inCollections);
       if (collectionTag) {
         collectionTitle.textContent = collectionTag;
@@ -2220,10 +2361,14 @@
         collectionBack.setAttribute("aria-label", "Back to grid");
       }
       profileViewBtn.classList.toggle("active", profileView === "collections");
-      profileViewBtn.textContent = profileView === "collections" ? "▣" : "▦";
-      profileViewBtn.title = profileView === "collections" ? "Collections view" : "Grid view";
+      profileViewBtn.textContent = profileView === "collections" ? "Grid view" : "Collections view";
+      profileViewBtn.title = profileViewBtn.textContent;
       profileViewBtn.setAttribute("aria-label", profileViewBtn.title);
       applyGridClasses();
+      applyTagsExpanded();
+      updateGridSizeSlider();
+      updateNamesToggleBtn();
+      updateToolbarBtns();
     }
 
     function setProfileView(view) {
@@ -2350,8 +2495,7 @@
       gridSize = size;
       localStorage.setItem("gridSize", size);
       applyGridClasses();
-      updateSizeMenuBtn();
-      closeMenus();
+      updateGridSizeSlider();
     }
 
     function toggleSearch(open) {
@@ -2388,8 +2532,9 @@
         const isActive = btn.dataset.filter === activeFilter;
         btn.classList.toggle("active", isActive);
         const tagName = btn.dataset.filter.slice(4);
-        TagColors.styleTagEl(btn, tagName, { active: isActive });
+        TagColors.styleTagEl(btn, tagName, { active: isActive, muted: true });
       });
+      applyTagsExpanded();
     }
 
     function onFilterClick(e) {
@@ -2753,6 +2898,8 @@
       wrap.className = "thumb-wrap";
       wrap.appendChild(Object.assign(document.createElement("div"), { className: "thumb-placeholder" }));
 
+      appendTagDots(wrap, video.tags);
+
       if (video.favorite) {
         const fav = document.createElement("span");
         fav.className = "fav-badge";
@@ -2771,27 +2918,20 @@
       }
       link.appendChild(wrap);
 
-      const info = document.createElement("div");
-      info.className = "info";
-      const nameEl = document.createElement("div");
-      nameEl.className = "name";
-      nameEl.textContent = displayName(video);
-      info.appendChild(nameEl);
-
-      if (video.tags.length) {
-        const tagsEl = document.createElement("div");
-        tagsEl.className = "tags";
-        video.tags.slice(0, 2).forEach((t) => {
-          const span = document.createElement("span");
-          span.className = "tag";
-          span.textContent = t;
-          TagColors.styleTagEl(span, t);
-          tagsEl.appendChild(span);
-        });
-        info.appendChild(tagsEl);
+      if (showGridNames) {
+        const info = document.createElement("div");
+        info.className = "info";
+        const nameEl = document.createElement("div");
+        nameEl.className = "name";
+        const fullName = displayName(video);
+        nameEl.textContent = gridDisplayName(video);
+        nameEl.title = fullName;
+        nameEl.setAttribute("aria-label", fullName);
+        info.appendChild(nameEl);
+        card.append(link, info);
+      } else {
+        card.append(link);
       }
-
-      card.append(link, info);
       grid.appendChild(card);
       profileExtrasApi?.decorateCard?.(card, video);
       bindLongPress(card, video, () => { thumbNavBlocked = true; }, () => { thumbNavBlocked = false; });
@@ -3239,15 +3379,60 @@
       }
     }
 
-    moreBtn.addEventListener("click", async () => {
-      if (window.RolloShell?.loadVersion) {
-        const shell = await window.RolloShell.loadVersion();
-        moreVersion.textContent = shell ? `Shell ${shell}` : "";
-      }
-      openSheet(moreBackdrop, moreSheet);
+    sortMenuBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleMenu(sortPopover, sortMenuBtn);
     });
-    moreClose.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
-    moreBackdrop.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
+
+    viewMenuBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleMenu(viewPopover, viewMenuBtn);
+    });
+
+    sortPopover?.addEventListener("click", (e) => e.stopPropagation());
+    viewPopover?.addEventListener("click", (e) => e.stopPropagation());
+    libraryQuickMenu?.addEventListener("click", (e) => e.stopPropagation());
+
+    function clearSettingsPress() {
+      clearTimeout(settingsPressTimer);
+      settingsPressTimer = null;
+    }
+
+    settingsBtn?.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      settingsLongPressFired = false;
+      clearSettingsPress();
+      settingsPressTimer = setTimeout(async () => {
+        settingsLongPressFired = true;
+        if (window.RolloShell?.loadVersion) {
+          const shell = await window.RolloShell.loadVersion();
+          moreVersion.textContent = shell ? `Shell ${shell}` : "";
+        }
+        toggleMenu(libraryQuickMenu, settingsBtn);
+      }, SETTINGS_LONG_PRESS_MS);
+    });
+
+    settingsBtn?.addEventListener("pointerup", (e) => {
+      if (e.button !== 0) return;
+      const wasLong = settingsLongPressFired;
+      clearSettingsPress();
+      if (wasLong) return;
+      if (libraryQuickMenu && !libraryQuickMenu.hidden) {
+        closeMenus();
+        return;
+      }
+      window.location.href = settingsHref;
+    });
+
+    settingsBtn?.addEventListener("pointerleave", clearSettingsPress);
+    settingsBtn?.addEventListener("pointercancel", clearSettingsPress);
+    settingsBtn?.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    tagsToggle?.addEventListener("click", () => {
+      tagsExpanded = !tagsExpanded;
+      localStorage.setItem("tagsExpanded", tagsExpanded ? "1" : "0");
+      applyTagsExpanded();
+    });
 
     actionSheet.addEventListener("click", (e) => {
       const action = e.target.closest("[data-action]")?.dataset.action;
@@ -3315,8 +3500,16 @@
         promptUnlock(group);
         return;
       }
+      openSheet(addBackdrop, addSheet);
+    });
+
+    addUploadBtn?.addEventListener("click", () => {
+      closeSheet(addBackdrop, addSheet);
       uploadInput.click();
     });
+
+    addCancelBtn?.addEventListener("click", () => closeSheet(addBackdrop, addSheet));
+    addBackdrop?.addEventListener("click", () => closeSheet(addBackdrop, addSheet));
 
     uploadInput.addEventListener("change", async () => {
       const files = [...uploadInput.files];
@@ -3324,34 +3517,30 @@
       await uploadVideos(files);
     });
 
-    sortMenuBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleMenu(sortMenu, sortMenuBtn);
+    sortMenu?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".sort-btn");
+      if (btn) setSortMode(btn.dataset.sort);
     });
 
-    sizeMenuBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleMenu(sizeMenu, sizeMenuBtn);
+    gridSizeSlider?.addEventListener("input", () => {
+      const size = GRID_SIZES[Number(gridSizeSlider.value)] || "xs";
+      setGridSize(size);
     });
 
     profileViewBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      closeMenus();
       toggleProfileView();
+    });
+
+    toggleNamesBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleShowGridNames();
     });
 
     collectionBack.addEventListener("click", () => {
       if (collectionTag) closeCollection();
       else if (profileView === "collections") setProfileView("grid");
-    });
-
-    sortMenu.addEventListener("click", (e) => {
-      const btn = e.target.closest(".sort-btn");
-      if (btn) setSortMode(btn.dataset.sort);
-    });
-
-    sizeMenu.addEventListener("click", (e) => {
-      const btn = e.target.closest(".view-btn");
-      if (btn) setGridSize(btn.dataset.size);
     });
 
     document.addEventListener("click", () => closeMenus());
@@ -3366,7 +3555,7 @@
     }
 
     groupSettingsBtn.addEventListener("click", () => {
-      closeSheet(moreBackdrop, moreSheet);
+      closeMenus();
       const group = allGroups.find((g) => g.id === VideoGroups.getActive());
       if (!group) return;
       groupSettingsSubtitle.textContent = `Folder: ${group.name}`;
@@ -3498,7 +3687,7 @@
     });
 
     exportBtn.addEventListener("click", async () => {
-      closeSheet(moreBackdrop, moreSheet);
+      closeMenus();
       showToast("Exporting…");
       try {
         const res = await VideoGroups.apiFetch("/api/metadata/export");
@@ -3520,7 +3709,7 @@
     });
 
     importBtn.addEventListener("click", () => {
-      closeSheet(moreBackdrop, moreSheet);
+      closeMenus();
       importInput.click();
     });
 
@@ -3548,8 +3737,13 @@
     });
 
     function initSheetIcons() {
-      if (settingsLink) settingsLink.innerHTML = RolloIcons.settings(18);
-      RolloIcons.setActionBtn(groupSettingsBtn, RolloIcons.lock(18), "Group lock & name");
+      if (settingsBtn) settingsBtn.innerHTML = RolloIcons.settings(18);
+      if (sortMenuBtn) sortMenuBtn.innerHTML = RolloIcons.sort(18);
+      if (viewMenuBtn) viewMenuBtn.innerHTML = RolloIcons.grid(18);
+      if (feedLink) {
+        feedLink.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>`;
+      }
+      RolloIcons.setActionBtn(groupSettingsBtn, RolloIcons.lock(18), "Library lock & name");
       RolloIcons.setActionBtn(
         document.querySelector('#action-sheet [data-action="tag"]'),
         RolloIcons.tag(18),
@@ -3612,6 +3806,10 @@
         onGridRefresh: () => renderGrid(),
         showToast,
         openBulkTagSheet,
+        onSelectModeChange: () => {
+          updateToolbarBtns();
+          closeMenus();
+        },
         buildWatchUrl: (video) => {
           const params = new URLSearchParams();
           const active = VideoGroups.getActive();
@@ -3628,7 +3826,7 @@
       });
 
       document.getElementById("sync-merge-btn")?.addEventListener("click", async () => {
-        closeSheet(moreBackdrop, moreSheet);
+        closeMenus();
         showToast("Merging conflicts…");
         try {
           const res = await fetch("/api/sync/merge-conflicts", { method: "POST" });
@@ -3690,7 +3888,7 @@
 
         setGridSize(gridSize);
         updateSortMenuBtn();
-        updateSizeMenuBtn();
+        updateGridSizeSlider();
         updateProfileChrome();
         HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });

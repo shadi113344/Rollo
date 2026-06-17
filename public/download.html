@@ -47,6 +47,18 @@
       padding: calc(12px + env(safe-area-inset-top)) 16px 14px;
     }
 
+    .dl-back {
+      display: inline-block;
+      margin-bottom: 10px;
+      color: var(--rollo-muted, #9a9a9a);
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .dl-back:active {
+      color: var(--rollo-text, #fff);
+    }
+
     header h1 {
       margin: 0;
       font-size: 20px;
@@ -532,8 +544,9 @@
 <body>
   <div id="app-scroll">
     <header>
-      <h1>Browser Downloader</h1>
-      <p>Paste a video link from YouTube, X, TikTok, Reddit, and hundreds of other sites.</p>
+      <a href="/" class="dl-back" id="dl-back">← Profile</a>
+      <h1>Download</h1>
+      <p>Paste a video link from YouTube, X, TikTok, Reddit, and more. Open from Profile → <strong>+</strong>.</p>
     </header>
 
     <main>
@@ -625,12 +638,6 @@
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
         </span>
         <span class="tab-label">Feed</span>
-      </a>
-      <a href="/download.html" class="tab-item active" id="download-tab">
-        <span class="tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-        </span>
-        <span class="tab-label">Download</span>
       </a>
     </nav>
   </footer>
@@ -1521,6 +1528,10 @@
     });
 
     BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
+    const dlBack = document.getElementById("dl-back");
+    if (dlBack) dlBack.href = VideoGroups.query() ? `/?${VideoGroups.query()}` : "/";
+    const feedTab = document.getElementById("feed-tab");
+    if (feedTab && VideoGroups.query()) feedTab.href = `/watch.html?${VideoGroups.query()}`;
     BottomNav.init({
       getGroups: () => allGroups,
       onSelectGroup: (id) => {

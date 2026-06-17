@@ -7,7 +7,7 @@ window.RolloI18n = (function () {
       "nav.servers": "Servers",
       "profile.search": "Search videos…",
       "profile.select": "Select",
-      "profile.bulkTag": "Tag selected",
+      "profile.bulkTag": "Tag",
       "profile.cancelSelect": "Cancel",
       "feed.swipeHint": "Swipe down to return to profile",
       "settings.title": "Settings",

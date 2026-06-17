@@ -78,6 +78,8 @@ window.PressRadialMenu = (function () {
     fanEl = root.querySelector(".radial-menu-fan");
     subFanEl = root.querySelector(".radial-menu-subfan");
     triggerEl = root.querySelector(".radial-menu-trigger");
+    triggerEl.style.visibility = "hidden";
+    triggerEl.style.pointerEvents = "none";
 
     fanEl.addEventListener("pointerdown", (e) => e.stopPropagation());
     subFanEl.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -912,6 +914,8 @@ window.PressRadialMenu = (function () {
     subOptions = [];
     triggerEl.classList.remove("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "false");
+    triggerEl.style.visibility = "hidden";
+    triggerEl.style.pointerEvents = "none";
     setBodyLock(false);
     renderFan(false);
     renderSubRow(false);
@@ -933,6 +937,8 @@ window.PressRadialMenu = (function () {
     open = true;
     highlightId = null;
     positionUi();
+    triggerEl.style.visibility = "visible";
+    triggerEl.style.pointerEvents = "auto";
     triggerEl.classList.add("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "true");
     setBodyLock(true);
@@ -1058,6 +1064,8 @@ window.PressRadialMenu = (function () {
     open = true;
     highlightId = null;
     positionUi();
+    triggerEl.style.visibility = "visible";
+    triggerEl.style.pointerEvents = "auto";
     triggerEl.classList.add("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "true");
     setBodyLock(true);

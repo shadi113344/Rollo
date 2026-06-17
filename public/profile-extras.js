@@ -83,6 +83,8 @@ window.RolloProfileExtras = (function () {
     bar.classList.toggle("visible", selectMode && count > 0);
     const label = bar.querySelector("[data-bulk-count]");
     if (label) label.textContent = `${count} selected`;
+    const tagBtn = document.getElementById("bulk-tag-btn");
+    if (tagBtn) tagBtn.disabled = count === 0;
   }
 
   function setSelectMode(on) {
@@ -96,6 +98,7 @@ window.RolloProfileExtras = (function () {
       card.classList.toggle("selected", on && selected.has(card.dataset.filename));
     });
     updateBulkBar();
+    hooks?.onSelectModeChange?.();
   }
 
   function toggleSelect(filename) {

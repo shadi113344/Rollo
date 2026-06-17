@@ -143,12 +143,6 @@
         </span>
         <span class="tab-label">Feed</span>
       </a>
-      <a href="/download.html" class="tab-item" id="download-tab">
-        <span class="tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-        </span>
-        <span class="tab-label">Download</span>
-      </a>
     </nav>
   </footer>
 
@@ -174,11 +168,9 @@
       document.getElementById("settings-back").href = profileHref;
       document.getElementById("profile-tab").href = profileHref;
       const feedTab = document.getElementById("feed-tab");
-      const dlTab = document.getElementById("download-tab");
       const serversLink = document.getElementById("settings-servers-link");
       if (q) {
         feedTab.href = `/watch.html?${q}`;
-        dlTab.href = `/download.html?${q}`;
         serversLink.href = `/connect.html?${q}`;
       }
     })();
