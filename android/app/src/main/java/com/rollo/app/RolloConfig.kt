@@ -11,7 +11,9 @@ import java.security.SecureRandom
 object RolloConfig {
     const val DEFAULT_PORT = 3847
     const val GITHUB_REPO = "shadi113344/Rollo"
-    private const val PREFS = "rollo_prefs"
+    const val PREFS_NAME = "rollo_prefs"
+    const val KEY_BOOT_READY = "boot_ready"
+    private const val PREFS = PREFS_NAME
     private const val KEY_SECRET = "video_secret"
     private const val KEY_PORT = "port"
     private const val KEY_VIDEOS_DIR = "videos_dir"

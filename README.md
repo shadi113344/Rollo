@@ -67,6 +67,14 @@ cd android && ./setup-libnode.sh   # or setup-libnode.ps1 on Windows
 
 Locked libraries require a password; unlock tokens are stored in the browser and sent via the `X-Unlocked` header.
 
+## Documentation
+
+Full architecture, features, deployment modes, and known issues:
+
+- [`docs/APP-STRUCTURE.md`](docs/APP-STRUCTURE.md) — complete app reference
+- [`docs/ISSUES-AND-ENHANCEMENTS.md`](docs/ISSUES-AND-ENHANCEMENTS.md) — bugs, security notes, roadmap
+- [`docs/README.md`](docs/README.md) — index
+
 ## Tests
 
 ```bash

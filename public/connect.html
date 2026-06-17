@@ -189,9 +189,12 @@
       if (checking) meta.textContent = "Checking…";
       else if (online) {
         const host = status?.hostname ? ` · ${status.hostname}` : "";
-        meta.textContent = `${viaLabel(activeVia)}${host} — ${librarySummary(status)}`;
+        const seen = RolloServers.formatLastSeen(server.id);
+        const seenText = seen ? ` · ${seen}` : "";
+        meta.textContent = `${viaLabel(activeVia)}${host} — ${librarySummary(status)}${seenText}`;
       } else {
-        meta.textContent = "Offline";
+        const seen = RolloServers.formatLastSeen(server.id);
+        meta.textContent = seen ? `Offline · last ${seen.replace(/^seen /, "")}` : "Offline";
       }
 
       const badges = document.createElement("div");
@@ -385,6 +388,7 @@
     });
 
     refreshAll();
+    setInterval(() => refreshAll(), 60000);
   </script>
 </body>
 </html>

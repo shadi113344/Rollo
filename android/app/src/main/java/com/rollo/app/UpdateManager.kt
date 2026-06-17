@@ -45,7 +45,7 @@ object UpdateManager {
 
                 RolloConfig.writeNodeConfig(context)
                 tempRoot.deleteRecursively()
-                onDone(true, "Updated from GitHub. Restart the app to reload.")
+                onDone(true, "Web update applied (JS/CSS/server). Restarting… For native app changes, install a new APK.")
             } catch (err: Throwable) {
                 Log.e(TAG, "Update failed", err)
                 onDone(false, err.message ?: "Update failed")

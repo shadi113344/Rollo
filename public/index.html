@@ -146,7 +146,45 @@
       flex-shrink: 0;
     }
 
-    .feed-link { display: none; }
+    .feed-link {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #161616;
+      color: #fff;
+      font-size: 13px;
+      text-decoration: none;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    @media (min-width: 720px) {
+      .feed-link { display: inline-flex; }
+    }
+
+    .sync-conflict-banner {
+      margin: 0 16px 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 120, 80, 0.45);
+      background: rgba(255, 90, 50, 0.12);
+      color: #ffb199;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .upload-queue-retry {
+      border: 0;
+      background: transparent;
+      color: #aad4ff;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0 0 0 8px;
+      flex-shrink: 0;
+    }
 
     .icon-btn {
       display: flex;
@@ -1117,6 +1155,7 @@
 </head>
 <body class="page-profile">
   <div id="app-scroll">
+  <div class="sync-conflict-banner" id="sync-conflict-banner" hidden role="status"></div>
   <header id="header">
     <div class="header-row">
       <div class="header-left">
@@ -1221,6 +1260,7 @@
     <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
     <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
     <a class="action-btn" href="/connect.html" id="servers-link">Servers</a>
+    <p class="subtitle" id="more-version" style="margin:4px 0 0;font-size:12px;color:#666"></p>
     <button class="action-btn cancel" id="more-close" type="button">Close</button>
   </div>
 
@@ -1344,7 +1384,7 @@
   <script>RolloServers.importSeedFromUrl();</script>
   <script src="/network-speed.js"></script>
   <script src="/layout-metrics.js"></script>
-  <script src="/media.js"></script>
+  <script src="/media-helpers.js"></script>
   <script src="/tag-colors.js"></script>
   <script src="/hearts.js"></script>
   <script src="/icons.js"></script>
@@ -1400,6 +1440,9 @@
     const moreBtn = document.getElementById("more-btn");
     const moreBackdrop = document.getElementById("more-backdrop");
     const moreSheet = document.getElementById("more-sheet");
+    const moreVersion = document.getElementById("more-version");
+    const syncConflictBanner = document.getElementById("sync-conflict-banner");
+    const feedLink = document.getElementById("feed-link");
     const moreClose = document.getElementById("more-close");
     const exportBtn = document.getElementById("export-btn");
     const importBtn = document.getElementById("import-btn");
@@ -1437,7 +1480,6 @@
     const moveCancel = document.getElementById("move-cancel");
     const deleteConfirm = document.getElementById("delete-confirm");
     const deleteCancel = document.getElementById("delete-cancel");
-    const feedLink = document.getElementById("feed-link");
     const profileTab = document.getElementById("profile-tab");
     const feedTab = document.getElementById("feed-tab");
     const groupSettingsBtn = document.getElementById("group-settings-btn");
@@ -1837,6 +1879,25 @@
       }
     }
 
+    function updateSyncConflictBanner(status) {
+      const conflicts = status?.sync?.conflictCount || 0;
+      if (!conflicts) {
+        syncConflictBanner.hidden = true;
+        syncConflictBanner.textContent = "";
+        return;
+      }
+      const libs = [...new Set((status.sync.conflicts || []).map((c) => c.library))];
+      syncConflictBanner.hidden = false;
+      syncConflictBanner.textContent =
+        `Syncthing conflict files detected (${conflicts}) in ${libs.join(", ")}. ` +
+        "Edit tags on one device at a time, then remove .sync-conflict files from _rollo/.";
+    }
+
+    function updateFeedLink() {
+      const qs = VideoGroups.query();
+      feedLink.href = qs ? `/watch.html?${qs}` : "/watch.html";
+    }
+
     function formatLibraryHelp(status) {
       const path = status?.videosDir || "videos";
       const hints = Array.isArray(status?.hints) ? status.hints : [];
@@ -1956,14 +2017,18 @@
       }
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
+      updateFeedLink();
       renderGroups();
       await loadVideosData();
     }
 
     async function loadVideosData() {
       loading.hidden = false;
+      const videosPath = searchQuery
+        ? `/api/videos?q=${encodeURIComponent(searchQuery)}`
+        : "/api/videos";
       const [videosRes, tagsRes] = await Promise.all([
-        VideoGroups.apiFetch("/api/videos"),
+        VideoGroups.apiFetch(videosPath),
         VideoGroups.apiFetch("/api/tags"),
       ]);
       if (videosRes.status === 403) {
@@ -2949,7 +3014,17 @@
           cancelUploadItem(item.id);
         });
 
-        row.append(name, status, barWrap, cancel);
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "upload-queue-retry";
+        retry.textContent = "Retry";
+        retry.hidden = item.status !== "failed";
+        retry.addEventListener("click", (e) => {
+          e.stopPropagation();
+          retryUploadItem(item);
+        });
+
+        row.append(name, status, barWrap, retry, cancel);
         uploadQueueList.appendChild(row);
       });
     }
@@ -2962,6 +3037,15 @@
       if (item.xhr) item.xhr.abort();
       renderUploadQueue();
       hideUploadQueueSoon();
+    }
+
+    function retryUploadItem(item) {
+      if (!item?.file || item.status !== "failed") return;
+      item.status = "pending";
+      item.progress = 0;
+      item.error = null;
+      renderUploadQueue();
+      if (!uploadQueue.running) processUploadQueue();
     }
 
     function uploadSingleFile(item) {
@@ -3062,7 +3146,13 @@
       }
     }
 
-    moreBtn.addEventListener("click", () => openSheet(moreBackdrop, moreSheet));
+    moreBtn.addEventListener("click", async () => {
+      if (window.RolloShell?.loadVersion) {
+        const shell = await window.RolloShell.loadVersion();
+        moreVersion.textContent = shell ? `Shell ${shell}` : "";
+      }
+      openSheet(moreBackdrop, moreSheet);
+    });
     moreClose.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
     moreBackdrop.addEventListener("click", () => closeSheet(moreBackdrop, moreSheet));
 
@@ -3292,10 +3382,14 @@
     primaryFiltersEl.addEventListener("click", onFilterClick);
     tagFiltersEl.addEventListener("click", onFilterClick);
 
+    let searchReloadTimer = null;
     searchInput.addEventListener("input", () => {
       searchQuery = searchInput.value.trim();
       searchToggle.classList.toggle("active", !!searchQuery || headerEl.classList.contains("search-open"));
-      renderGrid();
+      clearTimeout(searchReloadTimer);
+      searchReloadTimer = setTimeout(() => {
+        loadVideosData().catch((err) => showToast(err.message || "Search failed"));
+      }, 300);
     });
 
     exportBtn.addEventListener("click", async () => {
@@ -3425,8 +3519,10 @@
         HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });
         await loadVideosData();
+        const status = await fetchServerStatus();
+        updateSyncConflictBanner(status);
+        updateFeedLink();
         if (!allVideos.length) {
-          const status = await fetchServerStatus();
           const activeId = VideoGroups.getActive();
           const count = status?.videoCounts?.[activeId];
           if (count === 0 && status?.hints?.length) {

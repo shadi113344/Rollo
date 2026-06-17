@@ -442,6 +442,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun onServerReady() {
         serverReady = true
+        getSharedPreferences(RolloConfig.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(RolloConfig.KEY_BOOT_READY, true)
+            .apply()
         updateStatus(getString(R.string.status_running), getString(R.string.server_ready_hint))
         openLibraryButton.isVisible = true
         retryButton.isVisible = false

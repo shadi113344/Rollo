@@ -3,8 +3,10 @@
  */
 window.RolloServers = (function () {
   const STORAGE_KEY = "rolloServers";
+  const LAST_SEEN_KEY = "rolloServerLastSeen";
   const PROBE_LAN_MS = 1800;
   const PROBE_REMOTE_MS = 3200;
+  const PROBE_ATTEMPTS = 3;
 
   function normalizeUrl(input) {
     if (!input) return "";
@@ -34,6 +36,34 @@ window.RolloServers = (function () {
 
   function saveList(list) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }
+
+  function getLastSeenMap() {
+    try {
+      const raw = localStorage.getItem(LAST_SEEN_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      return map && typeof map === "object" ? map : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function recordLastSeen(serverId) {
+    if (!serverId) return;
+    const map = getLastSeenMap();
+    map[serverId] = Date.now();
+    localStorage.setItem(LAST_SEEN_KEY, JSON.stringify(map));
+  }
+
+  function formatLastSeen(serverId) {
+    const ts = getLastSeenMap()[serverId];
+    if (!ts) return "";
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return "seen just now";
+    if (mins < 60) return `seen ${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 48) return `seen ${hours}h ago`;
+    return `seen ${Math.floor(hours / 24)}d ago`;
   }
 
   function mergeList(incoming) {
@@ -66,6 +96,9 @@ window.RolloServers = (function () {
 
   function remove(id) {
     saveList(getList().filter((s) => s.id !== id));
+    const map = getLastSeenMap();
+    delete map[id];
+    localStorage.setItem(LAST_SEEN_KEY, JSON.stringify(map));
   }
 
   function currentOrigin() {
@@ -77,17 +110,27 @@ window.RolloServers = (function () {
     return origin === normalizeUrl(server.lanUrl) || origin === normalizeUrl(server.remoteUrl);
   }
 
-  function importSeedFromUrl() {
+  function readSeedFromLocation() {
     const params = new URLSearchParams(location.search);
-    const seed = params.get("rolloSeed");
+    let seed = params.get("rolloSeed");
+    if (!seed && location.hash.startsWith("#rolloSeed=")) {
+      seed = decodeURIComponent(location.hash.slice("#rolloSeed=".length));
+    }
+    return seed;
+  }
+
+  function importSeedFromUrl() {
+    const seed = readSeedFromLocation();
     if (!seed) return false;
     try {
       const decoded = decodeURIComponent(escape(atob(seed)));
       const list = JSON.parse(decoded);
       mergeList(list);
+      const params = new URLSearchParams(location.search);
       params.delete("rolloSeed");
       const qs = params.toString();
-      const next = location.pathname + (qs ? `?${qs}` : "") + location.hash;
+      const hash = location.hash.startsWith("#rolloSeed=") ? "" : location.hash;
+      const next = location.pathname + (qs ? `?${qs}` : "") + hash;
       history.replaceState(null, "", next);
       return true;
     } catch {
@@ -103,7 +146,9 @@ window.RolloServers = (function () {
     const base = normalizeUrl(baseUrl);
     const dest = new URL(path || "/", base);
     const servers = list || getList();
-    if (servers.length) dest.searchParams.set("rolloSeed", encodeSeed(servers));
+    if (servers.length) {
+      dest.hash = `rolloSeed=${encodeURIComponent(encodeSeed(servers))}`;
+    }
     location.href = dest.href;
   }
 
@@ -128,13 +173,24 @@ window.RolloServers = (function () {
     }
   }
 
+  async function probeBaseWithRetry(baseUrl, timeoutMs, attempts = PROBE_ATTEMPTS) {
+    for (let i = 0; i < attempts; i++) {
+      const result = await probeBase(baseUrl, timeoutMs);
+      if (result.ok) return result;
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+      }
+    }
+    return { ok: false, via: null };
+  }
+
   async function resolve(server) {
     if (server.lanUrl) {
-      const lan = await probeBase(server.lanUrl, PROBE_LAN_MS);
+      const lan = await probeBaseWithRetry(server.lanUrl, PROBE_LAN_MS);
       if (lan.ok) return { ...lan, via: "lan" };
     }
     if (server.remoteUrl) {
-      const remote = await probeBase(server.remoteUrl, PROBE_REMOTE_MS);
+      const remote = await probeBaseWithRetry(server.remoteUrl, PROBE_REMOTE_MS);
       if (remote.ok) return { ...remote, via: "remote" };
     }
     return null;
@@ -142,10 +198,10 @@ window.RolloServers = (function () {
 
   async function probeServer(server) {
     const lan = server.lanUrl
-      ? await probeBase(server.lanUrl, PROBE_LAN_MS)
+      ? await probeBaseWithRetry(server.lanUrl, PROBE_LAN_MS)
       : { ok: false };
     const remote = server.remoteUrl
-      ? await probeBase(server.remoteUrl, PROBE_REMOTE_MS)
+      ? await probeBaseWithRetry(server.remoteUrl, PROBE_REMOTE_MS)
       : { ok: false };
     const online = lan.ok || remote.ok;
     let activeVia = null;
@@ -157,6 +213,7 @@ window.RolloServers = (function () {
       activeVia = "remote";
       status = remote.data;
     }
+    if (online) recordLastSeen(server.id);
     return { online, lan: lan.ok, remote: remote.ok, activeVia, status };
   }
 
@@ -263,6 +320,7 @@ window.RolloServers = (function () {
     importSeedFromUrl,
     navigateTo,
     probeBase,
+    probeBaseWithRetry,
     resolve,
     probeServer,
     fetchThisDevice,
@@ -270,7 +328,10 @@ window.RolloServers = (function () {
     exportBackup,
     importBackupFile,
     restoreBackup,
+    recordLastSeen,
+    formatLastSeen,
     PROBE_LAN_MS,
     PROBE_REMOTE_MS,
+    PROBE_ATTEMPTS,
   };
 })();

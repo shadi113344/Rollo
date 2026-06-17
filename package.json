@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/groups.test.js && node test/metadata.test.js && node test/downloader.test.js",
+    "test": "node test/groups.test.js && node test/metadata.test.js && node test/downloader.test.js && node test/api.smoke.test.js",
+    "precache": "node scripts/generate-precache.js",
     "sync:android": "node scripts/sync-android-assets.js",
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",
     "android:keystore": "powershell -ExecutionPolicy Bypass -File android/setup-release-keystore.ps1",

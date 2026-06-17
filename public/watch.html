@@ -308,7 +308,7 @@
     }
 
     .android .video-card {
-      scroll-snap-stop: normal;
+      scroll-snap-stop: always;
     }
 
     .android .media-slot video,
@@ -406,12 +406,12 @@
     .controls {
       position: absolute;
       right: 12px;
-      bottom: calc(var(--bottom-ui-inset) + 10px);
+      bottom: calc(var(--bottom-ui-inset) + 56px);
       display: flex;
       flex-direction: column;
       gap: 12px;
       pointer-events: auto;
-      z-index: 10;
+      z-index: 12;
       transition: opacity 0.35s ease;
     }
 
@@ -887,7 +887,7 @@
   <script src="/network-speed.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/toast.js"></script>
-  <script src="/media.js"></script>
+  <script src="/media-helpers.js"></script>
   <script src="/tag-colors.js"></script>
   <script src="/hearts.js"></script>
   <script src="/icons.js"></script>
@@ -944,6 +944,8 @@
     let isFeedScrolling = false;
     let scrollEndTimer = null;
     let playCardTimer = null;
+    let scrollGestureStartIndex = 0;
+    let scrollGestureStartTop = 0;
     let speedMode = null;
     let rewindTimer = null;
 
@@ -1511,7 +1513,28 @@
     function settleFeedScroll() {
       if (!cards.length) return;
       const h = feed.clientHeight || window.innerHeight;
-      const index = Math.max(0, Math.min(cards.length - 1, Math.round(feed.scrollTop / h)));
+      if (!h) return;
+      let index = Math.max(0, Math.min(cards.length - 1, Math.round(feed.scrollTop / h)));
+
+      if (isAndroid) {
+        const delta = index - scrollGestureStartIndex;
+        if (Math.abs(delta) > 1) {
+          index = scrollGestureStartIndex + (delta > 0 ? 1 : -1);
+          ignoreObserver = true;
+          feed.scrollTop = index * h;
+          requestAnimationFrame(() => {
+            ignoreObserver = false;
+            if (index !== activeIndex) playCard(index);
+          });
+          return;
+        }
+        const moved = Math.abs(feed.scrollTop - scrollGestureStartTop);
+        if (moved < h * 0.12) {
+          if (activeIndex !== scrollGestureStartIndex) playCard(scrollGestureStartIndex);
+          return;
+        }
+      }
+
       if (index !== activeIndex) playCard(index);
     }
 
@@ -1521,18 +1544,32 @@
         playCard(index);
         return;
       }
-      playCardTimer = setTimeout(() => playCard(index), isAndroid ? 160 : 90);
+      const delay = isAndroid ? 220 : 90;
+      playCardTimer = setTimeout(() => playCard(index), delay);
     }
+
+    function beginScrollGesture() {
+      scrollGestureStartIndex = activeIndex;
+      scrollGestureStartTop = feed.scrollTop;
+    }
+
+    feed.addEventListener("touchstart", beginScrollGesture, { passive: true });
+    feed.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return;
+      beginScrollGesture();
+    }, { passive: true });
 
     feed.addEventListener("scroll", () => {
       isFeedScrolling = true;
       ignoreObserver = true;
       clearTimeout(scrollEndTimer);
-      scrollEndTimer = setTimeout(() => {
-        isFeedScrolling = false;
-        ignoreObserver = false;
-        settleFeedScroll();
-      }, isAndroid ? 190 : 110);
+      if (!isAndroid) {
+        scrollEndTimer = setTimeout(() => {
+          isFeedScrolling = false;
+          ignoreObserver = false;
+          settleFeedScroll();
+        }, 110);
+      }
     }, { passive: true });
 
     if ("onscrollend" in window) {
@@ -1540,8 +1577,45 @@
         clearTimeout(scrollEndTimer);
         isFeedScrolling = false;
         ignoreObserver = false;
-        settleFeedScroll();
+        scrollEndTimer = setTimeout(() => settleFeedScroll(), isAndroid ? 48 : 0);
       }, { passive: true });
+    } else if (isAndroid) {
+      feed.addEventListener("scroll", () => {
+        clearTimeout(scrollEndTimer);
+        scrollEndTimer = setTimeout(() => {
+          isFeedScrolling = false;
+          ignoreObserver = false;
+          settleFeedScroll();
+        }, 280);
+      }, { passive: true });
+    }
+
+    function feedResumeKey() {
+      return `feedResume:${VideoGroups.getActive()}`;
+    }
+
+    function saveFeedResume(index) {
+      const videos = getDisplayVideos();
+      const name = videos[index]?.name;
+      if (!name) return;
+      try {
+        localStorage.setItem(feedResumeKey(), JSON.stringify({ name, index }));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function readFeedResume(videos) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(feedResumeKey()) || "null");
+        if (saved?.name) {
+          const idx = videos.findIndex((v) => v.name === saved.name);
+          if (idx >= 0) return idx;
+        }
+      } catch {
+        /* ignore */
+      }
+      return 0;
     }
 
     function restoreScrollPosition() {
@@ -1567,8 +1641,9 @@
     });
 
     function unloadDistantCards(center) {
+      const maxDistance = 2;
       cards.forEach((card, i) => {
-        if (Math.abs(i - center) <= 3) return;
+        if (Math.abs(i - center) <= maxDistance) return;
         const media = card.video;
         if (!media?.src) return;
         if (!card.isImage) {
@@ -1630,6 +1705,7 @@
       });
 
       activeIndex = index;
+      saveFeedResume(index);
       const active = cards[index];
       seekBar.classList.toggle("hidden", !!active?.isImage);
       syncSeekBar(active?.isImage ? null : active?.video);
@@ -1871,12 +1947,12 @@
         (entries) => {
           if (ignoreObserver || isFeedScrolling) return;
           entries.forEach((entry) => {
-            if (!entry.isIntersecting || entry.intersectionRatio < 0.72) return;
+            if (!entry.isIntersecting || entry.intersectionRatio < 0.82) return;
             const index = Number(entry.target.dataset.index);
             if (index !== activeIndex) schedulePlayCard(index);
           });
         },
-        { root: feed, threshold: [0.72] }
+        { root: feed, threshold: [0.82] }
       );
 
       cards.forEach((card) => observer.observe(card.el));
@@ -1885,6 +1961,8 @@
       if (startVideo) {
         const idx = videos.findIndex((v) => v.name === startVideo);
         if (idx >= 0) startIndex = idx;
+      } else {
+        startIndex = readFeedResume(videos);
       }
 
       activeIndex = startIndex;

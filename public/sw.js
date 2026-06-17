@@ -1,45 +1,51 @@
 /* Rollo PWA — cache app shell only; never cache media or API responses */
-const CACHE = "rollo-shell-v13";
+const CACHE = "rollo-shell-v15";
 
 const PRECACHE = [
   "/",
-  "/index.html",
-  "/watch.html",
-  "/download.html",
-  "/connect.html",
-  "/x-login.html",
-  "/manifest.json",
   "/a11y.css",
+  "/anchored-tag-palette.css",
+  "/anchored-tag-palette.js",
+  "/apple-touch-icon-180.png",
+  "/bottom-nav.css",
+  "/bottom-nav.js",
+  "/connect.css",
+  "/connect.html",
+  "/download.html",
+  "/groups.js",
+  "/heart.css",
+  "/hearts.js",
+  "/icon-192.png",
+  "/icon-512-maskable.png",
+  "/icon-512.png",
+  "/icon.svg",
   "/icons.css",
   "/icons.js",
-  "/heart.css",
-  "/bottom-nav.css",
-  "/network-speed.css",
-  "/unlock-flow.css",
-  "/connect.css",
-  "/press-radial-menu.css",
-  "/icon.svg",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-512-maskable.png",
-  "/apple-touch-icon-180.png",
+  "/index.html",
   "/layout-metrics.js",
-  "/media.js",
-  "/tag-colors.js",
-  "/hearts.js",
-  "/groups.js",
-  "/bottom-nav.js",
+  "/manifest.json",
+  "/media-helpers.js",
+  "/network-speed.css",
+  "/network-speed.js",
+  "/press-radial-menu.css",
   "/press-radial-menu.js",
-  "/toast.js",
   "/pwa.js",
   "/servers.js",
-  "/network-speed.js",
+  "/tag-colors.js",
+  "/toast.js",
+  "/unlock-flow.css",
   "/unlock-flow.js",
+  "/watch.html",
+  "/x-login.html",
 ];
 
 function isApiOrMedia(url) {
   return url.pathname.startsWith("/api/") || url.pathname.startsWith("/videos/");
 }
+
+self.addEventListener("message", (event) => {
+  if (event?.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -33,6 +33,7 @@ const {
   verifyPassword,
 } = require("./lib/groups");
 const { createDownloader } = require("./lib/downloader");
+const { scanAllSyncHints, isLibraryDeletable } = require("./lib/sync-hints");
 const { createThumbService, thumbPath } = require("./lib/thumbs");
 
 const app = express();
@@ -302,6 +303,22 @@ app.get("/api/status", (_req, res) => {
       counts[id] = 0;
     }
   }
+  let sync = { conflictCount: 0, conflicts: [], syncthingLibraries: [] };
+  try {
+    sync = scanAllSyncHints(videosDir, ids);
+  } catch {
+    /* ignore */
+  }
+
+  let shellVersion = null;
+  try {
+    const sw = fs.readFileSync(path.join(appRoot, "public", "sw.js"), "utf8");
+    const m = sw.match(/const CACHE = "([^"]+)"/);
+    shellVersion = m ? m[1] : null;
+  } catch {
+    /* ignore */
+  }
+
   res.json({
     hostname: os.hostname(),
     videosDir,
@@ -312,6 +329,9 @@ app.get("/api/status", (_req, res) => {
     hints: diagnoseVideosLayout(),
     readError,
     network: getAccessInfo(PORT),
+    sync,
+    shellVersion,
+    appVersion: require("./package.json").version,
   });
 });
 
@@ -525,13 +545,13 @@ app.delete("/api/groups/:groupId", (req, res) => {
     return res.status(403).json({ error: "Group is locked", locked: true });
   }
 
-  const files = listVideoFilesCached(groupId);
-  if (files.length > 0) {
-    return res.status(400).json({ error: "Library must be empty before deleting" });
+  const deletable = isLibraryDeletable(videosDir, groupId, MEDIA_RE);
+  if (!deletable.ok) {
+    return res.status(400).json({ error: deletable.reason || "Library must be empty before deleting" });
   }
 
   try {
-    fs.rmdirSync(path.join(videosDir, groupId));
+    fs.rmSync(path.join(videosDir, groupId), { recursive: true, force: true });
   } catch {
     return res.status(500).json({ error: "Could not delete library folder" });
   }
@@ -546,7 +566,20 @@ app.get("/api/videos", (req, res) => {
   if (!requireGroup(groupId, req, res)) return;
 
   metadataStore.invalidateCache(groupId);
-  const videos = listVideoFilesCached(groupId).map((file) => buildVideo(groupId, file));
+  let videos = listVideoFilesCached(groupId).map((file) => buildVideo(groupId, file));
+  const q = String(req.query.q || "").trim().toLowerCase();
+  if (q) {
+    videos = videos.filter((v) => {
+      const hay = [
+        v.name,
+        v.displayName || "",
+        ...(v.tags || []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
   res.json(videos);
 });
 
@@ -693,6 +726,26 @@ app.get("/api/downloads", (req, res) => {
     return job;
   });
   res.json(jobs);
+});
+
+app.get("/api/downloader/queue", (_req, res) => {
+  res.json(downloader.getQueueState());
+});
+
+app.delete("/api/download/:jobId", (req, res) => {
+  const result = downloader.cancelQueuedJob(req.params.jobId);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.post("/api/download/:jobId/retry", async (req, res) => {
+  try {
+    const job = await downloader.retryJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: "Download job not found" });
+    res.json(job);
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Could not retry download" });
+  }
 });
 
 app.delete("/api/downloader/x-session", (_req, res) => {

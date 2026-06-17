@@ -554,6 +554,11 @@
         </div>
       </div>
 
+      <div class="warn-banner" id="x-reauth-warn" hidden>
+        <span>Sign in to X again to download X / Twitter links.</span>
+        <button class="primary-btn" id="x-reauth-btn" type="button" style="margin-top:8px">Sign in to X</button>
+      </div>
+
       <div class="card">
         <label class="field-label" for="library-select">Save to library</label>
         <select id="library-select" aria-label="Library"></select>
@@ -568,8 +573,14 @@
         <label class="field-label" for="url-input" style="margin-top:14px">Video link</label>
         <div class="url-row">
           <input id="url-input" type="url" inputmode="url" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="primary-btn" id="paste-btn" type="button" style="background:#333;color:#fff">Paste</button>
           <button class="primary-btn" id="download-btn" type="button">Download</button>
         </div>
+      </div>
+
+      <div class="card" id="queue-card" hidden>
+        <h2 class="history-title">Download queue</h2>
+        <ul class="history-list" id="queue-list"></ul>
       </div>
 
       <div class="card status-card" id="status-card" aria-live="polite">
@@ -677,6 +688,11 @@
     const statusActions = document.getElementById("status-actions");
     const historyCard = document.getElementById("history-card");
     const historyList = document.getElementById("history-list");
+    const queueCard = document.getElementById("queue-card");
+    const queueList = document.getElementById("queue-list");
+    const xReauthWarn = document.getElementById("x-reauth-warn");
+    const xReauthBtn = document.getElementById("x-reauth-btn");
+    const pasteBtn = document.getElementById("paste-btn");
     const moveSheetBackdrop = document.getElementById("move-sheet-backdrop");
     const moveSheet = document.getElementById("move-sheet");
     const moveSheetSubtitle = document.getElementById("move-sheet-subtitle");
@@ -751,14 +767,26 @@
       }, 250);
     }
 
-    function openUnlock(group) {
+    function openUnlock(group, options = {}) {
+      const revertToId = options.revertToId ?? null;
       RolloUnlockFlow.open(group, {
         onSuccess: async (unlocked) => {
           const g = allGroups.find((x) => x.id === unlocked.id) || unlocked;
           g.unlocked = true;
           await loadGroups();
           librarySelect.value = g.id;
+          VideoGroups.setActive(g.id);
+          refreshLibraryTags(g.id);
           showToast("Library unlocked.");
+          if (options.onSuccess) await options.onSuccess(g);
+        },
+        onCancel: () => {
+          renderLibraryOptions();
+          const restore = revertToId || VideoGroups.getActive();
+          if (restore && [...librarySelect.options].some((o) => o.value === restore && !o.disabled)) {
+            librarySelect.value = restore;
+          }
+          VideoGroups.setActive(librarySelect.value || restore || "");
         },
       });
     }
@@ -788,15 +816,22 @@
 
     const hasAndroidBridge = () => typeof window.RolloBridge?.connectX === "function";
 
+    function updateXReauthBanner(url) {
+      const needsX = /x\.com|twitter\.com/i.test(String(url || ""));
+      xReauthWarn.hidden = !(needsX && xDisconnectBtn.hidden);
+    }
+
     function updateXAuthUi(connected) {
       if (connected) {
         xAuthStatus.textContent = "Signed in to X. Video links from X should download (including sensitive posts your account can view).";
         xConnectBtn.hidden = true;
         xDisconnectBtn.hidden = false;
+        xReauthWarn.hidden = true;
       } else {
         xAuthStatus.textContent = "X/Twitter links need one quick sign-in. Works the same on PC and phone.";
         xConnectBtn.hidden = false;
         xDisconnectBtn.hidden = true;
+        updateXReauthBanner(urlInput.value);
       }
     }
 
@@ -888,9 +923,21 @@
 
     function renderJobActions(container, job) {
       if (!container) return;
+      container.innerHTML = "";
+
+      if (job.status === "failed" || job.status === "cancelled") {
+        container.hidden = false;
+        const retryBtn = document.createElement("button");
+        retryBtn.type = "button";
+        retryBtn.className = "status-action-btn";
+        retryBtn.textContent = "Retry";
+        retryBtn.addEventListener("click", () => retryDownloadJob(job));
+        container.append(retryBtn);
+        return;
+      }
+
       const show = job.status === "completed" && job.filename && job.groupId;
       container.hidden = !show;
-      container.innerHTML = "";
       if (!show) return;
 
       const tagBtn = document.createElement("button");
@@ -960,6 +1007,58 @@
       }
     }
 
+    async function retryDownloadJob(job) {
+      if (!job?.id) return;
+      try {
+        const res = await fetch(`/api/download/${encodeURIComponent(job.id)}/retry`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not retry download");
+        updateStatusUi(data);
+        startPolling(data.id);
+        loadQueue();
+        loadHistory();
+      } catch (err) {
+        showToast(err.message || "Could not retry download");
+      }
+    }
+
+    async function loadQueue() {
+      try {
+        const res = await fetch("/api/downloader/queue");
+        const data = await res.json();
+        const queued = Array.isArray(data.queued) ? data.queued : [];
+        queueCard.hidden = !queued.length;
+        queueList.innerHTML = "";
+        queued.forEach((job, index) => {
+          const li = document.createElement("li");
+          li.className = "history-item";
+          const title = document.createElement("strong");
+          title.textContent = job.title || job.url;
+          const meta = document.createElement("span");
+          meta.textContent = `Queued #${index + 1} · ${job.groupId}`;
+          li.append(title, meta);
+          const cancelBtn = document.createElement("button");
+          cancelBtn.type = "button";
+          cancelBtn.className = "history-action-btn";
+          cancelBtn.textContent = "Cancel";
+          cancelBtn.addEventListener("click", async () => {
+            const del = await fetch(`/api/download/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+            if (del.ok) {
+              loadQueue();
+              showToast("Removed from queue");
+            } else {
+              const err = await del.json().catch(() => ({}));
+              showToast(err.error || "Could not cancel");
+            }
+          });
+          li.appendChild(cancelBtn);
+          queueList.appendChild(li);
+        });
+      } catch {
+        queueCard.hidden = true;
+      }
+    }
+
     function stopPolling() {
       if (pollTimer) {
         clearInterval(pollTimer);
@@ -987,12 +1086,16 @@
           showToast(`Saved to ${job.groupId}`);
           urlInput.value = "";
           loadHistory();
+          loadQueue();
         } else if (job.status === "failed") {
           stopPolling();
           activeJobId = null;
           downloadBtn.disabled = !ytdlpAvailable;
           showToast(job.error || "Download failed");
           loadHistory();
+          loadQueue();
+        } else {
+          loadQueue();
         }
       };
       tick();
@@ -1219,6 +1322,18 @@
         li.appendChild(title);
         li.appendChild(meta);
 
+        if (job.status === "failed" || job.status === "cancelled") {
+          const actions = document.createElement("div");
+          actions.className = "history-actions";
+          const retryBtn = document.createElement("button");
+          retryBtn.type = "button";
+          retryBtn.className = "history-action-btn";
+          retryBtn.textContent = "Retry";
+          retryBtn.addEventListener("click", () => retryDownloadJob(job));
+          actions.appendChild(retryBtn);
+          li.appendChild(actions);
+        }
+
         // Tag chips + action buttons (completed downloads only)
         if (job.status === "completed" && job.filename && job.groupId) {
           const tagRow = document.createElement("div");
@@ -1313,14 +1428,16 @@
             return;
           }
           if (data.code === "X_SIGN_IN_REQUIRED") {
-            const ret = encodeURIComponent(`/download.html?${VideoGroups.query(groupId)}`);
-            location.href = `/x-login.html?return=${ret}`;
+            updateXReauthBanner(url);
+            xReauthWarn.hidden = false;
+            showToast("Sign in to X to download this link");
             return;
           }
           throw new Error(data.error || "Download failed to start");
         }
         updateStatusUi(data);
         startPolling(data.id);
+        loadQueue();
       } catch (err) {
         downloadBtn.disabled = !ytdlpAvailable;
         showToast(err.message || "Download failed");
@@ -1328,13 +1445,35 @@
     }
 
     downloadBtn.addEventListener("click", startDownload);
+    pasteBtn.addEventListener("click", async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          urlInput.value = text.trim();
+          updateXReauthBanner(urlInput.value);
+        } else {
+          showToast("Clipboard is empty");
+        }
+      } catch {
+        showToast("Could not read clipboard");
+      }
+    });
+    urlInput.addEventListener("input", () => updateXReauthBanner(urlInput.value));
+    xReauthBtn.addEventListener("click", signInX);
     urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") startDownload();
     });
 
     librarySelect.addEventListener("change", () => {
-      VideoGroups.setActive(librarySelect.value);
-      refreshLibraryTags(librarySelect.value);
+      const id = librarySelect.value;
+      const group = allGroups.find((g) => g.id === id);
+      if (group?.locked && !VideoGroups.hasUnlockToken(id)) {
+        const previous = VideoGroups.getActive();
+        openUnlock(group, { revertToId: previous });
+        return;
+      }
+      VideoGroups.setActive(id);
+      refreshLibraryTags(id);
     });
 
     BottomNav.setProfileHref(VideoGroups.query() ? `/?${VideoGroups.query()}` : "/");
@@ -1344,7 +1483,7 @@
         VideoGroups.setActive(id);
         const group = allGroups.find((g) => g.id === id);
         if (group?.locked && !VideoGroups.hasUnlockToken(id)) {
-          openUnlock(group);
+          openUnlock(group, { revertToId: VideoGroups.getActive() });
           return;
         }
         location.href = `/?group=${encodeURIComponent(id)}`;
@@ -1352,7 +1491,7 @@
     });
 
     (async function init() {
-      await Promise.all([loadGroups(), checkDownloader(), loadHistory()]);
+      await Promise.all([loadGroups(), checkDownloader(), loadHistory(), loadQueue()]);
     })();
   </script>
 </body>
