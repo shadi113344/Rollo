@@ -1,0 +1,246 @@
+/* Glass unlock UI — inline in library picker + grid/feed overlay */
+
+.unlock-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px calc(24px + var(--bottom-ui-inset, 0px));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.unlock-grid-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.unlock-grid-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.unlock-glass-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 340px);
+  border-radius: 18px;
+  padding: 18px 16px 14px;
+  background: rgba(28, 28, 32, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.unlock-grid-overlay.open .unlock-glass-card {
+  transform: translateY(0) scale(1);
+}
+
+.unlock-glass-card--inline {
+  width: 100%;
+  border-radius: 0 0 12px 12px;
+  margin: 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 8px 24px rgba(0, 0, 0, 0.22);
+  transform: none;
+  transition: none;
+  background: rgba(22, 22, 26, 0.94);
+}
+
+.unlock-glass-card.shake {
+  animation: unlock-shake 0.42s ease;
+}
+
+@keyframes unlock-shake {
+  0%, 100% { transform: translateX(0); }
+  18% { transform: translateX(-7px); }
+  36% { transform: translateX(7px); }
+  54% { transform: translateX(-5px); }
+  72% { transform: translateX(5px); }
+}
+
+.unlock-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.unlock-card-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(100, 180, 255, 0.14);
+  border: 1px solid rgba(100, 180, 255, 0.28);
+  color: #aad4ff;
+}
+
+.unlock-card-titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.unlock-card-titles h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.unlock-card-titles p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.unlock-pass-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.unlock-pass-input:focus {
+  border-color: rgba(142, 197, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(100, 180, 255, 0.14);
+}
+
+.unlock-glass-card .sheet-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 8px;
+}
+
+.unlock-pass-input.is-error {
+  border-color: rgba(255, 90, 110, 0.65);
+  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.12);
+}
+
+.unlock-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #ff7a8f;
+}
+
+.unlock-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+}
+
+.unlock-remember input {
+  margin-top: 2px;
+  accent-color: #8ec5ff;
+}
+
+.unlock-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.unlock-submit-btn,
+.unlock-cancel-btn,
+.unlock-bio-btn {
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 11px 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.unlock-submit-btn {
+  flex: 1;
+  background: #fff;
+  color: #000;
+}
+
+.unlock-submit-btn:disabled {
+  opacity: 0.55;
+}
+
+.unlock-cancel-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.unlock-bio-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: rgba(100, 180, 255, 0.12);
+  color: #aad4ff;
+  border: 1px solid rgba(100, 180, 255, 0.28);
+}
+
+.unlock-bio-btn[hidden] {
+  display: none;
+}
+
+/* Inline unlock inside library picker */
+.group-inline-unlock {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.24s ease;
+}
+
+.group-inline-unlock.open {
+  max-height: 280px;
+  opacity: 1;
+}
+
+#group-sheet.group-sheet--unlocking #group-list {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+#group-sheet.group-sheet--unlocking .group-row.unlock-target {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+#group-sheet.group-sheet--unlocking .group-add-wrap,
+#group-sheet.group-sheet--unlocking .group-sheet-done {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+#app-scroll.unlock-dimmed > header,
+#app-scroll.unlock-dimmed > main {
+  filter: blur(3px) saturate(0.92);
+  transition: filter 0.28s ease;
+}

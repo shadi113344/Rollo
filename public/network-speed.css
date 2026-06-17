@@ -29,12 +29,12 @@
   order: -1;
 }
 
-/* Feed: live indicator below right-side controls */
+/* Feed: live indicator below right-side control stack (aspect / fav / tag / mute) */
 .net-speed-widget--feed {
   position: fixed;
-  right: 14px;
-  bottom: calc(var(--bottom-ui-inset) + 2px);
-  z-index: 26;
+  right: 12px;
+  bottom: calc(var(--bottom-ui-inset) + 8px);
+  z-index: 36;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -131,12 +131,26 @@
   color: rgba(255, 210, 100, 0.75);
 }
 
+.net-speed-widget--feed[data-state="idle"] .net-speed-ring {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.net-speed-widget--feed[data-state="idle"] .net-speed-icon {
+  stroke: rgba(255, 255, 255, 0.62);
+}
+
+.net-speed-widget--feed[data-state="idle"] .net-speed-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 @keyframes net-speed-spin {
   to { transform: rotate(360deg); }
 }
 
 @supports (height: 100lvh) {
   .ios-standalone .net-speed-widget--feed {
-    bottom: calc(var(--bottom-ui-inset) + 2px);
+    top: calc(100lvh - var(--bottom-ui-inset) - 44px);
+    bottom: auto;
   }
 }

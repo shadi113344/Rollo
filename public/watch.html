@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/bottom-nav.css">
   <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
+  <link rel="stylesheet" href="/unlock-flow.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -303,6 +304,18 @@
       touch-action: pan-y;
       -webkit-user-select: none;
       user-select: none;
+      contain: layout style paint;
+    }
+
+    .android .video-card {
+      scroll-snap-stop: normal;
+    }
+
+    .android .media-slot video,
+    .android .media-slot img.card-media {
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
 
     /* Hard clip: media lives only above the seek bar (top of seek track). */
@@ -758,65 +771,6 @@
       cursor: pointer;
     }
 
-    #unlock-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      z-index: 40;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-
-    #unlock-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    #unlock-sheet {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 41;
-      background: #1a1a1a;
-      border-radius: 16px 16px 0 0;
-      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-      transform: translateY(100%);
-      transition: transform 0.25s ease;
-    }
-
-    #unlock-sheet.open { transform: translateY(0); }
-
-    #unlock-sheet h2 { margin: 0 0 4px; font-size: 16px; }
-    #unlock-sheet .subtitle { margin: 0 0 14px; font-size: 12px; color: #888; }
-
-    #unlock-password {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #333;
-      background: #111;
-      color: #fff;
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
-
-    #unlock-submit, #unlock-cancel {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 6px;
-    }
-
-    #unlock-submit { background: #fff; color: #000; }
-    #unlock-cancel { background: #333; color: #fff; }
-
     #toast {
       position: fixed;
       bottom: calc(var(--bottom-ui-inset) + 12px);
@@ -905,16 +859,6 @@
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <div id="unlock-backdrop"></div>
-  <div id="unlock-sheet">
-    <h2 id="unlock-title">Unlock library</h2>
-    <p class="subtitle" id="unlock-subtitle">This library is password protected.</p>
-    <label class="sheet-label" for="unlock-password">Password</label>
-    <input id="unlock-password" type="password" placeholder="Enter password" autocomplete="current-password">
-    <button id="unlock-submit" type="button">Unlock</button>
-    <button id="unlock-cancel" type="button">Cancel</button>
-  </div>
-
   <div id="sheet-backdrop"></div>
   <div id="tag-sheet">
     <h2>Edit tags</h2>
@@ -948,6 +892,7 @@
   <script src="/hearts.js"></script>
   <script src="/icons.js"></script>
   <script src="/groups.js"></script>
+  <script src="/unlock-flow.js"></script>
   <script src="/bottom-nav.js"></script>
   <script src="/anchored-tag-palette.js"></script>
   <script>
@@ -978,18 +923,13 @@
 
     const profileTab = document.getElementById("profile-tab");
     const feedTab = document.getElementById("feed-tab");
-    const unlockBackdrop = document.getElementById("unlock-backdrop");
-    const unlockSheet = document.getElementById("unlock-sheet");
-    const unlockTitle = document.getElementById("unlock-title");
-    const unlockSubtitle = document.getElementById("unlock-subtitle");
-    const unlockPassword = document.getElementById("unlock-password");
-    const unlockSubmit = document.getElementById("unlock-submit");
-    const unlockCancel = document.getElementById("unlock-cancel");
+
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (isAndroid) document.documentElement.classList.add("android");
 
     let allVideos = [];
     let allTags = [];
     let allGroups = [];
-    let pendingUnlockGroup = null;
     let cards = [];
     let activeIndex = 0;
     let globalMuted = localStorage.getItem("watchMuted") === "1";
@@ -1001,6 +941,9 @@
     let isSeeking = false;
     let chromeHideTimer = null;
     let ignoreObserver = false;
+    let isFeedScrolling = false;
+    let scrollEndTimer = null;
+    let playCardTimer = null;
     let speedMode = null;
     let rewindTimer = null;
 
@@ -1070,43 +1013,24 @@
       tagFilterWrap.setAttribute("aria-hidden", show ? "false" : "true");
     }
 
-    function openUnlockSheet(group) {
-      pendingUnlockGroup = group;
-      unlockTitle.textContent = `Unlock ${group.displayName || group.name || group.id}`;
-      unlockSubtitle.textContent = "Enter the library password to continue.";
-      unlockPassword.value = "";
-      unlockBackdrop.classList.add("open");
-      unlockSheet.classList.add("open");
+    function promptUnlock(group, options = {}) {
       loading.style.display = "none";
-      unlockPassword.focus();
-    }
-
-    function closeUnlockSheet() {
-      unlockBackdrop.classList.remove("open");
-      unlockSheet.classList.remove("open");
-      pendingUnlockGroup = null;
-    }
-
-    async function tryUnlock() {
-      const group = pendingUnlockGroup || allGroups.find((g) => g.id === VideoGroups.getActive());
-      if (!group) return;
-      const groupId = group.id;
-      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/unlock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: unlockPassword.value }),
+      RolloUnlockFlow.open(group, {
+        onSuccess: async (unlocked) => {
+          const g = allGroups.find((x) => x.id === unlocked.id) || unlocked;
+          g.unlocked = true;
+          if (options.switchTo !== false) {
+            VideoGroups.setActive(g.id);
+            VideoGroups.syncUrlGroup(g.id);
+            updateNavLinks();
+          }
+          loading.style.display = "block";
+          loading.textContent = "Loading videos…";
+          if (options.onSuccess) await options.onSuccess(g);
+          else await init();
+        },
+        onCancel: options.onCancel || null,
       });
-      const data = await res.json();
-      if (!res.ok) return Toast.show(data.error || "Wrong password");
-      if (data.token) {
-        VideoGroups.setUnlockToken(groupId, data.token, VideoGroups.getLockMode(group));
-      }
-      VideoGroups.setActive(groupId);
-      VideoGroups.syncUrlGroup(groupId);
-      closeUnlockSheet();
-      loading.style.display = "block";
-      loading.textContent = "Loading videos…";
-      await init();
     }
 
     async function selectGroup(groupId) {
@@ -1114,15 +1038,16 @@
       const group = allGroups.find((g) => g.id === groupId);
       if (!group) return;
 
+      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
+        VideoGroups.prepareProfileSwitch(previousId, group);
+        promptUnlock(group);
+        return;
+      }
+
       VideoGroups.prepareProfileSwitch(previousId, group);
       if (previousId && previousId !== groupId) {
         const previous = allGroups.find((g) => g.id === previousId);
         if (previous) previous.unlocked = false;
-      }
-
-      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
-        openUnlockSheet(group);
-        return;
       }
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
@@ -1131,11 +1056,6 @@
       loading.textContent = "Loading videos…";
       await init();
     }
-
-    unlockSubmit.addEventListener("click", tryUnlock);
-    unlockPassword.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
-    unlockCancel.addEventListener("click", closeUnlockSheet);
-    unlockBackdrop.addEventListener("click", closeUnlockSheet);
 
     function escapeHtml(text) {
       const d = document.createElement("div");
@@ -1588,6 +1508,42 @@
       cards[index].el.scrollIntoView({ behavior: "smooth" });
     }
 
+    function settleFeedScroll() {
+      if (!cards.length) return;
+      const h = feed.clientHeight || window.innerHeight;
+      const index = Math.max(0, Math.min(cards.length - 1, Math.round(feed.scrollTop / h)));
+      if (index !== activeIndex) playCard(index);
+    }
+
+    function schedulePlayCard(index, immediate = false) {
+      clearTimeout(playCardTimer);
+      if (immediate) {
+        playCard(index);
+        return;
+      }
+      playCardTimer = setTimeout(() => playCard(index), isAndroid ? 160 : 90);
+    }
+
+    feed.addEventListener("scroll", () => {
+      isFeedScrolling = true;
+      ignoreObserver = true;
+      clearTimeout(scrollEndTimer);
+      scrollEndTimer = setTimeout(() => {
+        isFeedScrolling = false;
+        ignoreObserver = false;
+        settleFeedScroll();
+      }, isAndroid ? 190 : 110);
+    }, { passive: true });
+
+    if ("onscrollend" in window) {
+      feed.addEventListener("scrollend", () => {
+        clearTimeout(scrollEndTimer);
+        isFeedScrolling = false;
+        ignoreObserver = false;
+        settleFeedScroll();
+      }, { passive: true });
+    }
+
     function restoreScrollPosition() {
       if (!cards.length) return;
       ignoreObserver = true;
@@ -1644,7 +1600,7 @@
         if (i < 0 || i >= cards.length) continue;
         ensureCardSrc(cards[i], i === index ? "auto" : "metadata");
       }
-      unloadDistantCards(index);
+      if (!isFeedScrolling) unloadDistantCards(index);
     }
 
     function playCard(index) {
@@ -1676,11 +1632,9 @@
       activeIndex = index;
       const active = cards[index];
       seekBar.classList.toggle("hidden", !!active?.isImage);
-      syncLayoutMetrics();
       syncSeekBar(active?.isImage ? null : active?.video);
       updateCounter();
       showChrome(true);
-      requestAnimationFrame(() => restoreScrollPosition());
     }
 
     function setMuteBtnIcon(btn) {
@@ -1915,14 +1869,14 @@
 
       observer = new IntersectionObserver(
         (entries) => {
-          if (ignoreObserver) return;
+          if (ignoreObserver || isFeedScrolling) return;
           entries.forEach((entry) => {
-            if (!entry.isIntersecting || entry.intersectionRatio < 0.6) return;
+            if (!entry.isIntersecting || entry.intersectionRatio < 0.72) return;
             const index = Number(entry.target.dataset.index);
-            if (index !== activeIndex) playCard(index);
+            if (index !== activeIndex) schedulePlayCard(index);
           });
         },
-        { root: feed, threshold: [0.6] }
+        { root: feed, threshold: [0.72] }
       );
 
       cards.forEach((card) => observer.observe(card.el));
@@ -2101,7 +2055,7 @@
             id: VideoGroups.getActive(),
             displayName: VideoGroups.getActive(),
           };
-          openUnlockSheet(group);
+          promptUnlock(group);
           return;
         }
         if (!videosRes.ok) throw new Error("load failed");

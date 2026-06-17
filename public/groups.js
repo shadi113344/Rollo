@@ -60,13 +60,19 @@ window.VideoGroups = {
     return this.hasUnlockToken(group.id);
   },
 
-  setUnlockToken(groupId, token) {
-    this.setSessionUnlockToken(groupId, token);
-    const tokens = this.getStoredUnlockTokens();
-    if (tokens[groupId]) {
-      delete tokens[groupId];
+  setUnlockToken(groupId, token, persist = "session") {
+    if (persist === "device") {
+      const tokens = this.getStoredUnlockTokens();
+      tokens[groupId] = token;
       localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+    } else {
+      const tokens = this.getStoredUnlockTokens();
+      if (tokens[groupId]) {
+        delete tokens[groupId];
+        localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
+      }
     }
+    this.setSessionUnlockToken(groupId, token);
   },
 
   clearUnlockToken(groupId) {
@@ -151,9 +157,16 @@ window.VideoGroups = {
 
   pruneStaleUnlocks(groups) {
     if (!groups?.length) return;
+    const ids = new Set(groups.map((g) => g.id));
     const tokens = this.getStoredUnlockTokens();
-    if (!Object.keys(tokens).length) return;
-    localStorage.setItem("groupUnlocks", JSON.stringify({}));
+    let changed = false;
+    Object.keys(tokens).forEach((id) => {
+      if (!ids.has(id)) {
+        delete tokens[id];
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem("groupUnlocks", JSON.stringify(tokens));
   },
 
   syncUrlGroup(groupId) {

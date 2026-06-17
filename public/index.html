@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/press-radial-menu.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
+  <link rel="stylesheet" href="/unlock-flow.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -1282,17 +1283,6 @@
     <button class="action-btn cancel" id="move-cancel" type="button">Cancel</button>
   </div>
 
-  <!-- Unlock group -->
-  <div class="sheet-backdrop" id="unlock-backdrop"></div>
-  <div class="sheet" id="unlock-sheet">
-    <h2 id="unlock-title">Unlock group</h2>
-    <p class="subtitle" id="unlock-subtitle"></p>
-    <label class="sheet-label" for="unlock-password">Password</label>
-    <input class="unlock-input" id="unlock-password" type="password" placeholder="Enter password" autocomplete="current-password">
-    <button class="sheet-primary" id="unlock-submit" type="button">Unlock</button>
-    <button class="action-btn cancel" id="unlock-cancel" type="button">Cancel</button>
-  </div>
-
   <!-- Group settings -->
   <div class="sheet-backdrop" id="group-settings-backdrop"></div>
   <div class="sheet" id="group-settings-sheet">
@@ -1359,6 +1349,7 @@
   <script src="/hearts.js"></script>
   <script src="/icons.js"></script>
   <script src="/groups.js"></script>
+  <script src="/unlock-flow.js"></script>
   <script src="/bottom-nav.js"></script>
   <script src="/press-radial-menu.js"></script>
   <script src="/anchored-tag-palette.js"></script>
@@ -1449,13 +1440,6 @@
     const feedLink = document.getElementById("feed-link");
     const profileTab = document.getElementById("profile-tab");
     const feedTab = document.getElementById("feed-tab");
-    const unlockBackdrop = document.getElementById("unlock-backdrop");
-    const unlockSheet = document.getElementById("unlock-sheet");
-    const unlockTitle = document.getElementById("unlock-title");
-    const unlockSubtitle = document.getElementById("unlock-subtitle");
-    const unlockPassword = document.getElementById("unlock-password");
-    const unlockSubmit = document.getElementById("unlock-submit");
-    const unlockCancel = document.getElementById("unlock-cancel");
     const groupSettingsBtn = document.getElementById("group-settings-btn");
     const groupSettingsBackdrop = document.getElementById("group-settings-backdrop");
     const groupSettingsSheet = document.getElementById("group-settings-sheet");
@@ -1487,7 +1471,6 @@
     let groupDrag = null;
 
     const GROUP_DRAG_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>`;
-    let pendingUnlockGroup = null;
     let activeFilter = "all";
     let searchQuery = "";
     let profileView = localStorage.getItem("profileView") || "grid";
@@ -1796,6 +1779,10 @@
         mainBtn.className = "group-main";
         mainBtn.innerHTML = `<span class="group-main-name">${escapeHtml(name)}${lockedNow ? `<span class="inline-lock" aria-hidden="true">${RolloIcons.lock(12)}</span>` : ""}</span><span class="group-main-meta">${meta}</span>`;
         mainBtn.addEventListener("click", () => {
+          if (lockedNow) {
+            selectGroup(group.id);
+            return;
+          }
           closeGroupSheet();
           selectGroup(group.id);
         });
@@ -1874,39 +1861,28 @@
       renderGroups();
     }
 
-    function openUnlockSheet(group) {
-      pendingUnlockGroup = group;
-      unlockTitle.textContent = `Unlock ${group.displayName || group.name}`;
-      unlockSubtitle.textContent = "This group is password protected.";
-      unlockPassword.value = "";
-      openSheet(unlockBackdrop, unlockSheet);
-      unlockPassword.focus();
-    }
+    function promptUnlock(group, options = {}) {
+      const pickerOpen = groupSheet.classList.contains("open");
+      const inlineRow = options.inlineRow
+        || (pickerOpen
+          ? groupListEl.querySelector(`.group-row[data-group-id="${CSS.escape(group.id)}"]`)
+          : null);
 
-    async function tryUnlock() {
-      if (!pendingUnlockGroup) return;
-      const res = await fetch(`/api/groups/${encodeURIComponent(pendingUnlockGroup.id)}/unlock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: unlockPassword.value }),
+      RolloUnlockFlow.open(group, {
+        inlineRow,
+        onSuccess: async (unlocked) => {
+          const g = allGroups.find((x) => x.id === unlocked.id) || unlocked;
+          g.unlocked = true;
+          if (options.switchTo !== false) {
+            VideoGroups.setActive(g.id);
+            VideoGroups.syncUrlGroup(g.id);
+          }
+          renderGroups();
+          if (options.onSuccess) await options.onSuccess(g);
+          else await loadVideosData();
+        },
+        onCancel: options.onCancel || null,
       });
-      const data = await res.json();
-      if (!res.ok) return showToast(data.error || "Wrong password");
-      if (data.token) {
-        VideoGroups.setUnlockToken(
-          pendingUnlockGroup.id,
-          data.token,
-          VideoGroups.getLockMode(pendingUnlockGroup)
-        );
-        const unlocked = allGroups.find((g) => g.id === pendingUnlockGroup.id);
-        if (unlocked) unlocked.unlocked = true;
-      }
-      VideoGroups.setActive(pendingUnlockGroup.id);
-      closeSheet(unlockBackdrop, unlockSheet);
-      pendingUnlockGroup = null;
-      VideoGroups.syncUrlGroup();
-      await loadGroups();
-      await loadVideosData();
     }
 
     function setGroupSheetOpen(open) {
@@ -1922,6 +1898,7 @@
     }
 
     function closeGroupSheet() {
+      RolloUnlockFlow.close();
       setGroupSheetOpen(false);
       closeSheet(groupBackdrop, groupSheet);
     }
@@ -1961,15 +1938,21 @@
       const group = allGroups.find((g) => g.id === groupId);
       if (!group) return;
 
+      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
+        VideoGroups.prepareProfileSwitch(previousId, group);
+        const pickerOpen = groupSheet.classList.contains("open");
+        promptUnlock(group, {
+          onSuccess: async () => {
+            if (pickerOpen) closeGroupSheet();
+          },
+        });
+        return;
+      }
+
       VideoGroups.prepareProfileSwitch(previousId, group);
       if (previousId && previousId !== groupId) {
         const previous = allGroups.find((g) => g.id === previousId);
         if (previous) previous.unlocked = false;
-      }
-
-      if (group.locked && !VideoGroups.isGroupAccessible(group)) {
-        openUnlockSheet(group);
-        return;
       }
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
@@ -1985,12 +1968,14 @@
       ]);
       if (videosRes.status === 403) {
         loading.hidden = true;
+        empty.style.display = "none";
+        noResults.style.display = "none";
         const group = allGroups.find((g) => g.id === VideoGroups.getActive());
-        empty.innerHTML = "This library is locked.<br>Enter your password to view media.";
-        empty.style.display = "block";
         renderFilters();
         renderGrid();
-        if (group) openUnlockSheet(group);
+        if (group) {
+          promptUnlock(group, { onSuccess: () => loadVideosData() });
+        }
         return;
       }
       if (!videosRes.ok) {
@@ -3037,7 +3022,7 @@
             const group = allGroups.find((g) => g.id === VideoGroups.getActive());
             item.status = "failed";
             item.error = "Locked library";
-            if (group) openUnlockSheet(group);
+            if (group) promptUnlock(group);
             failedCount++;
             renderUploadQueue();
             break;
@@ -3144,7 +3129,7 @@
     uploadFab.addEventListener("click", () => {
       const group = allGroups.find((g) => g.id === VideoGroups.getActive());
       if (group?.locked && !VideoGroups.hasUnlockToken(group.id)) {
-        openUnlockSheet(group);
+        promptUnlock(group);
         return;
       }
       uploadInput.click();
@@ -3187,11 +3172,6 @@
     });
 
     document.addEventListener("click", () => closeMenus());
-
-    unlockSubmit.addEventListener("click", tryUnlock);
-    unlockPassword.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
-    unlockCancel.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
-    unlockBackdrop.addEventListener("click", () => closeSheet(unlockBackdrop, unlockSheet));
 
     function setGroupLockModeUi(group) {
       const show = !!group?.locked || !!groupNewPassword.value;
@@ -3257,7 +3237,7 @@
       await loadGroups();
       if (data.locked && (data.passwordChanged || data.lockModeChanged)) {
         const group = allGroups.find((g) => g.id === activeId);
-        if (group?.locked && !group.unlocked) openUnlockSheet(group);
+        if (group?.locked && !group.unlocked) promptUnlock(group);
       }
       showToast("Group settings saved.");
     });
@@ -3427,9 +3407,13 @@
         const activeGroup = allGroups.find((g) => g.id === active);
         if (activeGroup?.locked && !VideoGroups.isGroupAccessible(activeGroup)) {
           loading.hidden = true;
-          empty.innerHTML = "This library is locked.<br>Enter your password to view media.";
-          empty.style.display = "block";
-          openUnlockSheet(activeGroup);
+          empty.style.display = "none";
+          promptUnlock(activeGroup, {
+            onCancel: () => {
+              const fallback = VideoGroups.pickDefaultGroup(allGroups);
+              if (fallback && fallback !== active) selectGroup(fallback);
+            },
+          });
           return;
         }
 

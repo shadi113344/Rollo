@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/bottom-nav.css">
   <link rel="stylesheet" href="/press-radial-menu.css">
+  <link rel="stylesheet" href="/unlock-flow.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -644,21 +645,12 @@
     <button type="button" class="primary-btn" id="move-sheet-cancel" style="width:100%;margin-top:8px;background:#333">Cancel</button>
   </div>
 
-  <div id="unlock-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50"></div>
-  <div id="unlock-sheet" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:51;background:#1a1a1a;border-radius:16px 16px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .25s ease">
-    <h2 id="unlock-title" style="margin:0 0 4px;font-size:16px">Unlock library</h2>
-    <p id="unlock-subtitle" style="margin:0 0 14px;font-size:12px;color:#888">This library is password protected.</p>
-    <label class="field-label" for="unlock-password">Password</label>
-    <input id="unlock-password" type="password" class="sheet-input" placeholder="Enter password" autocomplete="current-password">
-    <button id="unlock-submit" type="button" class="primary-btn" style="width:100%;margin-bottom:8px">Unlock</button>
-    <button id="unlock-cancel" type="button" style="width:100%;border:none;border-radius:10px;background:#333;color:#fff;padding:12px">Cancel</button>
-  </div>
-
   <script src="/pwa.js"></script>
   <script src="/servers.js"></script>
   <script>RolloServers.importSeedFromUrl();</script>
   <script src="/layout-metrics.js"></script>
   <script src="/groups.js"></script>
+  <script src="/unlock-flow.js"></script>
   <script src="/bottom-nav.js"></script>
   <script src="/toast.js"></script>
   <script src="/tag-colors.js"></script>
@@ -685,13 +677,6 @@
     const statusActions = document.getElementById("status-actions");
     const historyCard = document.getElementById("history-card");
     const historyList = document.getElementById("history-list");
-    const unlockBackdrop = document.getElementById("unlock-backdrop");
-    const unlockSheet = document.getElementById("unlock-sheet");
-    const unlockTitle = document.getElementById("unlock-title");
-    const unlockSubtitle = document.getElementById("unlock-subtitle");
-    const unlockPassword = document.getElementById("unlock-password");
-    const unlockSubmit = document.getElementById("unlock-submit");
-    const unlockCancel = document.getElementById("unlock-cancel");
     const moveSheetBackdrop = document.getElementById("move-sheet-backdrop");
     const moveSheet = document.getElementById("move-sheet");
     const moveSheetSubtitle = document.getElementById("move-sheet-subtitle");
@@ -701,7 +686,6 @@
     let allGroups = [];
     let activeJobId = null;
     let pollTimer = null;
-    let pendingUnlockGroup = null;
     let ytdlpAvailable = false;
     let moveJob = null;
     let lastCompletedJob = null;
@@ -768,44 +752,16 @@
     }
 
     function openUnlock(group) {
-      pendingUnlockGroup = group;
-      unlockTitle.textContent = `Unlock ${group.displayName || group.name || group.id}`;
-      unlockSubtitle.textContent = "Enter the library password to save downloads here.";
-      unlockPassword.value = "";
-      openSheet(unlockBackdrop, unlockSheet, unlockPassword);
-    }
-
-    function closeUnlock() {
-      closeSheet(unlockBackdrop, unlockSheet);
-      pendingUnlockGroup = null;
-    }
-
-    async function submitUnlock() {
-      if (!pendingUnlockGroup) return;
-      const password = unlockPassword.value;
-      const res = await fetch(`/api/groups/${encodeURIComponent(pendingUnlockGroup.id)}/unlock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+      RolloUnlockFlow.open(group, {
+        onSuccess: async (unlocked) => {
+          const g = allGroups.find((x) => x.id === unlocked.id) || unlocked;
+          g.unlocked = true;
+          await loadGroups();
+          librarySelect.value = g.id;
+          showToast("Library unlocked.");
+        },
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showToast(data.error || "Wrong password");
-        return;
-      }
-      VideoGroups.setUnlockToken(pendingUnlockGroup.id, data.token);
-      closeUnlock();
-      await loadGroups();
-      librarySelect.value = pendingUnlockGroup?.id || VideoGroups.getActive();
-      showToast("Library unlocked.");
     }
-
-    unlockSubmit.addEventListener("click", submitUnlock);
-    unlockCancel.addEventListener("click", closeUnlock);
-    unlockBackdrop.addEventListener("click", closeUnlock);
-    unlockPassword.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") submitUnlock();
-    });
 
     function renderLibraryOptions() {
       librarySelect.innerHTML = "";
