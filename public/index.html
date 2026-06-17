@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
+  <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/press-radial-menu.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
   <style>
@@ -1351,6 +1352,7 @@
   <script src="/pwa.js"></script>
   <script src="/servers.js"></script>
   <script>RolloServers.importSeedFromUrl();</script>
+  <script src="/network-speed.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/media.js"></script>
   <script src="/tag-colors.js"></script>
@@ -3393,6 +3395,10 @@
     initSheetIcons();
 
     async function init() {
+      RolloNetSpeed.mount({
+        variant: "profile",
+        parent: document.querySelector(".header-actions"),
+      });
       loading.hidden = false;
       try {
         await loadGroups();

@@ -1,0 +1,48 @@
+/* Mini in-app throughput (rolling window) */
+
+.net-speed {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  opacity: 0.55;
+  transition: opacity 0.25s ease, color 0.25s ease;
+}
+
+.net-speed[data-active="1"] {
+  opacity: 0.92;
+}
+
+.net-speed--feed {
+  position: fixed;
+  top: calc(6px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  z-index: 26;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+}
+
+.net-speed--feed[data-active="1"] {
+  color: rgba(142, 197, 255, 0.88);
+}
+
+.net-speed--profile {
+  font-size: 8px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.38);
+  margin-right: 2px;
+  align-self: flex-start;
+  padding-top: 4px;
+}
+
+.net-speed--profile[data-active="1"] {
+  color: rgba(142, 197, 255, 0.72);
+}
+
+.header-actions .net-speed--profile {
+  order: -1;
+}

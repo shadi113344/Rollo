@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
+  <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -182,7 +183,7 @@
       font-size: 11px;
       color: rgba(255,255,255,0.55);
       font-variant-numeric: tabular-nums;
-      padding-top: 8px;
+      padding-top: 16px;
     }
 
     .mode-row {
@@ -939,6 +940,7 @@
   <script src="/pwa.js"></script>
   <script src="/servers.js"></script>
   <script>RolloServers.importSeedFromUrl();</script>
+  <script src="/network-speed.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/toast.js"></script>
   <script src="/media.js"></script>
@@ -2073,6 +2075,7 @@
     });
 
     async function init() {
+      RolloNetSpeed.mount({ variant: "feed" });
       syncLayoutMetrics();
       updateNavLinks();
       if (!VideoGroups.getActive()) {

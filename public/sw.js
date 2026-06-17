@@ -1,5 +1,5 @@
 /* Rollo PWA — cache app shell only; never cache media or API responses */
-const CACHE = "rollo-shell-v9";
+const CACHE = "rollo-shell-v10";
 
 const PRECACHE = [
   "/",
@@ -14,6 +14,7 @@ const PRECACHE = [
   "/icons.js",
   "/heart.css",
   "/bottom-nav.css",
+  "/network-speed.css",
   "/connect.css",
   "/press-radial-menu.css",
   "/icon.svg",
@@ -31,6 +32,7 @@ const PRECACHE = [
   "/toast.js",
   "/pwa.js",
   "/servers.js",
+  "/network-speed.js",
 ];
 
 function isApiOrMedia(url) {
