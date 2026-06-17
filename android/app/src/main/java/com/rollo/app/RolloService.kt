@@ -9,13 +9,28 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
 class RolloService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var lastFailed = false
+
+    private val monitorRunnable = object : Runnable {
+        override fun run() {
+            val failed = NodeRunner.getState() == NodeRunner.State.FAILED
+            if (failed != lastFailed) {
+                lastFailed = failed
+                refreshNotification()
+            }
+            handler.postDelayed(this, 3000)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -43,10 +58,13 @@ class RolloService : Service() {
         AssetInstaller.installIfNeeded(this)
         AndroidDownloadWorker.start(this)
         NodeRunner.start(RolloConfig.nodeProjectDir(this))
+        handler.removeCallbacks(monitorRunnable)
+        handler.post(monitorRunnable)
         return START_STICKY
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(monitorRunnable)
         wakeLock?.let {
             if (it.isHeld) it.release()
         }
@@ -79,13 +97,20 @@ class RolloService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val failed = NodeRunner.getState() == NodeRunner.State.FAILED
+        val text = if (failed) getString(R.string.notification_failed) else getString(R.string.notification_text)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
-            .setContentText(getString(R.string.notification_text))
+            .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentIntent(openApp)
             .setOngoing(true)
             .build()
+    }
+
+    private fun refreshNotification() {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTIFICATION_ID, buildNotification())
     }
 
     companion object {

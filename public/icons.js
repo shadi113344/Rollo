@@ -77,6 +77,20 @@
       );
     },
 
+    pip(size) {
+      return svg(
+        '<rect x="2" y="5" width="14" height="10" rx="1.5"/><rect x="8" y="11" width="14" height="8" rx="1.5"/>',
+        size
+      );
+    },
+
+    settings(size) {
+      return svg(
+        '<circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+        size
+      );
+    },
+
     actionLabel(iconHtml, text) {
       return `<span class="action-btn-inner">${iconHtml}<span class="action-btn-text">${text}</span></span>`;
     },

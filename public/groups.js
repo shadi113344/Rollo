@@ -24,6 +24,23 @@ window.VideoGroups = {
     return group.lockMode === "once" ? "once" : "always";
   },
 
+  _relockTimer: null,
+  _relockMinutes: 0,
+
+  setRelockMinutes(minutes) {
+    this._relockMinutes = Math.max(0, Number(minutes) || 0);
+    this._scheduleRelock();
+  },
+
+  _scheduleRelock() {
+    clearTimeout(this._relockTimer);
+    if (!this._relockMinutes) return;
+    this._relockTimer = setTimeout(() => {
+      const active = this.getActive();
+      if (active) this.clearUnlockToken(active);
+    }, this._relockMinutes * 60 * 1000);
+  },
+
   getStoredUnlockTokens() {
     try {
       return JSON.parse(localStorage.getItem("groupUnlocks") || "{}");
@@ -73,6 +90,7 @@ window.VideoGroups = {
       }
     }
     this.setSessionUnlockToken(groupId, token);
+    this._scheduleRelock();
   },
 
   clearUnlockToken(groupId) {

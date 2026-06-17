@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rollo">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+  <title>Settings — Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/settings.css">
+  <link rel="stylesheet" href="/bottom-nav.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { height: 100%; touch-action: manipulation; }
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    #app-scroll {
+      min-height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body class="page-settings page-profile">
+  <div id="app-scroll">
+    <header class="settings-header">
+      <a href="/" class="settings-back" id="settings-back">← Profile</a>
+      <h1>Settings</h1>
+    </header>
+
+    <div class="settings-body" id="settings-page">
+      <section class="settings-section" aria-labelledby="appearance-heading">
+        <h2 class="settings-section-title" id="appearance-heading">Appearance</h2>
+        <div class="settings-card">
+          <div class="settings-row stack">
+            <div>
+              <div class="settings-row-label">Theme</div>
+              <div class="settings-row-hint">Choose how Rollo looks on this device.</div>
+            </div>
+            <select id="settings-theme" aria-label="Theme">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="security-heading">
+        <h2 class="settings-section-title" id="security-heading">Security</h2>
+        <div class="settings-card">
+          <div class="settings-row stack">
+            <div>
+              <div class="settings-row-label">Auto re-lock</div>
+              <div class="settings-row-hint">Minutes until unlocked libraries lock again. 0 = never.</div>
+            </div>
+            <input id="settings-relock" type="number" min="0" step="5" value="0" inputmode="numeric" aria-label="Re-lock minutes">
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="network-heading">
+        <h2 class="settings-section-title" id="network-heading">Network</h2>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-label">Show speed indicator</div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settings-network-speed" checked>
+              <span class="settings-toggle-track"></span>
+            </label>
+          </div>
+          <div class="settings-row stack">
+            <div>
+              <div class="settings-row-label">LAN probe timeout</div>
+              <div class="settings-row-hint">Milliseconds to wait on home Wi‑Fi.</div>
+            </div>
+            <input id="settings-probe-lan" type="number" min="500" step="100" value="1800" inputmode="numeric" aria-label="LAN probe timeout ms">
+          </div>
+          <div class="settings-row stack">
+            <div>
+              <div class="settings-row-label">Tailscale probe timeout</div>
+              <div class="settings-row-hint">Milliseconds when away from home.</div>
+            </div>
+            <input id="settings-probe-remote" type="number" min="500" step="100" value="3200" inputmode="numeric" aria-label="Remote probe timeout ms">
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="data-heading">
+        <h2 class="settings-section-title" id="data-heading">Data &amp; sync</h2>
+        <div class="settings-card">
+          <button type="button" class="settings-link-row" id="settings-export-unlocks">
+            <span>Export unlock tokens</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="settings-link-row" id="settings-import-unlocks">
+            <span>Import unlock tokens</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </button>
+          <a href="/connect.html" class="settings-link-row" id="settings-servers-link">
+            <span>Manage servers</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </a>
+        </div>
+        <input type="file" id="settings-import-input" accept="application/json,.json" hidden>
+      </section>
+
+      <section class="settings-section" aria-labelledby="about-heading">
+        <h2 class="settings-section-title" id="about-heading">About</h2>
+        <div class="settings-card">
+          <div class="settings-row">
+            <span class="settings-row-label">App version</span>
+            <span class="settings-row-hint" id="settings-version">—</span>
+          </div>
+        </div>
+        <p class="settings-version">Rollo — personal media library</p>
+      </section>
+    </div>
+  </div>
+
+  <footer id="bottom-dock">
+    <nav id="tab-bar" aria-label="Main">
+      <div class="tab-profile-wrap">
+        <a href="/" class="tab-item active" id="profile-tab">
+          <span class="tab-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.6-6 7-6s7 2 7 6"/></svg>
+          </span>
+          <span class="tab-label">Profile</span>
+        </a>
+      </div>
+      <a href="/watch.html" class="tab-item" id="feed-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="tab-label">Feed</span>
+      </a>
+      <a href="/download.html" class="tab-item" id="download-tab">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        </span>
+        <span class="tab-label">Download</span>
+      </a>
+    </nav>
+  </footer>
+
+  <div id="settings-toast" role="status" aria-live="polite"></div>
+
+  <script src="/pwa.js"></script>
+  <script src="/groups.js"></script>
+  <script src="/theme.js"></script>
+  <script src="/settings.js"></script>
+  <script>
+    function showToast(msg) {
+      const el = document.getElementById("settings-toast");
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add("visible");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => el.classList.remove("visible"), 2400);
+    }
+
+    (function initNav() {
+      const q = VideoGroups.query();
+      const profileHref = q ? `/?${q}` : "/";
+      document.getElementById("settings-back").href = profileHref;
+      document.getElementById("profile-tab").href = profileHref;
+      const feedTab = document.getElementById("feed-tab");
+      const dlTab = document.getElementById("download-tab");
+      const serversLink = document.getElementById("settings-servers-link");
+      if (q) {
+        feedTab.href = `/watch.html?${q}`;
+        dlTab.href = `/download.html?${q}`;
+        serversLink.href = `/connect.html?${q}`;
+      }
+    })();
+
+    RolloTheme.init();
+    RolloSettings.init({ showToast });
+
+    if ("serviceWorker" in navigator && window.RolloShell) {
+      RolloShell.loadVersion().then((v) => {
+        const el = document.getElementById("settings-version");
+        if (el && v) el.textContent = v;
+      }).catch(() => {});
+    }
+  </script>
+</body>
+</html>

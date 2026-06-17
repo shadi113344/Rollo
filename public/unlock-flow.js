@@ -41,10 +41,13 @@ window.RolloUnlockFlow = (function () {
     }
   }
 
-  async function tryBiometricFill(input) {
+  async function tryBiometricFill(input, { required = false } = {}) {
     if (!navigator.credentials?.get) return false;
     try {
-      const cred = await navigator.credentials.get({ password: true, mediation: "optional" });
+      const cred = await navigator.credentials.get({
+        password: true,
+        mediation: required ? "required" : "optional",
+      });
       if (cred?.password) {
         input.value = cred.password;
         return true;
@@ -53,6 +56,13 @@ window.RolloUnlockFlow = (function () {
       /* user dismissed or unavailable */
     }
     return false;
+  }
+
+  function biometricLabel() {
+    if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
+      return "Use Face ID / Touch ID";
+    }
+    return "Use saved password";
   }
 
   async function requestUnlock(group, password) {
@@ -89,6 +99,7 @@ window.RolloUnlockFlow = (function () {
         <button type="button" class="unlock-cancel-btn">Cancel</button>
       </div>
       <button type="button" class="unlock-bio-btn" hidden>Use saved password</button>
+      <button type="button" class="unlock-webauthn-btn" hidden>Use Face ID / Touch ID</button>
     `;
     return card;
   }
@@ -104,14 +115,26 @@ window.RolloUnlockFlow = (function () {
     const submitBtn = card.querySelector(".unlock-submit-btn");
     const cancelBtn = card.querySelector(".unlock-cancel-btn");
     const bioBtn = card.querySelector(".unlock-bio-btn");
+    const webauthnBtn = card.querySelector(".unlock-webauthn-btn");
 
     rememberEl.checked = defaultRemember(group);
 
     if (supportsBiometricFill()) {
       bioBtn.hidden = false;
+      bioBtn.textContent = "Use saved password";
       bioBtn.addEventListener("click", async () => {
         const filled = await tryBiometricFill(input);
         if (filled) handleSubmit();
+      });
+    }
+
+    if (navigator.credentials?.get) {
+      webauthnBtn.hidden = false;
+      webauthnBtn.textContent = biometricLabel();
+      webauthnBtn.addEventListener("click", async () => {
+        const filled = await tryBiometricFill(input, { required: true });
+        if (filled) handleSubmit();
+        else input.focus();
       });
     }
 

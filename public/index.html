@@ -12,6 +12,8 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
   <title>Rollo</title>
   <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/profile-extras.css">
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/heart.css">
   <link rel="stylesheet" href="/bottom-nav.css">
@@ -24,15 +26,15 @@
 
     html {
       height: 100%;
-      background: #0a0a0a;
+      background: var(--rollo-bg);
     }
 
     body {
       margin: 0;
       height: 100%;
       overflow: hidden;
-      background: #0a0a0a;
-      color: #fff;
+      background: var(--rollo-bg);
+      color: var(--rollo-text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       box-sizing: border-box;
     }
@@ -49,10 +51,10 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: rgba(10,10,10,0.94);
+      background: var(--rollo-header-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid #1f1f1f;
+      border-bottom: 1px solid var(--rollo-border-subtle);
       padding: calc(10px + env(safe-area-inset-top)) 16px 12px;
     }
 
@@ -75,7 +77,7 @@
       gap: 8px;
       border: none;
       background: none;
-      color: #fff;
+      color: var(--rollo-text);
       font-size: 20px;
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -102,9 +104,9 @@
       width: 24px;
       height: 24px;
       border-radius: 7px;
-      border: 1px solid #2a2a2a;
-      background: #161616;
-      color: #888;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-surface);
+      color: var(--rollo-muted);
       transition: transform 0.22s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
@@ -120,22 +122,22 @@
 
     .group-picker.open .group-chev {
       transform: rotate(180deg);
-      background: rgba(100, 180, 255, 0.15);
-      border-color: rgba(100, 180, 255, 0.45);
-      color: #aad4ff;
+      background: var(--rollo-accent-bg);
+      border-color: var(--rollo-accent-border);
+      color: var(--rollo-accent-text);
     }
 
     .group-picker:active .group-chev {
-      background: #222;
+      background: var(--rollo-surface-pressed);
     }
 
     .group-picker.open:active .group-chev {
-      background: rgba(100, 180, 255, 0.22);
+      background: var(--rollo-accent-bg);
     }
 
     .video-count {
       font-size: 12px;
-      color: #9a9a9a;
+      color: var(--rollo-muted);
       margin-top: 2px;
     }
 
@@ -147,22 +149,22 @@
     }
 
     .feed-link {
-      display: none;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       height: 36px;
       border-radius: 10px;
-      border: 1px solid #2a2a2a;
-      background: #161616;
-      color: #fff;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-surface);
+      color: var(--rollo-text);
       font-size: 13px;
       text-decoration: none;
       padding: 0 12px;
       white-space: nowrap;
     }
 
-    @media (min-width: 720px) {
-      .feed-link { display: inline-flex; }
+    @media (max-width: 420px) {
+      .feed-link { height: 32px; padding: 0 10px; font-size: 12px; }
     }
 
     .sync-conflict-banner {
@@ -192,9 +194,9 @@
       justify-content: center;
       height: 36px;
       border-radius: 10px;
-      border: 1px solid #2a2a2a;
-      background: #161616;
-      color: #fff;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-surface);
+      color: var(--rollo-text);
       font-size: 13px;
       cursor: pointer;
       text-decoration: none;
@@ -206,12 +208,12 @@
     }
 
     .icon-btn.active {
-      background: rgba(100,180,255,0.2);
-      border-color: rgba(100,180,255,0.5);
-      color: #aad4ff;
+      background: var(--rollo-accent-bg);
+      border-color: var(--rollo-accent-border);
+      color: var(--rollo-accent-text);
     }
 
-    .icon-btn:active { background: #252525; }
+    .icon-btn:active { background: var(--rollo-surface-pressed); }
 
     .search-wrap {
       position: relative;
@@ -241,15 +243,15 @@
 
     #search {
       width: 100%;
-      border: 1px solid #2a2a2a;
-      background: #141414;
-      color: #fff;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-input-bg);
+      color: var(--rollo-text);
       border-radius: 12px;
       padding: 10px 14px 10px 36px;
       font-size: 15px;
     }
 
-    #search::placeholder { color: #8a8a8a; }
+    #search::placeholder { color: var(--rollo-placeholder); }
 
     .toolbar {
       display: flex;
@@ -294,9 +296,9 @@
       justify-content: center;
       width: 34px;
       height: 34px;
-      border: 1px solid #2a2a2a;
-      background: #141414;
-      color: #ccc;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-item-bg);
+      color: var(--rollo-text-secondary);
       border-radius: 9px;
       font-size: 15px;
       line-height: 1;
@@ -305,14 +307,14 @@
     }
 
     .menu-btn.open {
-      background: rgba(100,180,255,0.2);
-      border-color: rgba(100,180,255,0.5);
-      color: #aad4ff;
+      background: var(--rollo-accent-bg);
+      border-color: var(--rollo-accent-border);
+      color: var(--rollo-accent-text);
     }
 
     .menu-btn.non-default:not(.open) {
-      border-color: rgba(100,180,255,0.35);
-      color: #aad4ff;
+      border-color: var(--rollo-accent-border);
+      color: var(--rollo-accent-text);
     }
 
     .menu-popover {
@@ -320,12 +322,12 @@
       top: calc(100% + 6px);
       right: 0;
       min-width: 148px;
-      background: #1c1c1c;
-      border: 1px solid #333;
+      background: var(--rollo-popover-bg);
+      border: 1px solid var(--rollo-border);
       border-radius: 12px;
       padding: 6px;
       z-index: 15;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+      box-shadow: 0 8px 28px var(--rollo-shadow);
     }
 
     .menu-item {
@@ -334,25 +336,25 @@
       text-align: left;
       border: none;
       background: none;
-      color: #ccc;
+      color: var(--rollo-text-secondary);
       padding: 10px 12px;
       font-size: 13px;
       border-radius: 8px;
       cursor: pointer;
     }
 
-    .menu-item:active { background: #2a2a2a; }
+    .menu-item:active { background: var(--rollo-surface-pressed); }
 
     .menu-item.active {
-      background: rgba(100,180,255,0.15);
-      color: #aad4ff;
+      background: var(--rollo-accent-bg);
+      color: var(--rollo-accent-text);
     }
 
     .filter-btn {
       flex-shrink: 0;
-      border: 1px solid #2a2a2a;
-      background: #141414;
-      color: #aaa;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-item-bg);
+      color: var(--rollo-muted);
       border-radius: 999px;
       padding: 6px 12px;
       font-size: 13px;
@@ -360,9 +362,9 @@
     }
 
     .filter-btn.active {
-      background: #fff;
-      color: #000;
-      border-color: #fff;
+      background: var(--rollo-text);
+      color: var(--rollo-bg);
+      border-color: var(--rollo-text);
     }
 
     .upload-fab {
@@ -374,14 +376,14 @@
       height: 44px;
       border: none;
       border-radius: 50%;
-      background: #fff;
-      color: #000;
+      background: var(--rollo-fab-bg);
+      color: var(--rollo-fab-fg);
       font-size: 26px;
       line-height: 1;
       font-weight: 300;
       opacity: 1;
       cursor: pointer;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+      box-shadow: 0 2px 12px var(--rollo-shadow);
     }
 
     /* Same iOS-standalone fix as #bottom-dock: anchor the FAB from the top via lvh (its bottom
@@ -712,7 +714,7 @@
     .video-item {
       border-radius: 12px;
       overflow: hidden;
-      background: #141414;
+      background: var(--rollo-item-bg);
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
@@ -737,7 +739,7 @@
     .thumb-wrap {
       position: relative;
       aspect-ratio: 3 / 4;
-      background: #1a1a1a;
+      background: var(--rollo-thumb-bg);
       overflow: hidden;
     }
 
@@ -809,7 +811,7 @@
     #loading, #empty, #no-results {
       text-align: center;
       padding: 48px 24px;
-      color: #9a9a9a;
+      color: var(--rollo-muted);
     }
 
     #loading { display: none; }
@@ -821,7 +823,7 @@
     .sheet-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: var(--rollo-overlay);
       z-index: 30;
       opacity: 0;
       pointer-events: none;
@@ -836,7 +838,8 @@
       right: 0;
       bottom: 0;
       z-index: 31;
-      background: #1a1a1a;
+      background: var(--rollo-sheet-bg);
+      color: var(--rollo-text);
       border-radius: 16px 16px 0 0;
       padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
       transform: translateY(100%);
@@ -848,15 +851,15 @@
     .sheet.open { transform: translateY(0); }
 
     .sheet h2 { margin: 0 0 4px; font-size: 16px; }
-    .sheet .subtitle { margin: 0 0 14px; font-size: 12px; color: #888; word-break: break-all; }
+    .sheet .subtitle { margin: 0 0 14px; font-size: 12px; color: var(--rollo-subtitle); word-break: break-all; }
 
     .action-btn {
       display: block;
       width: 100%;
       text-align: left;
       border: none;
-      background: #252525;
-      color: #fff;
+      background: var(--rollo-action-bg);
+      color: var(--rollo-text);
       border-radius: 10px;
       padding: 14px 16px;
       font-size: 15px;
@@ -866,14 +869,14 @@
 
     a.action-btn {
       text-decoration: none;
-      color: #fff;
+      color: var(--rollo-text);
     }
 
-    .action-btn:active { background: #333; }
-    .action-btn.danger { color: #ff6b8a; }
-    .action-btn.cancel { background: #333; text-align: center; margin-top: 4px; }
+    .action-btn:active { background: var(--rollo-action-pressed); }
+    .action-btn.danger { color: var(--rollo-danger); }
+    .action-btn.cancel { background: var(--rollo-action-pressed); text-align: center; margin-top: 4px; }
 
-    .sheet-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .sheet-label { font-size: 12px; color: var(--rollo-subtitle); margin-bottom: 8px; }
 
     .chip-row {
       display: flex;
@@ -904,9 +907,9 @@
 
     .add-row input, .rename-input {
       flex: 1;
-      border: 1px solid #444;
-      background: #111;
-      color: #fff;
+      border: 1px solid var(--rollo-border);
+      background: var(--rollo-input-bg);
+      color: var(--rollo-text);
       border-radius: 8px;
       padding: 10px 12px;
       font-size: 16px;
@@ -1168,8 +1171,9 @@
         <div class="video-count" id="video-count"></div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="search-toggle" type="button" title="Search">⌕</button>
-        <button class="icon-btn" id="more-btn" type="button" title="More">⋯</button>
+        <button class="icon-btn" id="search-toggle" type="button" title="Search" aria-label="Search">⌕</button>
+        <a href="/settings.html" class="icon-btn" id="settings-link" title="Settings" aria-label="Settings"></a>
+        <button class="icon-btn" id="more-btn" type="button" title="More" aria-label="More">⋯</button>
         <a href="/watch.html" class="feed-link" id="feed-link">Feed ↗</a>
       </div>
     </div>
@@ -1196,6 +1200,7 @@
             </button>
           </div>
         </div>
+        <button class="menu-btn" id="bulk-select-btn" type="button" title="Select videos" aria-label="Select videos" data-i18n="profile.select">Select</button>
         <button class="menu-btn" id="profile-view-btn" type="button" title="Grid view" aria-label="Grid view">▦</button>
         <div class="menu-wrap" id="size-menu-wrap">
           <button class="menu-btn" id="size-menu-btn" type="button" title="Grid size" aria-label="Grid size">▣</button>
@@ -1223,6 +1228,14 @@
     </div>
     <div id="grid" class="size-xs"></div>
   </main>
+  </div>
+
+  <div id="bulk-action-bar" hidden role="toolbar" aria-label="Bulk selection">
+    <span data-bulk-count>0 selected</span>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="icon-btn" id="bulk-tag-btn" data-i18n="profile.bulkTag">Tag</button>
+      <button type="button" class="icon-btn" id="bulk-cancel-btn" data-i18n="profile.cancelSelect">Cancel</button>
+    </div>
   </div>
 
   <button class="upload-fab" id="upload-fab" type="button" title="Upload video" aria-label="Upload video">+</button>
@@ -1259,7 +1272,8 @@
     <button class="action-btn" id="group-settings-btn" type="button"></button>
     <button class="action-btn" id="export-btn" type="button">Export tags (CSV)</button>
     <button class="action-btn" id="import-btn" type="button">Import tags (CSV)</button>
-    <a class="action-btn" href="/connect.html" id="servers-link">Servers</a>
+    <a class="action-btn" href="/connect.html" id="servers-link" data-i18n="nav.servers">Servers</a>
+    <button class="action-btn" id="sync-merge-btn" type="button" hidden>Merge Syncthing conflicts</button>
     <p class="subtitle" id="more-version" style="margin:4px 0 0;font-size:12px;color:#666"></p>
     <button class="action-btn cancel" id="more-close" type="button">Close</button>
   </div>
@@ -1349,8 +1363,19 @@
     <input class="rename-input" id="group-folder-name" type="text" autocomplete="off" placeholder="Leave blank to keep current">
     <button class="sheet-primary" id="group-save-btn" type="button">Save</button>
     <button class="action-btn" id="group-remove-lock-btn" type="button">Remove password</button>
+    <button class="action-btn" id="group-revoke-sessions-btn" type="button">Log out all devices</button>
     <button class="action-btn danger" id="group-delete-btn" type="button">Delete empty library</button>
     <button class="action-btn cancel" id="group-settings-cancel" type="button">Cancel</button>
+  </div>
+
+  <div class="sheet-backdrop" id="bulk-tag-backdrop"></div>
+  <div class="sheet" id="bulk-tag-sheet">
+    <h2>Tag selected videos</h2>
+    <p class="subtitle" id="bulk-tag-subtitle"></p>
+    <div class="sheet-label">Tags to add</div>
+    <input class="rename-input" id="bulk-tag-input" type="text" placeholder="e.g. tutorial, cars" autocomplete="off">
+    <button class="sheet-primary" id="bulk-tag-apply" type="button">Apply tags</button>
+    <button class="action-btn cancel" id="bulk-tag-cancel" type="button">Cancel</button>
   </div>
 
   <footer id="bottom-dock">
@@ -1393,6 +1418,10 @@
   <script src="/bottom-nav.js"></script>
   <script src="/press-radial-menu.js"></script>
   <script src="/anchored-tag-palette.js"></script>
+  <script src="/theme.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/settings.js"></script>
+  <script src="/profile-extras.js"></script>
   <script>
     const grid = document.getElementById("grid");
     const loading = document.getElementById("loading");
@@ -1443,6 +1472,7 @@
     const moreVersion = document.getElementById("more-version");
     const syncConflictBanner = document.getElementById("sync-conflict-banner");
     const feedLink = document.getElementById("feed-link");
+    const settingsLink = document.getElementById("settings-link");
     const moreClose = document.getElementById("more-close");
     const exportBtn = document.getElementById("export-btn");
     const importBtn = document.getElementById("import-btn");
@@ -1492,6 +1522,7 @@
     const groupSaveBtn = document.getElementById("group-save-btn");
     const groupRemoveLockBtn = document.getElementById("group-remove-lock-btn");
     const groupDeleteBtn = document.getElementById("group-delete-btn");
+    const groupRevokeSessionsBtn = document.getElementById("group-revoke-sessions-btn");
     const groupSettingsCancel = document.getElementById("group-settings-cancel");
     const groupLockModeWrap = document.getElementById("group-lock-mode-wrap");
     const groupLockModeAlways = document.getElementById("group-lock-mode-always");
@@ -1690,21 +1721,62 @@
       if (msg) setTimeout(() => { if (toast.textContent === msg) toast.textContent = ""; }, 3000);
     }
 
-    function openSheet(backdrop, sheet) {
+    let sheetFocusReturn = null;
+
+    function sheetFocusables(sheet) {
+      return [...sheet.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    }
+
+    function openSheet(backdrop, sheet, focusEl) {
+      sheetFocusReturn = document.activeElement;
       backdrop.classList.add("open");
       sheet.classList.add("open");
+      if (!sheet.getAttribute("role")) sheet.setAttribute("role", "dialog");
+      sheet.setAttribute("aria-modal", "true");
+      const trap = (e) => {
+        if (e.key !== "Tab") return;
+        const nodes = sheetFocusables(sheet);
+        if (!nodes.length) return;
+        const first = nodes[0];
+        const last = nodes[nodes.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      };
+      sheet._a11yTrap = trap;
+      sheet.addEventListener("keydown", trap);
+      requestAnimationFrame(() => {
+        const target = focusEl || sheet.querySelector("input, button, [href], textarea, select");
+        target?.focus?.();
+      });
     }
 
     function closeSheet(backdrop, sheet) {
+      if (sheet?._a11yTrap) {
+        sheet.removeEventListener("keydown", sheet._a11yTrap);
+        delete sheet._a11yTrap;
+      }
       backdrop.classList.remove("open");
       sheet.classList.remove("open");
+      if (sheetFocusReturn?.focus) {
+        sheetFocusReturn.focus();
+        sheetFocusReturn = null;
+      }
     }
 
     function updateNavLinks() {
       const q = VideoGroups.query();
       const profileHref = q ? `/?${q}` : "/";
       const feedHref = q ? `/watch.html?${q}` : "/watch.html";
+      const settingsHref = q ? `/settings.html?${q}` : "/settings.html";
       feedLink.href = feedHref;
+      if (settingsLink) settingsLink.href = settingsHref;
       BottomNav.setProfileHref(profileHref);
       feedTab.href = feedHref;
     }
@@ -1881,16 +1953,19 @@
 
     function updateSyncConflictBanner(status) {
       const conflicts = status?.sync?.conflictCount || 0;
+      const mergeBtn = document.getElementById("sync-merge-btn");
       if (!conflicts) {
         syncConflictBanner.hidden = true;
         syncConflictBanner.textContent = "";
+        if (mergeBtn) mergeBtn.hidden = true;
         return;
       }
       const libs = [...new Set((status.sync.conflicts || []).map((c) => c.library))];
       syncConflictBanner.hidden = false;
       syncConflictBanner.textContent =
         `Syncthing conflict files detected (${conflicts}) in ${libs.join(", ")}. ` +
-        "Edit tags on one device at a time, then remove .sync-conflict files from _rollo/.";
+        "Edit tags on one device at a time, then merge or remove .sync-conflict files from _rollo/.";
+      if (mergeBtn) mergeBtn.hidden = false;
     }
 
     function updateFeedLink() {
@@ -2017,6 +2092,7 @@
       }
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
+      profileExtrasApi?.resetScroll?.();
       updateFeedLink();
       renderGroups();
       await loadVideosData();
@@ -2048,8 +2124,9 @@
         throw new Error(err.error || "Could not load videos");
       }
       const [videos, tags] = await Promise.all([videosRes.json(), tagsRes.json()]);
+      if (!Array.isArray(videos)) throw new Error("Invalid videos response from server");
       allVideos = VideoGroups.authVideos(videos);
-      allTags = tags;
+      allTags = Array.isArray(tags) ? tags : [];
       loading.hidden = true;
       renderFilters();
       renderGrid();
@@ -2192,6 +2269,12 @@
     }
 
     function watchUrl(video) {
+      profileExtrasApi?.saveScroll?.();
+      try {
+        sessionStorage.setItem("rolloFromWatch", "1");
+      } catch {
+        /* ignore */
+      }
       const params = new URLSearchParams();
       const active = VideoGroups.getActive();
       if (active) params.set("group", active);
@@ -2710,6 +2793,7 @@
 
       card.append(link, info);
       grid.appendChild(card);
+      profileExtrasApi?.decorateCard?.(card, video);
       bindLongPress(card, video, () => { thumbNavBlocked = true; }, () => { thumbNavBlocked = false; });
       observeThumb(wrap, video.url, video.name);
     }
@@ -2748,7 +2832,7 @@
 
       if (sortMode === "tags") {
         let lastGroup = null;
-        videos.forEach((video) => {
+        const renderOne = (video) => {
           const group = video.tags[0] || "Untagged";
           if (group !== lastGroup) {
             const header = document.createElement("div");
@@ -2758,13 +2842,22 @@
             lastGroup = group;
           }
           appendVideoCard(video);
-        });
+        };
+        if (profileExtrasApi?.renderVirtualSlice) {
+          profileExtrasApi.renderVirtualSlice(videos, (video) => renderOne(video));
+        } else {
+          videos.forEach(renderOne);
+        }
+      } else if (profileExtrasApi?.renderVirtualSlice) {
+        profileExtrasApi.renderVirtualSlice(videos, appendVideoCard);
       } else {
         videos.forEach(appendVideoCard);
       }
 
       updateCount();
       syncLayoutMetrics();
+      profileExtrasApi?.restoreScroll?.();
+      profileExtrasApi?.highlightCollectionFilter?.();
     }
 
     function openActionMenu(video) {
@@ -3362,6 +3455,18 @@
       showToast("Library deleted.");
     });
 
+    groupRevokeSessionsBtn?.addEventListener("click", async () => {
+      const groupId = VideoGroups.getActive();
+      if (!confirm("Log out all devices for this library? Other browsers will need to unlock again.")) return;
+      const res = await VideoGroups.apiFetch(`/api/groups/${encodeURIComponent(groupId)}/revoke-sessions`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return showToast(data.error || "Could not revoke sessions");
+      VideoGroups.clearUnlockToken(groupId);
+      showToast("All unlock sessions revoked.");
+    });
+
     groupRemoveLockBtn.addEventListener("click", async () => {
       const groupId = VideoGroups.getActive();
       const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}?${VideoGroups.query()}`, {
@@ -3443,6 +3548,7 @@
     });
 
     function initSheetIcons() {
+      if (settingsLink) settingsLink.innerHTML = RolloIcons.settings(18);
       RolloIcons.setActionBtn(groupSettingsBtn, RolloIcons.lock(18), "Group lock & name");
       RolloIcons.setActionBtn(
         document.querySelector('#action-sheet [data-action="tag"]'),
@@ -3466,9 +3572,77 @@
       if (hintDrag) hintDrag.innerHTML = RolloIcons.drag(14);
     }
 
+    let profileExtrasApi = null;
+
+    function openBulkTagSheet(names, onApply) {
+      const sheet = document.getElementById("bulk-tag-sheet");
+      const backdrop = document.getElementById("bulk-tag-backdrop");
+      const subtitle = document.getElementById("bulk-tag-subtitle");
+      const input = document.getElementById("bulk-tag-input");
+      subtitle.textContent = `${names.length} video${names.length === 1 ? "" : "s"} selected`;
+      input.value = "";
+      openSheet(backdrop, sheet, input);
+      const apply = async () => {
+        const tags = input.value.split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
+        if (!tags.length) return showToast("Enter at least one tag");
+        closeSheet(backdrop, sheet);
+        await onApply(tags);
+      };
+      document.getElementById("bulk-tag-apply").onclick = apply;
+      document.getElementById("bulk-tag-cancel").onclick = () => closeSheet(backdrop, sheet);
+      backdrop.onclick = () => closeSheet(backdrop, sheet);
+    }
+
     initSheetIcons();
 
     async function init() {
+      RolloTheme.init();
+      RolloSettings.init();
+      RolloI18n.apply();
+
+      profileExtrasApi = RolloProfileExtras.init({
+        getAppScroll: () => document.getElementById("app-scroll"),
+        getGrid: () => grid,
+        getActiveGroup: () => VideoGroups.getActive(),
+        getProfileView: () => profileView,
+        getCollectionTag: () => collectionTag,
+        onUploadFiles: (files) => uploadVideos(files),
+        findVideo: (name) => allVideos.find((v) => v.name === name),
+        saveVideoTags: async (name, tags) => saveMetadata(name, { tags }),
+        onGridRefresh: () => renderGrid(),
+        showToast,
+        openBulkTagSheet,
+        buildWatchUrl: (video) => {
+          const params = new URLSearchParams();
+          const active = VideoGroups.getActive();
+          if (active) params.set("group", active);
+          if (collectionTag && collectionTag !== "Untagged") {
+            params.set("mode", "tag");
+            params.set("tag", collectionTag);
+          } else if (collectionTag === "Untagged") {
+            params.set("mode", "untagged");
+          }
+          params.set("video", video.name);
+          return `/watch.html?${params}`;
+        },
+      });
+
+      document.getElementById("sync-merge-btn")?.addEventListener("click", async () => {
+        closeSheet(moreBackdrop, moreSheet);
+        showToast("Merging conflicts…");
+        try {
+          const res = await fetch("/api/sync/merge-conflicts", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Merge failed");
+          showToast(data.total ? `Merged ${data.total} conflict file(s)` : "No conflicts to merge");
+          await loadVideosData();
+          const status = await fetchServerStatus();
+          updateSyncConflictBanner(status);
+        } catch (err) {
+          showToast(err.message || "Merge failed");
+        }
+      });
+
       RolloNetSpeed.mount({
         variant: "profile",
         parent: document.querySelector(".header-actions"),
@@ -3489,9 +3663,12 @@
 
         const preferred = getStartupPreferredGroup();
         const preferredGroup = allGroups.find((g) => g.id === preferred);
-        const active = preferredGroup
+        let active = preferredGroup
           ? preferredGroup.id
           : VideoGroups.pickDefaultGroup(allGroups);
+        if (!allGroups.some((g) => g.id === active)) {
+          active = VideoGroups.pickDefaultGroup(allGroups);
+        }
         if (active !== VideoGroups.getActive()) {
           VideoGroups.setActive(active);
         }
@@ -3512,13 +3689,13 @@
         }
 
         setGridSize(gridSize);
-        setSortMode(sortMode);
         updateSortMenuBtn();
         updateSizeMenuBtn();
         updateProfileChrome();
         HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });
         await loadVideosData();
+        fetch("/api/thumbs/warmup?" + VideoGroups.query(), { method: "POST" }).catch(() => {});
         const status = await fetchServerStatus();
         updateSyncConflictBanner(status);
         updateFeedLink();
@@ -3547,6 +3724,22 @@
     BottomNav.init({
       getGroups: () => allGroups,
       onSelectGroup: (id) => selectGroup(id),
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault();
+        toggleSearch(true);
+      }
+      if (e.key === "Escape" && headerEl.classList.contains("search-open")) {
+        toggleSearch(false);
+      }
+      if (e.key === "b" && !e.metaKey && !e.ctrlKey && document.activeElement?.tagName !== "INPUT") {
+        profileExtrasApi?.setSelectMode?.(!document.body.classList.contains("bulk-select-mode"));
+      }
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        showToast("Shortcuts: / search · b bulk select · Esc close");
+      }
     });
 
     init();

@@ -4,6 +4,7 @@
     <string name="notification_channel">Rollo server</string>
     <string name="notification_title">Rollo is running</string>
     <string name="notification_text">Media library available on your network</string>
+    <string name="notification_failed">Server stopped — tap to open Rollo and restart</string>
     <string name="server_starting">Starting Rollo server…</string>
     <string name="server_installing">Installing server files (first launch can take 1–2 min)…</string>
     <string name="server_unavailable">Could not reach Rollo server</string>

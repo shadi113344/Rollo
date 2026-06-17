@@ -38,6 +38,17 @@ try {
   const cancelMissing = downloader.cancelQueuedJob("missing");
   assert.strictEqual(cancelMissing.ok, false);
 
+  const { mergeLibraryConflicts } = require("../lib/conflict-merge");
+  const mergeDir = path.join(tmpVideos, "MergeLib");
+  fs.mkdirSync(path.join(mergeDir, "_rollo"), { recursive: true });
+  fs.writeFileSync(path.join(mergeDir, "_rollo", "meta.json"), JSON.stringify({ "a.mp4": { tags: ["one"], favorite: false } }));
+  fs.writeFileSync(
+    path.join(mergeDir, "_rollo", "meta.sync-conflict-20260101.json"),
+    JSON.stringify({ "a.mp4": { tags: ["two"], favorite: true } })
+  );
+  const merged = mergeLibraryConflicts(tmpVideos, "MergeLib");
+  assert.strictEqual(merged.merged, 1);
+
   console.log("api smoke tests passed");
 } finally {
   fs.rmSync(tmpVideos, { recursive: true, force: true });

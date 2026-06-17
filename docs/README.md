@@ -5,7 +5,8 @@ Official project documentation lives in this folder.
 | Document | Description |
 |----------|-------------|
 | [**APP-STRUCTURE.md**](./APP-STRUCTURE.md) | Complete application architecture, features, data model, APIs, deployment modes (PWA, Windows EXE, Android APK), Syncthing layout, multi-server hub, and dynamic UI patterns |
-| [**ISSUES-AND-ENHANCEMENTS.md**](./ISSUES-AND-ENHANCEMENTS.md) | Known bugs, security notes, technical debt, UX improvements, and roadmap suggestions |
+| [**ISSUES-AND-ENHANCEMENTS.md**](./ISSUES-AND-ENHANCEMENTS.md) | Full historical backlog: bugs, security notes, technical debt, UX ideas, and roadmap |
+| [**ISSUES-REMAINING.md**](./ISSUES-REMAINING.md) | **Open work only** — prioritized list of what is still not done (excludes fixes through `7ac44fe`) |
 
 ## Quick links
 

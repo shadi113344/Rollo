@@ -171,7 +171,8 @@
 
 .unlock-submit-btn,
 .unlock-cancel-btn,
-.unlock-bio-btn {
+.unlock-bio-btn,
+.unlock-webauthn-btn {
   border: none;
   border-radius: 12px;
   font-size: 14px;
@@ -197,7 +198,8 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.unlock-bio-btn {
+.unlock-bio-btn,
+.unlock-webauthn-btn {
   width: 100%;
   margin-top: 10px;
   background: rgba(100, 180, 255, 0.12);
@@ -205,7 +207,8 @@
   border: 1px solid rgba(100, 180, 255, 0.28);
 }
 
-.unlock-bio-btn[hidden] {
+.unlock-bio-btn[hidden],
+.unlock-webauthn-btn[hidden] {
   display: none;
 }
 

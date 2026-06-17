@@ -11,6 +11,8 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
   <title>Downloader — Rollo</title>
+  <link rel="stylesheet" href="/profile-extras.css">
+  <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/a11y.css">
   <link rel="stylesheet" href="/icons.css">
   <link rel="stylesheet" href="/bottom-nav.css">
@@ -570,6 +572,12 @@
           <option value="best">Best available</option>
         </select>
 
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px">
+          <input type="checkbox" id="playlist-checkbox">
+          Playlist / channel (download all items)
+        </label>
+        <p class="download-queue-note">Downloads run one at a time. Queued jobs appear below the status card.</p>
+
         <label class="field-label" for="url-input" style="margin-top:14px">Video link</label>
         <div class="url-row">
           <input id="url-input" type="url" inputmode="url" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -659,6 +667,8 @@
   <script src="/pwa.js"></script>
   <script src="/servers.js"></script>
   <script>RolloServers.importSeedFromUrl();</script>
+  <script src="/theme.js"></script>
+  <script src="/settings.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/groups.js"></script>
   <script src="/unlock-flow.js"></script>
@@ -693,6 +703,7 @@
     const xReauthWarn = document.getElementById("x-reauth-warn");
     const xReauthBtn = document.getElementById("x-reauth-btn");
     const pasteBtn = document.getElementById("paste-btn");
+    const playlistCheckbox = document.getElementById("playlist-checkbox");
     const moveSheetBackdrop = document.getElementById("move-sheet-backdrop");
     const moveSheet = document.getElementById("move-sheet");
     const moveSheetSubtitle = document.getElementById("move-sheet-subtitle");
@@ -702,6 +713,7 @@
     let allGroups = [];
     let activeJobId = null;
     let pollTimer = null;
+    let pollStream = null;
     let ytdlpAvailable = false;
     let moveJob = null;
     let lastCompletedJob = null;
@@ -1060,9 +1072,36 @@
     }
 
     function stopPolling() {
+      if (pollStream) {
+        pollStream.close();
+        pollStream = null;
+      }
       if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
+      }
+    }
+
+    function handlePolledJob(job, jobId) {
+      if (!job) return;
+      updateStatusUi(job);
+      if (job.status === "completed") {
+        stopPolling();
+        activeJobId = null;
+        downloadBtn.disabled = !ytdlpAvailable;
+        showToast(`Saved to ${job.groupId}`);
+        urlInput.value = "";
+        loadHistory();
+        loadQueue();
+      } else if (job.status === "failed") {
+        stopPolling();
+        activeJobId = null;
+        downloadBtn.disabled = !ytdlpAvailable;
+        showToast(job.error || "Download failed");
+        loadHistory();
+        loadQueue();
+      } else {
+        loadQueue();
       }
     }
 
@@ -1075,28 +1114,29 @@
     function startPolling(jobId) {
       stopPolling();
       activeJobId = jobId;
+
+      if (typeof EventSource !== "undefined") {
+        pollStream = new EventSource(`/api/download/${encodeURIComponent(jobId)}/stream`);
+        pollStream.onmessage = (e) => {
+          try {
+            handlePolledJob(JSON.parse(e.data), jobId);
+          } catch {
+            /* ignore */
+          }
+        };
+        pollStream.onerror = () => {
+          stopPolling();
+          startIntervalPolling(jobId);
+        };
+        return;
+      }
+      startIntervalPolling(jobId);
+    }
+
+    function startIntervalPolling(jobId) {
       const tick = async () => {
         const job = await pollJob(jobId);
-        if (!job) return;
-        updateStatusUi(job);
-        if (job.status === "completed") {
-          stopPolling();
-          activeJobId = null;
-          downloadBtn.disabled = !ytdlpAvailable;
-          showToast(`Saved to ${job.groupId}`);
-          urlInput.value = "";
-          loadHistory();
-          loadQueue();
-        } else if (job.status === "failed") {
-          stopPolling();
-          activeJobId = null;
-          downloadBtn.disabled = !ytdlpAvailable;
-          showToast(job.error || "Download failed");
-          loadHistory();
-          loadQueue();
-        } else {
-          loadQueue();
-        }
+        handlePolledJob(job, jobId);
       };
       tick();
       pollTimer = setInterval(tick, 1000);
@@ -1419,7 +1459,11 @@
             "Content-Type": "application/json",
             ...VideoGroups.headers(),
           },
-          body: JSON.stringify({ url, quality: qualitySelect.value }),
+          body: JSON.stringify({
+            url,
+            quality: qualitySelect.value,
+            playlist: !!playlistCheckbox?.checked,
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -1491,6 +1535,8 @@
     });
 
     (async function init() {
+      RolloTheme.init();
+      RolloSettings.init();
       await Promise.all([loadGroups(), checkDownloader(), loadHistory(), loadQueue()]);
     })();
   </script>

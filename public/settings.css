@@ -1,0 +1,216 @@
+/* Settings page */
+
+.page-settings #app-scroll {
+  padding-bottom: var(--bottom-ui-inset);
+}
+
+.settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 16px;
+  background: var(--rollo-header-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--rollo-border-subtle);
+}
+
+.settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: var(--rollo-accent-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settings-back:active {
+  opacity: 0.7;
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.settings-body {
+  padding: 8px 16px 24px;
+}
+
+.settings-section {
+  margin-bottom: 28px;
+}
+
+.settings-section-title {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rollo-muted);
+}
+
+.settings-card {
+  border-radius: 14px;
+  border: 1px solid var(--rollo-border-subtle);
+  background: var(--rollo-surface);
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rollo-border-subtle);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-row-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--rollo-text);
+}
+
+.settings-row-hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--rollo-muted);
+  margin-top: 2px;
+}
+
+.settings-row input[type="number"],
+.settings-row select {
+  width: 100%;
+  max-width: 140px;
+  border: 1px solid var(--rollo-border);
+  border-radius: 10px;
+  background: var(--rollo-input-bg);
+  color: var(--rollo-text);
+  padding: 8px 12px;
+  font-size: 15px;
+}
+
+.settings-row.stack input[type="number"],
+.settings-row.stack select {
+  max-width: none;
+}
+
+.settings-toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+}
+
+.settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--rollo-surface-3);
+  border: 1px solid var(--rollo-border);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.settings-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.settings-toggle input:checked + .settings-toggle-track {
+  background: var(--rollo-accent);
+  border-color: var(--rollo-accent);
+}
+
+.settings-toggle input:checked + .settings-toggle-track::after {
+  transform: translateX(20px);
+}
+
+.settings-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--rollo-border-subtle);
+  background: none;
+  color: var(--rollo-text);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.settings-link-row:last-child {
+  border-bottom: none;
+}
+
+.settings-link-row:active {
+  background: var(--rollo-surface-pressed);
+}
+
+.settings-link-row .chev {
+  color: var(--rollo-muted);
+  font-size: 18px;
+}
+
+.settings-version {
+  text-align: center;
+  font-size: 12px;
+  color: var(--rollo-muted);
+  padding: 8px 0 4px;
+}
+
+#settings-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-ui-inset) + 16px);
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--rollo-popover-bg);
+  border: 1px solid var(--rollo-border);
+  color: var(--rollo-text);
+  font-size: 13px;
+  box-shadow: 0 8px 24px var(--rollo-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+#settings-toast.visible {
+  opacity: 1;
+}

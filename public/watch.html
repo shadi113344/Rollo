@@ -17,7 +17,8 @@
   <link rel="stylesheet" href="/bottom-nav.css">
   <link rel="stylesheet" href="/network-speed.css">
   <link rel="stylesheet" href="/anchored-tag-palette.css">
-  <link rel="stylesheet" href="/unlock-flow.css">
+  <link rel="stylesheet" href="/profile-extras.css">
+  <link rel="stylesheet" href="/theme.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -409,10 +410,29 @@
       bottom: calc(var(--bottom-ui-inset) + 56px);
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: 12px;
       pointer-events: auto;
       z-index: 12;
       transition: opacity 0.35s ease;
+    }
+
+    .controls .btn {
+      flex-shrink: 0;
+    }
+
+    .controls .feed-control-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+    }
+
+    .controls .feed-control-btn svg {
+      width: 20px;
+      height: 20px;
+      display: block;
     }
 
     .controls.hidden { opacity: 0; pointer-events: none; }
@@ -895,6 +915,8 @@
   <script src="/unlock-flow.js"></script>
   <script src="/bottom-nav.js"></script>
   <script src="/anchored-tag-palette.js"></script>
+  <script src="/theme.js"></script>
+  <script src="/feed-extras.js"></script>
   <script>
     const feed = document.getElementById("feed");
     const loading = document.getElementById("loading");
@@ -1054,6 +1076,7 @@
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
       updateNavLinks();
+      feedExtrasApi?.updateLockBadge?.();
       loading.style.display = "block";
       loading.textContent = "Loading videos…";
       await init();
@@ -1641,9 +1664,18 @@
     });
 
     function unloadDistantCards(center) {
-      const maxDistance = 2;
+      const keepRadius = 2;
+      const hideRadius = 4;
       cards.forEach((card, i) => {
-        if (Math.abs(i - center) <= maxDistance) return;
+        const dist = Math.abs(i - center);
+        if (dist <= keepRadius) {
+          card.el.style.contentVisibility = "visible";
+          card.el.removeAttribute("aria-hidden");
+        } else if (dist > hideRadius) {
+          card.el.style.contentVisibility = "hidden";
+          card.el.setAttribute("aria-hidden", "true");
+        }
+        if (dist <= keepRadius) return;
         const media = card.video;
         if (!media?.src) return;
         if (!card.isImage) {
@@ -1670,10 +1702,12 @@
       }
     }
 
+    let feedExtrasApi = null;
+
     function preloadNearby(index) {
-      for (let i = index - 2; i <= index + 2; i++) {
+      for (let i = index - 3; i <= index + 3; i++) {
         if (i < 0 || i >= cards.length) continue;
-        ensureCardSrc(cards[i], i === index ? "auto" : "metadata");
+        ensureCardSrc(cards[i], i === index || i === index + 1 ? "auto" : i <= index + 2 ? "metadata" : "none");
       }
       if (!isFeedScrolling) unloadDistantCards(index);
     }
@@ -1852,11 +1886,34 @@
       setMuteBtnIcon(muteBtn);
       if (isImage) muteBtn.hidden = true;
 
+      const controlButtons = [aspectBtn, favBtn, tagBtn, muteBtn];
+      if (!isImage && document.pictureInPictureEnabled) {
+        const pipBtn = document.createElement("button");
+        pipBtn.type = "button";
+        pipBtn.className = "btn pip-btn";
+        pipBtn.title = "Picture in picture";
+        pipBtn.setAttribute("aria-label", "Picture in picture");
+        pipBtn.innerHTML = `<span class="feed-control-btn" aria-hidden="true">${RolloIcons.pip(20)}</span>`;
+        pipBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            if (document.pictureInPictureElement) {
+              await document.exitPictureInPicture();
+            } else if (media.requestPictureInPicture) {
+              await media.requestPictureInPicture();
+            }
+          } catch {
+            Toast.show("PiP not available");
+          }
+        });
+        controlButtons.unshift(pipBtn);
+      }
+
       const mediaSlot = document.createElement("div");
       mediaSlot.className = "media-slot";
       mediaSlot.appendChild(media);
 
-      controls.append(aspectBtn, favBtn, tagBtn, muteBtn);
+      controls.append(...controlButtons);
       el.append(mediaSlot, leftOverlay, rightOverlay, leftHint, rightHint, hint, progress, overlay, controls);
       feed.appendChild(el);
 
@@ -1883,6 +1940,9 @@
       });
 
       attachMediaGestures(card);
+
+      feedExtrasApi?.addCaption?.(el, video);
+      feedExtrasApi?.bindDoubleTapLike?.(el, video, () => toggleFavorite(card));
 
       if (!isImage) {
         media.addEventListener("timeupdate", () => {
@@ -2107,6 +2167,33 @@
     });
 
     async function init() {
+      RolloTheme.init();
+      if (!feedExtrasApi) {
+        feedExtrasApi = RolloFeedExtras.init({
+          getActiveGroup: () => VideoGroups.getActive(),
+          isGroupLocked: (id) => {
+            const g = allGroups.find((x) => x.id === id);
+            return !!(g?.locked && !VideoGroups.hasUnlockToken(id));
+          },
+          goProfile: () => {
+            const qs = VideoGroups.query();
+            location.href = qs ? `/?${qs}` : "/";
+          },
+          showToast: (msg) => Toast.show(msg),
+          ensureCardSrc: (i, preload) => {
+            if (cards[i]) ensureCardSrc(cards[i], preload);
+          },
+          onSaveCaption: async (video, displayName) => {
+            await saveMetadata(video.name, { displayName });
+            video.displayName = displayName;
+            const title = cards.find((c) => c.videoData?.name === video.name)?.overlay?.querySelector(".title");
+            if (title) title.textContent = displayName;
+          },
+        });
+      } else {
+        feedExtrasApi.updateLockBadge?.();
+      }
+
       RolloNetSpeed.mount({ variant: "feed" });
       syncLayoutMetrics();
       updateNavLinks();

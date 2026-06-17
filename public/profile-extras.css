@@ -1,0 +1,111 @@
+.video-item { position: relative; }
+
+#bulk-select-btn.active { background: rgba(100,180,255,0.2); border-color: rgba(100,180,255,0.5); color: #aad4ff; }
+
+body.bulk-select-mode .video-item.selectable { cursor: pointer; }
+body.bulk-select-mode .video-item .thumb-link { pointer-events: none; }
+
+.video-item .bulk-select-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: rgba(0,0,0,0.45);
+  color: transparent;
+  cursor: pointer;
+}
+
+.video-item.selected .bulk-select-check {
+  background: #4f8cff;
+  border-color: #fff;
+  color: #fff;
+}
+
+.video-item.selected .bulk-select-check::after { content: "✓"; font-size: 14px; }
+
+#bulk-action-bar {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--bottom-ui-inset, 0px) + 72px);
+  z-index: 40;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #333;
+  background: rgba(18,18,18,0.96);
+  backdrop-filter: blur(12px);
+}
+
+#bulk-action-bar[hidden] { display: none !important; }
+
+#app-scroll.drag-over main,
+#grid.drag-over {
+  outline: 2px dashed rgba(100,180,255,0.55);
+  outline-offset: -4px;
+}
+
+.filter-btn.collection-active {
+  border-color: rgba(100,180,255,0.55);
+  background: rgba(100,180,255,0.12);
+}
+
+.grid-virtual-spacer { width: 100%; grid-column: 1 / -1; }
+
+.feed-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  opacity: 0.85;
+}
+
+.feed-caption {
+  position: absolute;
+  left: 12px;
+  right: 68px;
+  bottom: calc(var(--bottom-ui-inset, 0px) + 88px);
+  z-index: 3;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  max-height: 3.2em;
+  overflow: hidden;
+}
+
+.feed-caption[contenteditable="true"] {
+  outline: none;
+  border: 1px solid transparent;
+}
+
+.feed-caption[contenteditable="true"]:focus {
+  border-color: rgba(126, 200, 255, 0.65);
+  max-height: none;
+  overflow: auto;
+}
+
+.connect-onboard {
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(100,180,255,0.35);
+  background: rgba(100,180,255,0.08);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.download-queue-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #8a8a8a;
+}

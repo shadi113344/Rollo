@@ -34,10 +34,38 @@ const {
 } = require("./lib/groups");
 const { createDownloader } = require("./lib/downloader");
 const { scanAllSyncHints, isLibraryDeletable } = require("./lib/sync-hints");
+const { mergeAllConflicts } = require("./lib/conflict-merge");
+const { resolveVideoSecret, assertProductionSecret } = require("./lib/video-secret");
+const { createBasicAuthMiddleware } = require("./lib/basic-auth");
 const { createThumbService, thumbPath } = require("./lib/thumbs");
+
+resolveVideoSecret(dataDir);
+try {
+  assertProductionSecret(dataDir);
+} catch (err) {
+  console.error(`[Rollo] ${err.message}`);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3847;
+
+const statusHits = new Map();
+function rateLimitStatus(ip) {
+  const now = Date.now();
+  const bucket = statusHits.get(ip) || [];
+  const recent = bucket.filter((t) => now - t < 60000);
+  recent.push(now);
+  statusHits.set(ip, recent);
+  return recent.length <= 120;
+}
+
+const basicAuth = createBasicAuthMiddleware();
+
+app.use((req, res, next) => {
+  if (req.path === "/api/status") return next();
+  return basicAuth(req, res, next);
+});
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", etag: true }));
@@ -285,7 +313,11 @@ function buildVideo(groupId, filename) {
   };
 }
 
-app.get("/api/status", (_req, res) => {
+app.get("/api/status", (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  if (!rateLimitStatus(ip)) {
+    return res.status(429).json({ error: "Too many requests" });
+  }
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   let ids = [];
@@ -442,6 +474,31 @@ app.post("/api/groups/:groupId/unlock", (req, res) => {
     return res.status(401).json({ error: "Wrong password" });
   }
   res.json({ ok: true, token: makeUnlockToken(groupId) });
+});
+
+app.post("/api/groups/:groupId/revoke-sessions", (req, res) => {
+  const groupId = decodeURIComponent(req.params.groupId);
+  if (!listGroupIds().includes(groupId)) {
+    return res.status(404).json({ error: "Group not found" });
+  }
+  if (!isGroupUnlockedForRequest(groupId, req)) {
+    return res.status(403).json({ error: "Group is locked", locked: true });
+  }
+  const raw = groupsStore.getGroupConfig(groupId);
+  groupsStore.revokeAllUnlocks(groupId);
+  res.json({ ok: true, passwordVersion: (raw.passwordVersion || 0) + 1 });
+});
+
+app.post("/api/sync/merge-conflicts", (req, res) => {
+  try {
+    const ids = listGroupIds();
+    metadataStore.invalidateCache();
+    const result = mergeAllConflicts(videosDir, ids);
+    ids.forEach((id) => metadataStore.invalidateCache(id));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Could not merge conflicts" });
+  }
 });
 
 app.put("/api/groups/:groupId", (req, res) => {
@@ -700,7 +757,8 @@ app.post("/api/download", async (req, res) => {
   try {
     const outputDir = path.join(videosDir, groupId);
     const quality = req.body?.quality;
-    const job = await downloader.startDownload({ url, groupId, outputDir, quality });
+    const playlist = !!req.body?.playlist;
+    const job = await downloader.startDownload({ url, groupId, outputDir, quality, playlist });
     res.status(202).json(job);
   } catch (err) {
     if (err.code === "X_SIGN_IN_REQUIRED") {
@@ -716,6 +774,32 @@ app.get("/api/download/:jobId", (req, res) => {
   res.json(job);
 });
 
+app.get("/api/download/:jobId/stream", (req, res) => {
+  const jobId = req.params.jobId;
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const send = () => {
+    const job = downloader.getJob(jobId);
+    if (!job) {
+      res.write(`event: error\ndata: ${JSON.stringify({ error: "not found" })}\n\n`);
+      clearInterval(timer);
+      return res.end();
+    }
+    res.write(`data: ${JSON.stringify(job)}\n\n`);
+    if (["completed", "failed", "cancelled"].includes(job.status)) {
+      clearInterval(timer);
+      res.end();
+    }
+  };
+
+  send();
+  const timer = setInterval(send, 500);
+  req.on("close", () => clearInterval(timer));
+});
+
 app.get("/api/downloads", (req, res) => {
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
   const jobs = downloader.listJobs(limit).map((job) => {
@@ -726,6 +810,23 @@ app.get("/api/downloads", (req, res) => {
     return job;
   });
   res.json(jobs);
+});
+
+app.post("/api/thumbs/warmup", async (req, res) => {
+  const groupId = req.query.group;
+  if (!requireGroup(groupId, req, res)) return;
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const files = listVideoFilesCached(groupId).slice(0, limit);
+  let warmed = 0;
+  try {
+    await downloader.checkAvailability();
+    for (const file of files) {
+      if (await thumbService.ensureThumb(groupId, file)) warmed++;
+    }
+    res.json({ warmed, total: files.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Warmup failed" });
+  }
 });
 
 app.get("/api/downloader/queue", (_req, res) => {
@@ -987,7 +1088,12 @@ if (migratedGroups.migrated > 0) {
 
 app.listen(PORT, "0.0.0.0", async () => {
   if (!process.env.VIDEO_SECRET) {
-    console.warn("[Rollo] VIDEO_SECRET is not set — unlock tokens use a local default.");
+    console.log("[Rollo] VIDEO_SECRET auto-generated and saved to data folder.");
+  } else {
+    console.log("[Rollo] VIDEO_SECRET loaded from environment.");
+  }
+  if (process.env.ROLLO_BASIC_USER) {
+    console.log("[Rollo] HTTP basic auth enabled for non-status routes.");
   }
   const ytdlpOk = await downloader.checkAvailability();
   const ytdlpInfo = downloader.getInfo();

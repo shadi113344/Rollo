@@ -18,7 +18,18 @@ window.RolloNetSpeed = (function () {
   const xhrLastLoaded = new WeakMap();
   const xhrLastUpload = new WeakMap();
 
+  let enabled = true;
+
+  function setEnabled(on) {
+    enabled = !!on;
+    badges.forEach((b) => {
+      if (b.widgetEl) b.widgetEl.hidden = !enabled;
+      if (b.el) b.el.hidden = !enabled;
+    });
+  }
+
   function recordBytes(n) {
+    if (!enabled) return;
     if (!n || n <= 0 || !Number.isFinite(n)) return;
     if (!windowStart) windowStart = performance.now();
     bytesWindow += n;
@@ -245,5 +256,5 @@ window.RolloNetSpeed = (function () {
     return el;
   }
 
-  return { mount, recordBytes, start };
+  return { mount, recordBytes, start, setEnabled };
 })();

@@ -1,5 +1,5 @@
 /* Rollo PWA — cache app shell only; never cache media or API responses */
-const CACHE = "rollo-shell-v15";
+const CACHE = "rollo-shell-v20";
 
 const PRECACHE = [
   "/",
@@ -12,9 +12,11 @@ const PRECACHE = [
   "/connect.css",
   "/connect.html",
   "/download.html",
+  "/feed-extras.js",
   "/groups.js",
   "/heart.css",
   "/hearts.js",
+  "/i18n.js",
   "/icon-192.png",
   "/icon-512-maskable.png",
   "/icon-512.png",
@@ -29,9 +31,16 @@ const PRECACHE = [
   "/network-speed.js",
   "/press-radial-menu.css",
   "/press-radial-menu.js",
+  "/profile-extras.css",
+  "/profile-extras.js",
   "/pwa.js",
   "/servers.js",
+  "/settings.css",
+  "/settings.html",
+  "/settings.js",
   "/tag-colors.js",
+  "/theme.css",
+  "/theme.js",
   "/toast.js",
   "/unlock-flow.css",
   "/unlock-flow.js",
