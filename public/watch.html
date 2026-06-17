@@ -1186,6 +1186,38 @@
       return list;
     }
 
+    function feedDisplayName(video) {
+      return video.displayName || stripExt(video.name);
+    }
+
+    function applyProfileSort(list) {
+      const mode = localStorage.getItem("sortMode") || "date-desc";
+      const sorted = [...list];
+      switch (mode) {
+        case "date-asc":
+          return sorted.sort((a, b) => (a.mtime || 0) - (b.mtime || 0));
+        case "name":
+          return sorted.sort((a, b) =>
+            feedDisplayName(a).localeCompare(feedDisplayName(b), undefined, { sensitivity: "base" })
+          );
+        case "tags":
+          return sorted.sort((a, b) => {
+            const ta = a.tags[0] || "\uffff";
+            const tb = b.tags[0] || "\uffff";
+            if (ta !== tb) return ta.localeCompare(tb, undefined, { sensitivity: "base" });
+            return feedDisplayName(a).localeCompare(feedDisplayName(b), undefined, { sensitivity: "base" });
+          });
+        case "favorites":
+          return sorted.sort((a, b) => {
+            if (a.favorite !== b.favorite) return (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
+            return feedDisplayName(a).localeCompare(feedDisplayName(b), undefined, { sensitivity: "base" });
+          });
+        case "date-desc":
+        default:
+          return sorted.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+      }
+    }
+
     function getDisplayVideos() {
       let list = [...allVideos];
       if (viewMode === "favorites") {
@@ -1202,6 +1234,8 @@
         }
         const rank = new Map(shuffleOrder.map((name, i) => [name, i]));
         list.sort((a, b) => (rank.get(a.name) ?? 0) - (rank.get(b.name) ?? 0));
+      } else if (viewMode === "order") {
+        list = applyProfileSort(list);
       }
       return list;
     }
@@ -1637,6 +1671,53 @@
       return 0;
     }
 
+    function consumeFeedStartVideo() {
+      try {
+        const key = `rolloFeedStartVideo:${VideoGroups.getActive() || ""}`;
+        const saved = sessionStorage.getItem(key);
+        sessionStorage.removeItem(key);
+        return saved;
+      } catch {
+        return null;
+      }
+    }
+
+    function resolveFeedStartIndex(videos) {
+      const fromUrl = startVideo;
+      const fromSession = consumeFeedStartVideo();
+      for (const name of [fromUrl, fromSession]) {
+        if (!name) continue;
+        const idx = videos.findIndex((v) => v.name === name);
+        if (idx >= 0) return idx;
+      }
+      if (fromUrl || fromSession) return 0;
+      return readFeedResume(videos);
+    }
+
+    function launchFeedAtIndex(startIndex) {
+      activeIndex = startIndex;
+      clearTimeout(playCardTimer);
+      ignoreObserver = true;
+      isFeedScrolling = true;
+
+      const settleMs = isAndroid ? 450 : 250;
+      requestAnimationFrame(() => {
+        feed.classList.add("no-snap");
+        const h = feed.clientHeight || window.innerHeight;
+        feed.scrollTop = startIndex * h;
+        requestAnimationFrame(() => {
+          feed.scrollTop = startIndex * h;
+          playCard(startIndex);
+          feed.classList.remove("no-snap");
+          feed.scrollTop = startIndex * h;
+          setTimeout(() => {
+            isFeedScrolling = false;
+            ignoreObserver = false;
+          }, settleMs);
+        });
+      });
+    }
+
     function restoreScrollPosition() {
       if (!cards.length) return;
       ignoreObserver = true;
@@ -2010,21 +2091,13 @@
         { root: feed, threshold: [0.82] }
       );
 
+      const startIndex = resolveFeedStartIndex(videos);
+      ignoreObserver = true;
+      isFeedScrolling = true;
+      clearTimeout(playCardTimer);
+
       cards.forEach((card) => observer.observe(card.el));
-
-      let startIndex = 0;
-      if (startVideo) {
-        const idx = videos.findIndex((v) => v.name === startVideo);
-        if (idx >= 0) startIndex = idx;
-      } else {
-        startIndex = readFeedResume(videos);
-      }
-
-      activeIndex = startIndex;
-      requestAnimationFrame(() => {
-        cards[startIndex].el.scrollIntoView();
-        playCard(startIndex);
-      });
+      launchFeedAtIndex(startIndex);
     }
 
     function openTagSheet(video) {

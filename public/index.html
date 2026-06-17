@@ -2469,8 +2469,18 @@
         params.set("tag", collectionTag);
       } else if (collectionTag === "Untagged") {
         params.set("mode", "untagged");
+      } else if (primaryFilter === "favorites") {
+        params.set("mode", "favorites");
+      } else if (selectedTags.size === 1) {
+        params.set("mode", "tag");
+        params.set("tag", [...selectedTags][0]);
       }
       params.set("video", video.name);
+      try {
+        sessionStorage.setItem(`rolloFeedStartVideo:${active || ""}`, video.name);
+      } catch {
+        /* ignore */
+      }
       return `/watch.html?${params}`;
     }
 
@@ -3876,19 +3886,7 @@
           updateToolbarBtns();
           closeMenus();
         },
-        buildWatchUrl: (video) => {
-          const params = new URLSearchParams();
-          const active = VideoGroups.getActive();
-          if (active) params.set("group", active);
-          if (collectionTag && collectionTag !== "Untagged") {
-            params.set("mode", "tag");
-            params.set("tag", collectionTag);
-          } else if (collectionTag === "Untagged") {
-            params.set("mode", "untagged");
-          }
-          params.set("video", video.name);
-          return `/watch.html?${params}`;
-        },
+        buildWatchUrl: (video) => watchUrl(video),
       });
 
       document.getElementById("sync-merge-btn")?.addEventListener("click", async () => {
