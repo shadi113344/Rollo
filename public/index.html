@@ -1466,6 +1466,7 @@
   <script src="/network-speed.js"></script>
   <script src="/layout-metrics.js"></script>
   <script src="/media-helpers.js"></script>
+  <script src="/media-helpers-fallback.js"></script>
   <script src="/tag-colors.js"></script>
   <script src="/hearts.js"></script>
   <script src="/icons.js"></script>
@@ -1611,7 +1612,8 @@
     let groupDrag = null;
 
     const GROUP_DRAG_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>`;
-    let activeFilter = "all";
+    let primaryFilter = "all";
+    let selectedTags = loadSelectedTags();
     let searchQuery = "";
     let profileView = localStorage.getItem("profileView") || "grid";
     let collectionTag = null;
@@ -1626,7 +1628,29 @@
     let thumbLoads = 0;
     const thumbWaitQueue = [];
     let thumbObserver = null;
-    const LONG_PRESS_MS = 500;
+    function selectedTagsStorageKey() {
+      const id = VideoGroups.getActive();
+      return id ? `profileSelectedTags:${id}` : "profileSelectedTags";
+    }
+
+    function loadSelectedTags() {
+      try {
+        const raw = localStorage.getItem(selectedTagsStorageKey());
+        const list = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(list) ? list.filter((t) => typeof t === "string" && t) : []);
+      } catch {
+        return new Set();
+      }
+    }
+
+    function saveSelectedTags() {
+      localStorage.setItem(selectedTagsStorageKey(), JSON.stringify([...selectedTags]));
+    }
+
+    function clearSelectedTags() {
+      selectedTags.clear();
+      saveSelectedTags();
+    }
 
     const SORT_LABELS = {
       "date-desc": "Newest",
@@ -1698,7 +1722,13 @@
       tagFiltersEl.hidden = !tagsExpanded;
       tagsToggle?.classList.toggle("expanded", tagsExpanded);
       tagsToggle?.setAttribute("aria-expanded", String(tagsExpanded));
-      if (tagsCount) tagsCount.textContent = `(${allTags.length})`;
+      if (tagsCount) {
+        if (selectedTags.size > 0) {
+          tagsCount.textContent = `(${selectedTags.size} selected)`;
+        } else {
+          tagsCount.textContent = `(${allTags.length})`;
+        }
+      }
     }
 
     function parseJsonText(text) {
@@ -2157,7 +2187,8 @@
         VideoGroups.setActive(data.id);
         closeGroupSheet();
         await loadGroups();
-        activeFilter = "all";
+        clearSelectedTags();
+        primaryFilter = "all";
         await loadVideosData();
         showToast(`Created “${data.displayName || data.id}”.`);
       } catch (err) {
@@ -2191,6 +2222,9 @@
       VideoGroups.setActive(groupId);
       VideoGroups.syncUrlGroup(groupId);
       profileExtrasApi?.resetScroll?.();
+      selectedTags = loadSelectedTags();
+      primaryFilter = "all";
+      collectionTag = null;
       updateFeedLink();
       renderGroups();
       await loadVideosData();
@@ -2312,9 +2346,15 @@
 
     function getFilteredVideos() {
       let list = [...allVideos];
-      if (activeFilter === "favorites") list = list.filter((v) => v.favorite);
-      else if (activeFilter === "untagged") list = list.filter((v) => !v.tags.length);
-      else if (activeFilter.startsWith("tag:")) list = list.filter((v) => v.tags.includes(activeFilter.slice(4)));
+      if (collectionTag) {
+        if (collectionTag === "Untagged") list = list.filter((v) => !v.tags.length);
+        else list = list.filter((v) => v.tags.includes(collectionTag));
+      } else {
+        if (primaryFilter === "favorites") list = list.filter((v) => v.favorite);
+        if (selectedTags.size > 0) {
+          list = list.filter((v) => [...selectedTags].some((t) => v.tags.includes(t)));
+        }
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         list = list.filter((v) =>
@@ -2375,7 +2415,8 @@
       profileView = view;
       localStorage.setItem("profileView", view);
       collectionTag = null;
-      activeFilter = "all";
+      primaryFilter = "all";
+      clearSelectedTags();
       updateProfileChrome();
       renderFilters();
       renderGrid();
@@ -2398,7 +2439,6 @@
 
     function openCollection(tag) {
       collectionTag = tag;
-      activeFilter = tag === "Untagged" ? "untagged" : `tag:${tag}`;
       collectionTitle.textContent = tag;
       updateProfileChrome();
       renderFilters();
@@ -2407,7 +2447,8 @@
 
     function closeCollection() {
       collectionTag = null;
-      activeFilter = "all";
+      primaryFilter = "all";
+      clearSelectedTags();
       updateProfileChrome();
       renderFilters();
       renderGrid();
@@ -2517,30 +2558,55 @@
         btn.dataset.filter = `tag:${tag}`;
         btn.dataset.tag = "1";
         btn.textContent = tag;
+        btn.setAttribute("aria-pressed", "false");
         tagFiltersEl.appendChild(btn);
       });
 
       primaryFiltersEl.querySelectorAll(".filter-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.filter === activeFilter);
+        const f = btn.dataset.filter;
+        const active = f === "favorites"
+          ? primaryFilter === "favorites"
+          : primaryFilter !== "favorites";
+        btn.classList.toggle("active", active);
       });
 
       if (favFilterHeart) {
-        HeartIcon.update(favFilterHeart, activeFilter === "favorites");
+        HeartIcon.update(favFilterHeart, primaryFilter === "favorites");
       }
 
       tagFiltersEl.querySelectorAll(".filter-btn").forEach((btn) => {
-        const isActive = btn.dataset.filter === activeFilter;
-        btn.classList.toggle("active", isActive);
         const tagName = btn.dataset.filter.slice(4);
+        const isActive = selectedTags.has(tagName);
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-pressed", String(isActive));
         TagColors.styleTagEl(btn, tagName, { active: isActive, muted: true });
       });
       applyTagsExpanded();
     }
 
-    function onFilterClick(e) {
+    function onPrimaryFilterClick(e) {
       const btn = e.target.closest(".filter-btn");
       if (!btn) return;
-      activeFilter = btn.dataset.filter;
+      const filter = btn.dataset.filter;
+      if (filter === "favorites") primaryFilter = "favorites";
+      else {
+        primaryFilter = "all";
+        clearSelectedTags();
+      }
+      renderFilters();
+      renderGrid();
+    }
+
+    function onTagFilterClick(e) {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn || collectionTag) return;
+      const tagName = btn.dataset.filter?.slice(4);
+      if (!tagName) return;
+      if (selectedTags.has(tagName)) selectedTags.delete(tagName);
+      else selectedTags.add(tagName);
+      saveSelectedTags();
+      if (selectedTags.size > 0) tagsExpanded = true;
+      localStorage.setItem("tagsExpanded", tagsExpanded ? "1" : "0");
       renderFilters();
       renderGrid();
     }
@@ -3673,8 +3739,8 @@
     groupSettingsCancel.addEventListener("click", () => closeSheet(groupSettingsBackdrop, groupSettingsSheet));
     groupSettingsBackdrop.addEventListener("click", () => closeSheet(groupSettingsBackdrop, groupSettingsSheet));
 
-    primaryFiltersEl.addEventListener("click", onFilterClick);
-    tagFiltersEl.addEventListener("click", onFilterClick);
+    primaryFiltersEl.addEventListener("click", onPrimaryFilterClick);
+    tagFiltersEl.addEventListener("click", onTagFilterClick);
 
     let searchReloadTimer = null;
     searchInput.addEventListener("input", () => {
@@ -3889,8 +3955,12 @@
         setGridSize(gridSize);
         updateSortMenuBtn();
         updateGridSizeSlider();
+        if (selectedTags.size > 0) {
+          tagsExpanded = true;
+          localStorage.setItem("tagsExpanded", "1");
+        }
         updateProfileChrome();
-        HeartIcon.mount(favFilterHeart, activeFilter === "favorites", { size: "sm" });
+        HeartIcon.mount(favFilterHeart, primaryFilter === "favorites", { size: "sm" });
         HeartIcon.mount(favSortHeart, true, { size: "sm" });
         await loadVideosData();
         fetch("/api/thumbs/warmup?" + VideoGroups.query(), { method: "POST" }).catch(() => {});

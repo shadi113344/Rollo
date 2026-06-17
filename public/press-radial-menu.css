@@ -40,10 +40,12 @@ body.menu-active #app-scroll {
 
 .radial-menu-trigger--open {
   pointer-events: auto;
-  visibility: visible;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .radial-menu-trigger::before {
+  content: none;
   display: none;
 }
 

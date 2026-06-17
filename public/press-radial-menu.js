@@ -844,8 +844,12 @@ window.PressRadialMenu = (function () {
   }
 
   function setHighlight(id) {
-    if (tagPaletteActive && id && id !== tagPaletteOptionId) {
-      closePairedPalette(false);
+    if (tagPaletteActive) {
+      if (id && id !== tagPaletteOptionId) {
+        closePairedPalette(false);
+      } else {
+        return;
+      }
     }
     if (id !== highlightId) clearTagPaletteTimer();
     if (id === highlightId) return;
@@ -914,7 +918,6 @@ window.PressRadialMenu = (function () {
     subOptions = [];
     triggerEl.classList.remove("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "false");
-    triggerEl.style.visibility = "hidden";
     triggerEl.style.pointerEvents = "none";
     setBodyLock(false);
     renderFan(false);
@@ -937,7 +940,6 @@ window.PressRadialMenu = (function () {
     open = true;
     highlightId = null;
     positionUi();
-    triggerEl.style.visibility = "visible";
     triggerEl.style.pointerEvents = "auto";
     triggerEl.classList.add("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "true");
@@ -953,21 +955,16 @@ window.PressRadialMenu = (function () {
     selectionHandled = true;
     clearTagPaletteTimer();
 
-    const tagOpt = options.find((o) => o.id === highlightId && o.tagPalette);
-
-    if (tagOpt) {
-      const cfg = resolveTagPalette(tagOpt);
-      if (tagPaletteActive) {
-        const picked = window.AnchoredTagPalette?.finishPairedPointer?.(
-          lastPointer.x,
-          lastPointer.y
-        );
-        tagPaletteActive = false;
-        tagPaletteOptionId = null;
-        if (!picked) cfg?.onTap?.();
-      } else {
-        cfg?.onTap?.();
-      }
+    if (tagPaletteActive) {
+      const tagOpt = options.find((o) => o.id === tagPaletteOptionId && o.tagPalette);
+      const cfg = tagOpt ? resolveTagPalette(tagOpt) : null;
+      const picked = window.AnchoredTagPalette?.finishPairedPointer?.(
+        lastPointer.x,
+        lastPointer.y
+      );
+      tagPaletteActive = false;
+      tagPaletteOptionId = null;
+      if (!picked) cfg?.onTap?.();
       try {
         triggerEl.releasePointerCapture(activeId);
       } catch {
@@ -978,8 +975,18 @@ window.PressRadialMenu = (function () {
       return;
     }
 
-    if (tagPaletteActive) {
-      closePairedPalette(false);
+    const tagOpt = options.find((o) => o.id === highlightId && o.tagPalette);
+
+    if (tagOpt) {
+      resolveTagPalette(tagOpt)?.onTap?.();
+      try {
+        triggerEl.releasePointerCapture(activeId);
+      } catch {
+        /* ignore */
+      }
+      activePointerId = null;
+      closeMenu();
+      return;
     }
 
     runHighlighted();
@@ -1064,7 +1071,6 @@ window.PressRadialMenu = (function () {
     open = true;
     highlightId = null;
     positionUi();
-    triggerEl.style.visibility = "visible";
     triggerEl.style.pointerEvents = "auto";
     triggerEl.classList.add("radial-menu-trigger--open");
     triggerEl.setAttribute("aria-expanded", "true");

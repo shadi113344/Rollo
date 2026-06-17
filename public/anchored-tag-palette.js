@@ -509,9 +509,9 @@ window.AnchoredTagPalette = (function () {
     });
   }
 
-  function setPreview(id) {
+  function setPreview(id, allowWhileOpening = false) {
     if (id === previewId) return;
-    if (root?.classList.contains("tag-flyout-root--opening")) return;
+    if (!allowWhileOpening && root?.classList.contains("tag-flyout-root--opening")) return;
     previewId = id;
     if (previewRaf) cancelAnimationFrame(previewRaf);
     previewRaf = requestAnimationFrame(() => {
@@ -803,8 +803,7 @@ window.AnchoredTagPalette = (function () {
 
   function handlePairedPointer(clientX, clientY) {
     if (!open || !activeOpts?.paired) return;
-    if (root?.classList.contains("tag-flyout-root--opening")) return;
-    setPreview(hitTestChip(clientX, clientY));
+    setPreview(hitTestChip(clientX, clientY), true);
   }
 
   function finishPairedPointer(clientX, clientY) {
