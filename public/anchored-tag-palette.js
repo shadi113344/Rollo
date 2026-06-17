@@ -409,7 +409,17 @@ window.AnchoredTagPalette = (function () {
     if (window.TagColors?.styleTagEl) {
       TagColors.styleTagEl(chip, tag.label, { active: !!tag.active });
     }
-    if (tag.accent) chip.style.setProperty("--tag-accent", tag.accent);
+    const colors = window.TagColors?.getTagColors?.(tag.label);
+    if (colors) {
+      chip.style.setProperty("--tag-accent", colors.solid);
+      if (!tag.active) {
+        chip.style.background = `color-mix(in srgb, ${colors.solid} 32%, rgba(16, 16, 16, 0.78))`;
+        chip.style.borderColor = colors.border;
+        chip.style.color = colors.color;
+      }
+    } else if (tag.accent) {
+      chip.style.setProperty("--tag-accent", tag.accent);
+    }
   }
 
   function applyChipPosition(chip, pos, i) {

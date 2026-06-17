@@ -4,6 +4,7 @@
 window.RolloNetSpeed = (function () {
   const WINDOW_MS = 1000;
   const IDLE_MS = 2500;
+  const STALL_MS = 900;
   const MAX_SEEN = 4000;
 
   let bytesWindow = 0;
@@ -39,15 +40,28 @@ window.RolloNetSpeed = (function () {
     return `${Math.round(bps / 1024)} KB/s`;
   }
 
+  function resolveState(now, displayBps) {
+    const sinceActivity = now - lastActivity;
+    if (sinceActivity > IDLE_MS || !lastActivity) return "idle";
+    if (displayBps >= 1024) return "active";
+    if (sinceActivity > STALL_MS) return "stalled";
+    return "loading";
+  }
+
   function updateBadges() {
     const now = performance.now();
     if (windowStart && now - windowStart >= WINDOW_MS) flushWindow();
     const idle = now - lastActivity > IDLE_MS;
     const display = idle ? 0 : smoothedBps;
     const text = formatSpeed(display);
-    badges.forEach((el) => {
-      el.textContent = text;
+    const state = resolveState(now, display);
+
+    badges.forEach((entry) => {
+      const { el, labelEl, widgetEl } = entry;
+      if (labelEl) labelEl.textContent = text;
+      else el.textContent = text;
       el.dataset.active = display >= 1024 ? "1" : "0";
+      if (widgetEl) widgetEl.dataset.state = state;
     });
   }
 
@@ -146,6 +160,36 @@ window.RolloNetSpeed = (function () {
     }
   }
 
+  function hookVideoProgress() {
+    if (window.__rolloNetSpeedVideo) return;
+    window.__rolloNetSpeedVideo = true;
+    document.addEventListener(
+      "progress",
+      (e) => {
+        const v = e.target;
+        if (!(v instanceof HTMLVideoElement)) return;
+        if (!v.buffered.length) return;
+        const end = v.buffered.end(v.buffered.length - 1);
+        const prev = v.__rolloNetBuf || 0;
+        const delta = end - prev;
+        v.__rolloNetBuf = end;
+        if (delta <= 0 || !v.duration || !Number.isFinite(v.duration)) return;
+        const estBytes = v.__rolloNetSize || v.duration * 250000;
+        recordBytes(delta * (estBytes / v.duration));
+      },
+      true
+    );
+    document.addEventListener(
+      "loadedmetadata",
+      (e) => {
+        const v = e.target;
+        if (!(v instanceof HTMLVideoElement)) return;
+        v.__rolloNetBuf = 0;
+      },
+      true
+    );
+  }
+
   function tick() {
     updateBadges();
     tickId = requestAnimationFrame(tick);
@@ -158,20 +202,45 @@ window.RolloNetSpeed = (function () {
     hookFetch();
     hookXhr();
     hookPerformanceObserver();
+    hookVideoProgress();
     scanPerformanceEntries();
     setInterval(scanPerformanceEntries, 800);
     tickId = requestAnimationFrame(tick);
   }
 
+  function mountFeedWidget() {
+    const widget = document.createElement("div");
+    widget.className = "net-speed-widget net-speed-widget--feed";
+    widget.dataset.state = "idle";
+    widget.setAttribute("aria-hidden", "true");
+
+    const ring = document.createElement("div");
+    ring.className = "net-speed-ring";
+    ring.innerHTML =
+      '<svg class="net-speed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
+
+    const label = document.createElement("span");
+    label.className = "net-speed-label";
+    label.textContent = "—";
+
+    widget.append(ring, label);
+    document.body.appendChild(widget);
+
+    badges.push({ el: label, labelEl: label, widgetEl: widget });
+    start();
+    return widget;
+  }
+
   function mount(options = {}) {
+    if (options.variant === "feed") return mountFeedWidget();
+
     const el = document.createElement("span");
-    el.className = `net-speed net-speed--${options.variant === "feed" ? "feed" : "profile"}`;
+    el.className = "net-speed net-speed--profile";
     el.setAttribute("aria-hidden", "true");
     el.textContent = "—";
-    if (options.variant === "feed") document.body.appendChild(el);
-    else if (options.parent) options.parent.insertBefore(el, options.parent.firstChild);
+    if (options.parent) options.parent.insertBefore(el, options.parent.firstChild);
     else document.body.appendChild(el);
-    badges.push(el);
+    badges.push({ el, labelEl: null, widgetEl: null });
     start();
     return el;
   }

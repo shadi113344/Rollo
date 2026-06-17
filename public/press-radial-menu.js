@@ -22,7 +22,7 @@ window.PressRadialMenu = (function () {
   const SUB_ROW_EXTRA = 16;
   const VERTICAL_SUB_STEP = 34;
   const LONG_PRESS_MS = 420;
-  const TAG_PALETTE_HOLD_MS = 400;
+  const TAG_PALETTE_HOLD_MS = 520;
   const HOLD_LOCK_MS = 80;
   const VIEW_MARGIN = 14;
 
@@ -947,13 +947,21 @@ window.PressRadialMenu = (function () {
     selectionHandled = true;
     clearTagPaletteTimer();
 
-    if (tagPaletteActive) {
-      const selected = window.AnchoredTagPalette?.finishPairedPointer?.(
-        lastPointer.x,
-        lastPointer.y
-      );
-      tagPaletteActive = false;
-      tagPaletteOptionId = null;
+    const tagOpt = options.find((o) => o.id === highlightId && o.tagPalette);
+
+    if (tagOpt) {
+      const cfg = resolveTagPalette(tagOpt);
+      if (tagPaletteActive) {
+        const picked = window.AnchoredTagPalette?.finishPairedPointer?.(
+          lastPointer.x,
+          lastPointer.y
+        );
+        tagPaletteActive = false;
+        tagPaletteOptionId = null;
+        if (!picked) cfg?.onTap?.();
+      } else {
+        cfg?.onTap?.();
+      }
       try {
         triggerEl.releasePointerCapture(activeId);
       } catch {
@@ -961,8 +969,11 @@ window.PressRadialMenu = (function () {
       }
       activePointerId = null;
       closeMenu();
-      if (selected) return;
       return;
+    }
+
+    if (tagPaletteActive) {
+      closePairedPalette(false);
     }
 
     runHighlighted();
