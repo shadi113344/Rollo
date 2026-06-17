@@ -361,6 +361,15 @@
       pointer-events: none;
     }
 
+    .video-card.is-buffering .media-slot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: #000;
+      z-index: 2;
+      pointer-events: none;
+    }
+
     .video-card.is-image .play-hint,
     .video-card.is-image .speed-hint,
     .video-card.is-image .speed-overlay,
@@ -397,10 +406,7 @@
     }
 
     .card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
+      display: none;
     }
 
     .card-tag {
@@ -510,6 +516,12 @@
     }
 
     .play-hint.visible { opacity: 1; }
+
+    body.feed-scrolling .play-hint,
+    .video-card.is-buffering .play-hint {
+      opacity: 0 !important;
+      visibility: hidden;
+    }
 
     .play-hint span {
       width: 64px;
@@ -853,6 +865,7 @@
   <div id="feed"></div>
 
   <div id="seek-bar" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0">
+    <div id="feed-tags" class="feed-tags hidden" aria-hidden="true"></div>
     <div id="feed-caption" class="feed-caption hidden" aria-hidden="true"></div>
     <div id="seek-track">
       <div id="seek-track-bg"></div>
@@ -950,6 +963,7 @@
     const seekTrackFill = document.getElementById("seek-track-fill");
     const seekThumb = document.getElementById("seek-thumb");
     const feedCaptionEl = document.getElementById("feed-caption");
+    const feedTagsEl = document.getElementById("feed-tags");
     const feedInfoBtn = document.getElementById("feed-info-btn");
 
     const profileTab = document.getElementById("profile-tab");
@@ -1205,7 +1219,7 @@
     }
 
     function applyProfileSort(list) {
-      const mode = localStorage.getItem("sortMode") || "date-desc";
+      const mode = localStorage.getItem("sortMode") || "tags";
       const sorted = [...list];
       switch (mode) {
         case "date-asc":
@@ -1585,6 +1599,16 @@
       cards[index].el.scrollIntoView({ behavior: "smooth" });
     }
 
+    function hideAllPlayHints() {
+      cards.forEach((card) => card.hint?.classList.remove("visible"));
+    }
+
+    function setFeedScrolling(on) {
+      isFeedScrolling = on;
+      document.body.classList.toggle("feed-scrolling", on);
+      if (on) hideAllPlayHints();
+    }
+
     function settleFeedScroll() {
       if (!cards.length) return;
       const h = feed.clientHeight || window.innerHeight;
@@ -1615,11 +1639,14 @@
 
     function schedulePlayCard(index, immediate = false) {
       clearTimeout(playCardTimer);
+      if (cards[index] && !cards[index].isImage) {
+        ensureCardSrc(cards[index], "auto");
+      }
       if (immediate) {
         playCard(index);
         return;
       }
-      const delay = isAndroid ? 220 : 90;
+      const delay = isAndroid ? 120 : 90;
       playCardTimer = setTimeout(() => playCard(index), delay);
     }
 
@@ -1635,12 +1662,12 @@
     }, { passive: true });
 
     feed.addEventListener("scroll", () => {
-      isFeedScrolling = true;
+      setFeedScrolling(true);
       ignoreObserver = true;
       clearTimeout(scrollEndTimer);
       if (!isAndroid) {
         scrollEndTimer = setTimeout(() => {
-          isFeedScrolling = false;
+          setFeedScrolling(false);
           ignoreObserver = false;
           settleFeedScroll();
         }, 110);
@@ -1650,7 +1677,7 @@
     if ("onscrollend" in window) {
       feed.addEventListener("scrollend", () => {
         clearTimeout(scrollEndTimer);
-        isFeedScrolling = false;
+        setFeedScrolling(false);
         ignoreObserver = false;
         scrollEndTimer = setTimeout(() => settleFeedScroll(), isAndroid ? 48 : 0);
       }, { passive: true });
@@ -1658,7 +1685,7 @@
       feed.addEventListener("scroll", () => {
         clearTimeout(scrollEndTimer);
         scrollEndTimer = setTimeout(() => {
-          isFeedScrolling = false;
+          setFeedScrolling(false);
           ignoreObserver = false;
           settleFeedScroll();
         }, 280);
@@ -1693,6 +1720,43 @@
       return 0;
     }
 
+    function getPendingStartVideoName() {
+      if (startVideo) return startVideo;
+      try {
+        const key = `rolloFeedStartVideo:${VideoGroups.getActive() || ""}`;
+        return sessionStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+
+    function ensureDeepLinkVideoVisible() {
+      const name = getPendingStartVideoName();
+      if (!name) return;
+      if (!allVideos.some((v) => v.name === name)) return;
+
+      let list = [...allVideos];
+      if (viewMode === "favorites") list = list.filter((v) => v.favorite);
+      else if (viewMode === "tag" && allTags.length && selectedTag) {
+        list = list.filter((v) => v.tags.includes(selectedTag));
+      } else if (viewMode === "untagged") list = list.filter((v) => !v.tags.length);
+      if (list.some((v) => v.name === name)) return;
+
+      viewMode = "order";
+      localStorage.setItem("viewMode", "order");
+      selectedTag = "";
+      localStorage.removeItem("selectedTag");
+      shuffleSourceKey = "";
+      shuffleOrder = [];
+      modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === viewMode);
+      });
+      updateModeToggleLabel();
+      HeartIcon.mount(document.getElementById("fav-mode-heart"), false, { size: "sm" });
+      renderTagFilter();
+      closeModeMenu();
+    }
+
     function consumeFeedStartVideo() {
       try {
         const key = `rolloFeedStartVideo:${VideoGroups.getActive() || ""}`;
@@ -1705,14 +1769,15 @@
     }
 
     function resolveFeedStartIndex(videos) {
-      const fromUrl = startVideo;
-      const fromSession = consumeFeedStartVideo();
-      for (const name of [fromUrl, fromSession]) {
-        if (!name) continue;
-        const idx = videos.findIndex((v) => v.name === name);
-        if (idx >= 0) return idx;
+      const targetName = getPendingStartVideoName();
+      if (targetName) {
+        const idx = videos.findIndex((v) => v.name === targetName);
+        if (idx >= 0) {
+          consumeFeedStartVideo();
+          return idx;
+        }
       }
-      if (fromUrl || fromSession) return 0;
+      consumeFeedStartVideo();
       return readFeedResume(videos);
     }
 
@@ -1720,7 +1785,7 @@
       activeIndex = startIndex;
       clearTimeout(playCardTimer);
       ignoreObserver = true;
-      isFeedScrolling = true;
+      setFeedScrolling(true);
 
       const settleMs = isAndroid ? 450 : 250;
       requestAnimationFrame(() => {
@@ -1729,11 +1794,14 @@
         feed.scrollTop = startIndex * h;
         requestAnimationFrame(() => {
           feed.scrollTop = startIndex * h;
+          if (cards[startIndex] && !cards[startIndex].isImage) {
+            ensureCardSrc(cards[startIndex], "auto");
+          }
           playCard(startIndex);
           feed.classList.remove("no-snap");
           feed.scrollTop = startIndex * h;
           setTimeout(() => {
-            isFeedScrolling = false;
+            setFeedScrolling(false);
             ignoreObserver = false;
           }, settleMs);
         });
@@ -1811,12 +1879,36 @@
       if (!isFeedScrolling) unloadDistantCards(index);
     }
 
+    function updateFeedTags(tags) {
+      if (!feedTagsEl) return;
+      feedTagsEl.replaceChildren();
+      const list = Array.isArray(tags) ? tags : [];
+      list.forEach((t) => {
+        const span = document.createElement("span");
+        span.className = "card-tag";
+        span.textContent = t;
+        TagColors.styleTagEl(span, t);
+        feedTagsEl.appendChild(span);
+      });
+      const show = list.length > 0;
+      feedTagsEl.hidden = !show;
+      feedTagsEl.classList.toggle("hidden", !show);
+      feedTagsEl.setAttribute("aria-hidden", show ? "false" : "true");
+    }
+
     function updateFeedCaption(video) {
       if (!feedCaptionEl) return;
       const text = (video?.displayName || "").trim();
       feedCaptionEl.textContent = text;
-      feedCaptionEl.hidden = !text;
-      feedCaptionEl.setAttribute("aria-hidden", text ? "false" : "true");
+      const show = !!text;
+      feedCaptionEl.hidden = !show;
+      feedCaptionEl.classList.toggle("hidden", !show);
+      feedCaptionEl.setAttribute("aria-hidden", show ? "false" : "true");
+    }
+
+    function updateFeedMeta(video) {
+      updateFeedTags(video?.tags);
+      updateFeedCaption(video);
     }
 
     async function probeFeedVideoMeta(video) {
@@ -1895,19 +1987,27 @@
       if (index < 0 || index >= cards.length) return;
 
       preloadNearby(index);
+      hideAllPlayHints();
 
       cards.forEach((card, i) => {
         if (i === index) {
           stopSpeed(card);
           if (card.isImage) {
+            card.el.classList.remove("is-buffering");
             ensureCardSrc(card);
             card.hint.classList.remove("visible");
           } else {
+            card.el.classList.add("is-buffering");
+            ensureCardSrc(card, "auto");
             card.video.muted = globalMuted;
-            card.video.play()?.catch(() => {});
+            const playPromise = card.video.play();
+            playPromise?.catch(() => {
+              card.el.classList.remove("is-buffering");
+            });
             card.hint.classList.remove("visible");
           }
         } else {
+          card.el.classList.remove("is-buffering");
           stopSpeed(card);
           if (!card.isImage) {
             card.video.pause();
@@ -1923,7 +2023,7 @@
       seekBar.classList.toggle("hidden", !!active?.isImage);
       syncSeekBar(active?.isImage ? null : active?.video);
       updateCounter();
-      updateFeedCaption(active?.videoData);
+      updateFeedMeta(active?.videoData);
       if (active?.videoData) probeFeedVideoMeta(active.videoData);
       if (feedInfoBtn) feedInfoBtn.hidden = false;
       showChrome(true);
@@ -2124,6 +2224,11 @@
       feedExtrasApi?.bindDoubleTapLike?.(el, video, () => toggleFavorite(card));
 
       if (!isImage) {
+        media.addEventListener("playing", () => {
+          card.el.classList.remove("is-buffering");
+          card.hint.classList.remove("visible");
+        });
+
         media.addEventListener("timeupdate", () => {
           if (cards[activeIndex]?.video !== media) return;
           syncSeekBar(media);
@@ -2163,6 +2268,7 @@
       cards = [];
       filteredEmpty.style.display = "none";
 
+      ensureDeepLinkVideoVisible();
       const videos = getDisplayVideos();
       if (!allVideos.length) return;
 
@@ -2196,7 +2302,7 @@
 
       const startIndex = resolveFeedStartIndex(videos);
       ignoreObserver = true;
-      isFeedScrolling = true;
+      setFeedScrolling(true);
       clearTimeout(playCardTimer);
 
       cards.forEach((card) => observer.observe(card.el));
@@ -2318,6 +2424,9 @@
           renderCardTags(card.tagsEl, video.tags);
         }
       });
+      if (cards[activeIndex]?.videoData?.name === name) {
+        updateFeedTags(video.tags);
+      }
     }
 
     tagAddBtn.addEventListener("click", () => addTag(tagInput.value));
