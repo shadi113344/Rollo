@@ -7,6 +7,11 @@ class RolloJsBridge(private val activity: MainActivity) {
     fun isXConnected(): Boolean = XCookies.isConnected(activity)
 
     @JavascriptInterface
+    fun readClipboard(): String {
+        return activity.readClipboardText()
+    }
+
+    @JavascriptInterface
     fun connectX() {
         activity.runOnUiThread { activity.launchXLogin() }
     }

@@ -66,5 +66,5 @@
     <string name="x_login_title">Sign in to X</string>
     <string name="x_login_done">Done — save login</string>
     <string name="x_login_saved">X login saved for downloads</string>
-    <string name="x_login_not_ready">Finish signing in to X first, then tap Done</string>
+    <string name="x_login_not_ready">Finish signing in to X (you should see your home feed), then tap Done</string>
 </resources>

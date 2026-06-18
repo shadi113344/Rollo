@@ -580,10 +580,9 @@
 
         <label class="field-label" for="quality-select" style="margin-top:14px">Quality</label>
         <select id="quality-select" aria-label="Download quality">
-          <option value="fast" selected>720p Fast (recommended)</option>
-          <option value="hd">1080p</option>
-          <option value="best">Best available</option>
+          <option value="best" selected>Best available</option>
         </select>
+        <p class="download-queue-note" id="quality-hint" style="margin-top:6px">Paste a link to load available qualities.</p>
 
         <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px">
           <input type="checkbox" id="playlist-checkbox">
@@ -710,6 +709,7 @@
     const xReauthWarn = document.getElementById("x-reauth-warn");
     const xReauthBtn = document.getElementById("x-reauth-btn");
     const pasteBtn = document.getElementById("paste-btn");
+    const qualityHint = document.getElementById("quality-hint");
     const playlistCheckbox = document.getElementById("playlist-checkbox");
     const moveSheetBackdrop = document.getElementById("move-sheet-backdrop");
     const moveSheet = document.getElementById("move-sheet");
@@ -724,6 +724,86 @@
     let ytdlpAvailable = false;
     let moveJob = null;
     let lastCompletedJob = null;
+    let formatProbeTimer = null;
+    let formatProbeToken = 0;
+
+    function renderQualityOptions(options, selectedValue) {
+      const prev = selectedValue || qualitySelect.value || "best";
+      qualitySelect.innerHTML = "";
+      const list = Array.isArray(options) && options.length ? options : [{ value: "best", label: "Best available" }];
+      for (const opt of list) {
+        const el = document.createElement("option");
+        el.value = opt.value;
+        el.textContent = opt.label;
+        qualitySelect.appendChild(el);
+      }
+      const hasPrev = list.some((opt) => opt.value === prev);
+      qualitySelect.value = hasPrev ? prev : (list[0]?.value || "best");
+    }
+
+    async function probeFormatsForUrl(url) {
+      const trimmed = String(url || "").trim();
+      if (!trimmed || !/^https?:\/\//i.test(trimmed)) {
+        renderQualityOptions([{ value: "best", label: "Best available" }]);
+        if (qualityHint) qualityHint.textContent = "Paste a link to load available qualities.";
+        return;
+      }
+      const token = ++formatProbeToken;
+      if (qualityHint) qualityHint.textContent = "Loading qualities…";
+      try {
+        const res = await fetch(`/api/downloader/formats?url=${encodeURIComponent(trimmed)}`);
+        const data = await res.json();
+        if (token !== formatProbeToken) return;
+        if (!res.ok) {
+          if (data.code === "X_SIGN_IN_REQUIRED") {
+            updateXReauthBanner(trimmed);
+            xReauthWarn.hidden = false;
+          }
+          renderQualityOptions([{ value: "best", label: "Best available" }]);
+          if (qualityHint) {
+            qualityHint.textContent = data.error || "Could not load qualities for this link.";
+          }
+          return;
+        }
+        renderQualityOptions(data.options || [], data.defaultQuality || "best");
+        if (qualityHint) {
+          qualityHint.textContent = data.title
+            ? `Qualities for: ${data.title}`
+            : "Choose a quality, or leave Best available.";
+        }
+      } catch {
+        if (token !== formatProbeToken) return;
+        renderQualityOptions([{ value: "best", label: "Best available" }]);
+        if (qualityHint) qualityHint.textContent = "Could not load qualities for this link.";
+      }
+    }
+
+    function scheduleFormatProbe(url) {
+      clearTimeout(formatProbeTimer);
+      formatProbeTimer = setTimeout(() => probeFormatsForUrl(url), 450);
+    }
+
+    async function pasteFromClipboard() {
+      let text = "";
+      if (hasAndroidBridge() && typeof window.RolloBridge.readClipboard === "function") {
+        text = String(window.RolloBridge.readClipboard() || "").trim();
+      }
+      if (!text && navigator.clipboard?.readText) {
+        try {
+          text = String(await navigator.clipboard.readText() || "").trim();
+        } catch {
+          /* WebView may block clipboard API */
+        }
+      }
+      if (!text) {
+        showToast("Could not read clipboard — tap the link field and use your keyboard’s Paste");
+        urlInput.focus();
+        return;
+      }
+      urlInput.value = text;
+      updateXReauthBanner(text);
+      scheduleFormatProbe(text);
+    }
 
     const STATUS_LABELS = {
       queued: "Queued",
@@ -875,6 +955,10 @@
         }
         downloadBtn.disabled = !ytdlpAvailable;
         if (data.defaultQuality) qualitySelect.value = data.defaultQuality;
+        renderQualityOptions(
+          [{ value: "best", label: "Best available" }],
+          data.defaultQuality || "best"
+        );
         updateXAuthUi(!!data.cookies || (hasAndroidBridge() && window.RolloBridge.isXConnected()));
 
         clearTimeout(androidDownloaderPoll);
@@ -1496,20 +1580,13 @@
     }
 
     downloadBtn.addEventListener("click", startDownload);
-    pasteBtn.addEventListener("click", async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          urlInput.value = text.trim();
-          updateXReauthBanner(urlInput.value);
-        } else {
-          showToast("Clipboard is empty");
-        }
-      } catch {
-        showToast("Could not read clipboard");
-      }
+    pasteBtn.addEventListener("click", () => {
+      pasteFromClipboard();
     });
-    urlInput.addEventListener("input", () => updateXReauthBanner(urlInput.value));
+    urlInput.addEventListener("input", () => {
+      updateXReauthBanner(urlInput.value);
+      scheduleFormatProbe(urlInput.value);
+    });
     xReauthBtn.addEventListener("click", signInX);
     urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") startDownload();

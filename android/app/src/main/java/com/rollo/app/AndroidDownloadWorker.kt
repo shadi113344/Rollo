@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -23,8 +24,10 @@ object AndroidDownloadWorker {
             val bridgeDir = File(dataDir, "android-downloader")
             val requestsDir = File(bridgeDir, "requests")
             val jobsDir = File(bridgeDir, "jobs")
+            val probesDir = File(bridgeDir, "probes")
             requestsDir.mkdirs()
             jobsDir.mkdirs()
+            probesDir.mkdirs()
 
             File(bridgeDir, "ready").delete()
             File(bridgeDir, "init-error").delete()
@@ -44,7 +47,15 @@ object AndroidDownloadWorker {
                 try {
                     requestsDir.listFiles()
                         ?.filter { it.isFile && it.name.startsWith("request-") && it.name.endsWith(".json") }
-                        ?.forEach { reqFile -> processRequest(reqFile, jobsDir) }
+                        ?.forEach { reqFile ->
+                            val type = runCatching {
+                                JSONObject(reqFile.readText()).optString("type", "download")
+                            }.getOrDefault("download")
+                            when (type) {
+                                "probe" -> processProbe(reqFile, probesDir, app)
+                                else -> processRequest(reqFile, jobsDir, app)
+                            }
+                        }
                 } catch (err: Throwable) {
                     Log.e(TAG, "worker loop error", err)
                 }
@@ -53,43 +64,95 @@ object AndroidDownloadWorker {
         }, "RolloYtdlpWorker").start()
     }
 
-    private fun processRequest(reqFile: File, jobsDir: File) {
+    private fun processProbe(reqFile: File, probesDir: File, context: Context) {
+        val probeId = reqFile.name.removePrefix("request-").removeSuffix(".json")
+        val responseFile = File(probesDir, "response-$probeId.json")
+        try {
+            val req = JSONObject(reqFile.readText())
+            val url = req.getString("url")
+            val cookiesPath = req.optString("cookiesFile", "")
+            if (cookiesPath.isNotBlank()) XCookies.repairCookiesFile(context)
+
+            val request = YoutubeDLRequest(url)
+            request.addOption("--no-playlist")
+            request.addOption("-J")
+            if (cookiesPath.isNotBlank()) {
+                val cookies = File(cookiesPath)
+                if (cookies.isFile) request.addOption("--cookies", cookies.absolutePath)
+            }
+
+            val response = YoutubeDL.getInstance().execute(request)
+            val json = JSONObject()
+            json.put("ok", true)
+            json.put("stdout", response.out ?: "")
+            responseFile.writeText(json.toString())
+        } catch (err: Throwable) {
+            Log.e(TAG, "probe failed for $probeId", err)
+            val json = JSONObject()
+            json.put("ok", false)
+            json.put("error", err.message ?: "Probe failed")
+            responseFile.writeText(json.toString())
+        } finally {
+            reqFile.delete()
+        }
+    }
+
+    private fun processRequest(reqFile: File, jobsDir: File, context: Context) {
         val jobId = reqFile.name.removePrefix("request-").removeSuffix(".json")
         val jobFile = File(jobsDir, "$jobId.json")
         try {
             val req = JSONObject(reqFile.readText())
             val url = req.getString("url")
             val outputDir = req.getString("outputDir")
-            val quality = req.optString("quality", "fast")
             val cookiesPath = req.optString("cookiesFile", "")
+            if (cookiesPath.isNotBlank()) XCookies.repairCookiesFile(context)
 
             File(outputDir).mkdirs()
             val before = mediaNames(outputDir)
             writeJob(jobFile, jobId, "downloading", 0, null, null, null)
 
-            val outTemplate = File(outputDir, "%(title).200B [%(id)s].%(ext)s").absolutePath
-            val request = YoutubeDLRequest(url)
-            request.addOption("-o", outTemplate)
-            request.addOption("--no-playlist")
-            request.addOption("--newline")
-            request.addOption("-f", formatSelector(quality, url))
+            val attempts = req.optJSONArray("attempts")
+            var lastError: String? = null
+            var succeeded = false
 
-            if (cookiesPath.isNotBlank()) {
-                val cookies = File(cookiesPath)
-                if (cookies.isFile) request.addOption("--cookies", cookies.absolutePath)
-            }
-
-            var lastPct = -1
-            YoutubeDL.getInstance().execute(request) { progress, _, _ ->
-                val pct = progress.toInt().coerceIn(0, 99)
-                if (pct != lastPct) {
-                    lastPct = pct
-                    writeJob(jobFile, jobId, "downloading", pct, null, null, null)
+            if (attempts != null && attempts.length() > 0) {
+                for (i in 0 until attempts.length()) {
+                    val args = attempts.getJSONArray(i)
+                    try {
+                        val request = buildRequestFromArgs(args, url)
+                        if (executeDownload(request, jobFile, jobId)) {
+                            succeeded = true
+                            break
+                        }
+                    } catch (err: Throwable) {
+                        lastError = err.message ?: "Download failed"
+                        Log.w(TAG, "attempt ${i + 1} failed for $jobId", err)
+                    }
+                }
+            } else {
+                val quality = req.optString("quality", "best")
+                val request = YoutubeDLRequest(url)
+                request.addOption("-o", File(outputDir, "%(title).200B [%(id)s].%(ext)s").absolutePath)
+                request.addOption("--no-playlist")
+                request.addOption("--newline")
+                request.addOption("-f", formatSelector(quality, url))
+                if (cookiesPath.isNotBlank()) {
+                    val cookies = File(cookiesPath)
+                    if (cookies.isFile) request.addOption("--cookies", cookies.absolutePath)
+                }
+                try {
+                    succeeded = executeDownload(request, jobFile, jobId)
+                } catch (err: Throwable) {
+                    lastError = err.message ?: "Download failed"
                 }
             }
 
-            val filename = findNewFile(outputDir, before)
-            writeJob(jobFile, jobId, "completed", 100, null, filename, null)
+            if (succeeded) {
+                val filename = findNewFile(outputDir, before)
+                writeJob(jobFile, jobId, "completed", 100, null, filename, null)
+            } else {
+                writeJob(jobFile, jobId, "failed", 0, null, null, lastError ?: "Download failed")
+            }
         } catch (err: Throwable) {
             Log.e(TAG, "download failed for $jobId", err)
             writeJob(jobFile, jobId, "failed", 0, null, null, err.message ?: "Download failed")
@@ -98,12 +161,51 @@ object AndroidDownloadWorker {
         }
     }
 
+    private fun executeDownload(request: YoutubeDLRequest, jobFile: File, jobId: String): Boolean {
+        var lastPct = -1
+        YoutubeDL.getInstance().execute(request) { progress, _, _ ->
+            val pct = progress.toInt().coerceIn(0, 99)
+            if (pct != lastPct) {
+                lastPct = pct
+                writeJob(jobFile, jobId, "downloading", pct, null, null, null)
+            }
+        }
+        return true
+    }
+
+    private fun buildRequestFromArgs(args: JSONArray, defaultUrl: String): YoutubeDLRequest {
+        val tokens = mutableListOf<String>()
+        var url = defaultUrl
+        for (i in 0 until args.length()) {
+            val token = args.getString(i)
+            if (token.startsWith("http://") || token.startsWith("https://")) {
+                url = token
+            } else {
+                tokens.add(token)
+            }
+        }
+        val request = YoutubeDLRequest(url)
+        var idx = 0
+        while (idx < tokens.size) {
+            val key = tokens[idx]
+            if (key.startsWith("-") && idx + 1 < tokens.size && !tokens[idx + 1].startsWith("-")) {
+                request.addOption(key, tokens[idx + 1])
+                idx += 2
+            } else {
+                request.addOption(key)
+                idx += 1
+            }
+        }
+        return request
+    }
+
     private fun formatSelector(quality: String, url: String): String {
+        if (quality.startsWith("format:")) return quality.removePrefix("format:")
         if (isTwitterUrl(url)) return "bv*+ba/b"
         val maxH = when (quality) {
+            "fast" -> 720
             "hd" -> 1080
-            "best" -> 2160
-            else -> 720
+            else -> 2160
         }
         if (maxH >= 2160) return "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
         return listOf(

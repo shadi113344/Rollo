@@ -53,4 +53,20 @@ assert.ok(xGuestArgs.includes("twitter:api=syndication"));
 const xSession = require("../lib/x-session");
 assert.strictEqual(typeof xSession.isConnected, "function");
 
+const repaired = xSession.repairNetscapeCookiesContent(
+  "x.com\tTRUE\t/\tTRUE\t1813281371\tguest_id_marketing\tabc\n"
+);
+assert.ok(repaired.includes(".x.com\tTRUE"));
+
+assert.strictEqual(
+  xSession.hasXAuthCookieNames("x.com\tTRUE\t/\tTRUE\t1\tguest_id\tabc"),
+  false
+);
+assert.strictEqual(
+  xSession.hasXAuthCookieNames(".x.com\tTRUE\t/\tTRUE\t1\tauth_token\tabc"),
+  true
+);
+
+assert.strictEqual(require("../lib/downloader").normalizeQuality("unknown"), "best");
+
 console.log("downloader.test.js: ok");

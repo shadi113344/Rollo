@@ -140,6 +140,13 @@ class MainActivity : AppCompatActivity() {
         webView.evaluateJavascript("window.onRolloXAuthChanged?.()", null)
     }
 
+    fun readClipboardText(): String {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = clipboard.primaryClip ?: return ""
+        if (clip.itemCount < 1) return ""
+        return clip.getItemAt(0).coerceToText(this)?.toString()?.trim().orEmpty()
+    }
+
     private fun setupControls() {
         batteryButton.setOnClickListener {
             if (BatteryHelper.isExempt(this)) {

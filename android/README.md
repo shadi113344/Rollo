@@ -117,6 +117,27 @@ android/
     jniLibs/                 # libnode.so (from setup-libnode)
 ```
 
+## Build Analyzer warnings (Android Studio)
+
+These are **performance hints**, not errors. Your APK can build successfully with them.
+
+### Windows Defender Active Scanning
+
+Defender real-time scanning Gradle folders slows native/CMake builds a lot on Windows.
+
+**Easiest fix:** In the Build Analyzer warning, click **automatically check and exclude missing paths** (needs Administrator once). Android Studio will add:
+
+- `C:\cody\Rollo\android`
+- `%USERPROFILE%\.gradle`
+- `%LOCALAPPDATA%\Android\Sdk`
+- Android Studio install folder
+
+**Manual:** Windows Security → Virus & threat protection → Manage settings → Exclusions → Add folder → same paths.
+
+### Configuration cache
+
+Gradle can skip re-configuring when `build.gradle` files unchanged (~1–2s saved). This repo enables it in `gradle.properties`. If a future plugin breaks it, set `org.gradle.configuration-cache=false` or use **Try Configuration cache in a build** from the analyzer first.
+
 ## Notes
 
 - APK size is ~60–80 MB (Node runtime + dependencies).

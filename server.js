@@ -749,6 +749,22 @@ app.get("/api/downloader/status", async (_req, res) => {
   res.json(downloader.getInfo());
 });
 
+app.get("/api/downloader/formats", async (req, res) => {
+  const url = req.query.url;
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "url required" });
+  }
+  try {
+    const data = await downloader.listFormats(url);
+    res.json(data);
+  } catch (err) {
+    if (err.code === "X_SIGN_IN_REQUIRED") {
+      return res.status(401).json({ error: err.message, code: err.code });
+    }
+    res.status(400).json({ error: err.message || "Could not read formats" });
+  }
+});
+
 app.post("/api/download", async (req, res) => {
   const groupId = req.query.group || req.body?.groupId;
   if (!requireGroup(groupId, req, res)) return;
