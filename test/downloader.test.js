@@ -50,6 +50,33 @@ const xGuestArgs = require("../lib/downloader").buildYtdlpArgs({
 });
 assert.ok(xGuestArgs.includes("twitter:api=syndication"));
 
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const tmpCookie = path.join(os.tmpdir(), `rollo-test-cookies-${process.pid}.txt`);
+fs.writeFileSync(tmpCookie, ".x.com\tTRUE\t/\tTRUE\t1\tauth_token\tx\n.ct0\tTRUE\t/\tTRUE\t1\tct0\ty\n");
+
+const signedAttempts = require("../lib/downloader").buildDownloadAttempts({
+  url: "https://x.com/user/status/1?s=20",
+  outputDir: "/tmp/out",
+  quality: "best",
+  xAuth: { cookiesFile: tmpCookie },
+});
+try {
+  fs.unlinkSync(tmpCookie);
+} catch {
+  /* ignore */
+}
+assert.ok(signedAttempts.some((args) => args.includes("--cookies")));
+assert.ok(signedAttempts.some((args) => !args.includes("--cookies")));
+assert.ok(signedAttempts.some((args) => args.includes("twitter:api=syndication")));
+assert.ok(
+  signedAttempts.every((args) => {
+    const urlArg = args.filter((a) => String(a).startsWith("http"))[0];
+    return urlArg && !urlArg.includes("?s=");
+  })
+);
+
 const xSession = require("../lib/x-session");
 assert.strictEqual(typeof xSession.isConnected, "function");
 

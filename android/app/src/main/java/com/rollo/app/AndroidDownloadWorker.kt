@@ -120,10 +120,11 @@ object AndroidDownloadWorker {
                     val args = attempts.getJSONArray(i)
                     try {
                         val request = buildRequestFromArgs(args, url)
-                        if (executeDownload(request, jobFile, jobId)) {
+                        if (executeDownload(request, jobFile, jobId, outputDir, before)) {
                             succeeded = true
                             break
                         }
+                        lastError = "No media file was saved"
                     } catch (err: Throwable) {
                         lastError = err.message ?: "Download failed"
                         Log.w(TAG, "attempt ${i + 1} failed for $jobId", err)
@@ -141,7 +142,7 @@ object AndroidDownloadWorker {
                     if (cookies.isFile) request.addOption("--cookies", cookies.absolutePath)
                 }
                 try {
-                    succeeded = executeDownload(request, jobFile, jobId)
+                    succeeded = executeDownload(request, jobFile, jobId, outputDir, before)
                 } catch (err: Throwable) {
                     lastError = err.message ?: "Download failed"
                 }
@@ -161,16 +162,25 @@ object AndroidDownloadWorker {
         }
     }
 
-    private fun executeDownload(request: YoutubeDLRequest, jobFile: File, jobId: String): Boolean {
+    private fun executeDownload(
+        request: YoutubeDLRequest,
+        jobFile: File,
+        jobId: String,
+        outputDir: String,
+        before: Set<String>,
+    ): Boolean {
         var lastPct = -1
-        YoutubeDL.getInstance().execute(request) { progress, _, _ ->
+        val response = YoutubeDL.getInstance().execute(request) { progress, _, _ ->
             val pct = progress.toInt().coerceIn(0, 99)
             if (pct != lastPct) {
                 lastPct = pct
                 writeJob(jobFile, jobId, "downloading", pct, null, null, null)
             }
         }
-        return true
+        if (response.exitCode != 0) {
+            throw IllegalStateException(response.err ?: response.out ?: "Download failed")
+        }
+        return findNewFile(outputDir, before) != null
     }
 
     private fun buildRequestFromArgs(args: JSONArray, defaultUrl: String): YoutubeDLRequest {
