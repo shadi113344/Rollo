@@ -419,7 +419,7 @@
     .controls {
       position: absolute;
       right: 12px;
-      bottom: calc(var(--bottom-ui-inset) + 56px);
+      bottom: calc(var(--bottom-ui-inset) + 112px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -854,7 +854,6 @@
           </div>
         </div>
       </div>
-      <button type="button" class="feed-info-btn" id="feed-info-btn" aria-label="File details" title="File details" hidden>i</button>
     </div>
     <span id="video-counter"></span>
   </header>
@@ -873,6 +872,12 @@
       <div id="seek-thumb"></div>
     </div>
   </div>
+
+  <aside id="feed-right-rail" class="feed-right-rail" aria-label="Video actions">
+    <button type="button" class="btn feed-info-btn" id="feed-info-btn" aria-label="File details" title="File details" hidden>
+      <span class="feed-info-glyph" aria-hidden="true">i</span>
+    </button>
+  </aside>
 
   <footer id="bottom-dock">
     <nav id="tab-bar" aria-label="Main">

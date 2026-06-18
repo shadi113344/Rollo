@@ -29,7 +29,7 @@
   order: -1;
 }
 
-/* Feed: live indicator sits below the right control stack (aspect / fav / tag / mute) */
+/* Feed: download ring at the foot of #feed-right-rail (info btn sits above it). */
 .net-speed-widget--feed {
   position: fixed;
   right: 12px;
@@ -40,6 +40,13 @@
   align-items: center;
   gap: 3px;
   pointer-events: none;
+}
+
+#feed-right-rail .net-speed-widget--feed {
+  position: static;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
 }
 
 .net-speed-ring {
@@ -149,8 +156,8 @@
 }
 
 @supports (height: 100lvh) {
-  .ios-standalone .net-speed-widget--feed {
-    top: calc(100lvh - var(--bottom-ui-inset) - 42px);
+  .ios-standalone #feed-right-rail {
+    top: calc(100lvh - var(--bottom-ui-inset) - 98px);
     bottom: auto;
   }
 }

@@ -235,7 +235,8 @@ window.RolloNetSpeed = (function () {
     label.textContent = "—";
 
     widget.append(ring, label);
-    document.body.appendChild(widget);
+    const rail = document.getElementById("feed-right-rail");
+    (rail || document.body).appendChild(widget);
 
     badges.push({ el: label, labelEl: label, widgetEl: widget });
     start();
