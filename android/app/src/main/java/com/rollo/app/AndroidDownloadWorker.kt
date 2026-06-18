@@ -2,6 +2,7 @@ package com.rollo.app
 
 import android.content.Context
 import android.util.Log
+import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import org.json.JSONArray
@@ -34,6 +35,14 @@ object AndroidDownloadWorker {
 
             try {
                 YoutubeDL.getInstance().init(app)
+                FFmpeg.getInstance().init(app)
+                try {
+                    val status =
+                        YoutubeDL.getInstance().updateYoutubeDL(app, YoutubeDL.UpdateChannel.STABLE)
+                    Log.i(TAG, "yt-dlp update status: $status")
+                } catch (updateErr: Throwable) {
+                    Log.w(TAG, "yt-dlp update skipped (offline or rate-limited)", updateErr)
+                }
                 File(bridgeDir, "ready").writeText(System.currentTimeMillis().toString())
                 Log.i(TAG, "YoutubeDL ready")
             } catch (err: Throwable) {
