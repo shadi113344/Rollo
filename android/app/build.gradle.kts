@@ -93,22 +93,26 @@ tasks.matching { it.name.contains("AndroidTest", ignoreCase = true) }.configureE
 
 // Download nodejs-mobile native libs if missing (required for Node server).
 tasks.register("ensureLibnode") {
-    val jniRoot = layout.projectDirectory.dir("src/main/jniLibs")
-    val arm64Lib = jniRoot.file("arm64-v8a/libnode.so")
+    notCompatibleWithConfigurationCache("ensureLibnode resolves project paths and may download libnode.so")
+
+    val projectDir = layout.projectDirectory.asFile
+    val buildDir = layout.buildDirectory.get().asFile
+    val jniRoot = projectDir.resolve("src/main/jniLibs")
+    val arm64Lib = jniRoot.resolve("arm64-v8a/libnode.so")
+    val assetsRoot = projectDir.resolve("src/main/assets/libnode")
 
     outputs.file(arm64Lib)
 
     doLast {
-        val assetsRoot = layout.projectDirectory.dir("src/main/assets/libnode")
         val nativeLibs = listOf("libnode.so", "libc++_shared.so")
 
-        if (arm64Lib.asFile.exists()) {
+        if (arm64Lib.exists()) {
             logger.lifecycle("libnode.so already installed")
             for (abi in listOf("arm64-v8a", "armeabi-v7a", "x86_64")) {
                 for (lib in nativeLibs) {
-                    val jniOut = jniRoot.file("$abi/$lib").asFile
+                    val jniOut = jniRoot.resolve("$abi/$lib")
                     if (!jniOut.exists()) continue
-                    val assetOut = assetsRoot.file("$abi/$lib").asFile
+                    val assetOut = assetsRoot.resolve("$abi/$lib")
                     assetOut.parentFile.mkdirs()
                     jniOut.copyTo(assetOut, overwrite = true)
                 }
@@ -120,7 +124,7 @@ tasks.register("ensureLibnode") {
         val zipName = "nodejs-mobile-v$version-android.zip"
         val zipUrl =
             "https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v$version/$zipName"
-        val zipFile = layout.buildDirectory.file("nodejs-mobile/$zipName").get().asFile
+        val zipFile = buildDir.resolve("nodejs-mobile/$zipName")
 
         logger.lifecycle("Downloading nodejs-mobile v$version …")
         zipFile.parentFile.mkdirs()
@@ -136,7 +140,7 @@ tasks.register("ensureLibnode") {
                 for (abi in abis) {
                     val needle = "bin/$abi/libnode.so"
                     if (name.endsWith(needle)) {
-                        val jniOut = jniRoot.file("$abi/libnode.so").asFile
+                        val jniOut = jniRoot.resolve("$abi/libnode.so")
                         jniOut.parentFile.mkdirs()
                         jniOut.outputStream().use { zis.copyTo(it) }
                         logger.lifecycle("Installed libnode.so for $abi (jniLibs)")
@@ -149,16 +153,16 @@ tasks.register("ensureLibnode") {
 
         for (abi in abis) {
             for (lib in nativeLibs) {
-                val jniOut = jniRoot.file("$abi/$lib").asFile
+                val jniOut = jniRoot.resolve("$abi/$lib")
                 if (!jniOut.exists()) continue
-                val assetOut = assetsRoot.file("$abi/$lib").asFile
+                val assetOut = assetsRoot.resolve("$abi/$lib")
                 assetOut.parentFile.mkdirs()
                 jniOut.copyTo(assetOut, overwrite = true)
                 logger.lifecycle("Copied $lib to assets for $abi")
             }
         }
 
-        if (!arm64Lib.asFile.exists()) {
+        if (!arm64Lib.exists()) {
             throw GradleException(
                 "Failed to install libnode.so. Run: powershell -File android/setup-libnode.ps1"
             )
