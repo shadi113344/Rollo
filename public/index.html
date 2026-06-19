@@ -778,6 +778,86 @@
       opacity: 0.9;
     }
 
+    .play-badge.text-badge {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .thumb-wrap.thumb-text {
+      background: linear-gradient(160deg, #141820, #1c2430);
+    }
+
+    .thumb-wrap.thumb-text .thumb-placeholder {
+      display: none;
+    }
+
+    .thumb-wrap.thumb-text::after {
+      content: "Aa";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      font-family: Georgia, "Times New Roman", serif;
+      color: rgba(255,255,255,0.35);
+      pointer-events: none;
+    }
+
+    .thumb-wrap.thumb-pdf {
+      background: linear-gradient(160deg, #201414, #2a1818);
+    }
+
+    .thumb-wrap.thumb-pdf .thumb-placeholder {
+      display: none;
+    }
+
+    .thumb-wrap.thumb-pdf::after {
+      content: "PDF";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: rgba(255,120,120,0.45);
+      pointer-events: none;
+    }
+
+    .thumb-wrap.thumb-html {
+      background: linear-gradient(160deg, #141820, #182028);
+    }
+
+    .thumb-wrap.thumb-html .thumb-placeholder {
+      display: none;
+    }
+
+    .thumb-wrap.thumb-html::after {
+      content: "HTML";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: rgba(120, 180, 255, 0.45);
+      pointer-events: none;
+    }
+
+    .play-badge.pdf-badge {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
     .info { padding: 9px 10px 11px; }
 
     .video-item:not(:has(.info)) .thumb-wrap {
@@ -1313,12 +1393,12 @@
     <div class="upload-queue-list" id="upload-queue-list"></div>
   </div>
   <input id="import-input" type="file" accept=".csv,text/csv" hidden>
-  <input id="upload-input" type="file" accept="image/*,video/*,.gif,.heic,.heif,.png,.jpg,.jpeg,.webp,.bmp,.avif,.mp4,.webm,.mov,.m4v,.mkv,.avi" multiple hidden>
+  <input id="upload-input" type="file" accept="image/*,video/*,text/*,application/pdf,.pdf,.txt,.md,.markdown,.csv,.tsv,.json,.log,.yaml,.yml,.xml,.html,.htm,.rtf,.ini,.cfg,.conf,.toml,.gif,.heic,.heif,.png,.jpg,.jpeg,.webp,.bmp,.avif,.mp4,.webm,.mov,.m4v,.mkv,.avi" multiple hidden>
 
   <div class="sheet-backdrop" id="add-backdrop"></div>
   <div class="sheet" id="add-sheet">
     <h2>Add to library</h2>
-    <button class="action-btn" id="add-upload-btn" type="button">Upload photos &amp; videos</button>
+    <button class="action-btn" id="add-upload-btn" type="button">Upload photos, videos, text &amp; PDFs</button>
     <a class="action-btn" id="add-download-btn" href="/download.html">Download from URL</a>
     <button class="action-btn cancel" id="add-cancel-btn" type="button">Cancel</button>
   </div>
@@ -1798,6 +1878,24 @@
       wrap.dataset.thumbUrl = url;
       wrap.dataset.thumbName = name;
       if (showCachedThumb(wrap, name)) return;
+
+      if (MediaHelpers.isTextFile(name)) {
+        wrap.classList.add("thumb-text");
+        markThumbReady(wrap);
+        return;
+      }
+
+      if (MediaHelpers.isHtmlFile(name)) {
+        wrap.classList.add("thumb-html");
+        markThumbReady(wrap);
+        return;
+      }
+
+      if (MediaHelpers.isPdfFile(name)) {
+        wrap.classList.add("thumb-pdf");
+        markThumbReady(wrap);
+        return;
+      }
 
       if (!MediaHelpers.isImageFile(name)) {
         const img = document.createElement("img");
@@ -2307,7 +2405,7 @@
     }
 
     function updateThumbDurationBadge(wrap, video) {
-      if (!wrap || video.mediaType === "image") return;
+      if (!wrap || video.mediaType === "image" || video.mediaType === "text" || video.mediaType === "html" || video.mediaType === "pdf") return;
       const sec = video.durationSec;
       const label = RolloDuration?.formatShort?.(sec);
       if (!label) return;
@@ -2341,7 +2439,7 @@
     }
 
     async function probeVideoMeta(video) {
-      if (!video || video.mediaType === "image" || video.durationSec) return;
+      if (!video || video.mediaType === "image" || video.mediaType === "text" || video.mediaType === "html" || video.mediaType === "pdf" || video.durationSec) return;
       try {
         const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}/probe`, {
           method: "POST",
@@ -2359,7 +2457,7 @@
     }
 
     function probeMissingDurations(videos) {
-      const queue = videos.filter((v) => v.mediaType !== "image" && !v.durationSec);
+      const queue = videos.filter((v) => v.mediaType !== "image" && v.mediaType !== "text" && v.mediaType !== "html" && v.mediaType !== "pdf" && !v.durationSec);
       let i = 0;
       const next = () => {
         if (i >= queue.length) {
@@ -2659,6 +2757,28 @@
         /* ignore */
       }
       return `/watch.html?${params}`;
+    }
+
+    function readerUrl(video) {
+      const groupId = VideoGroups.getActive() || video?.group || "";
+      if (typeof VideoGroups.readerUrl === "function") {
+        return VideoGroups.readerUrl(video, groupId, "profile");
+      }
+      const params = new URLSearchParams();
+      if (groupId) params.set("group", groupId);
+      if (video?.name) params.set("file", video.name);
+      params.set("back", "profile");
+      return `/rolloreader.html?${params.toString()}`;
+    }
+
+    function itemUrl(video) {
+      const isReader =
+        video.mediaType === "text" ||
+        video.mediaType === "html" ||
+        MediaHelpers.isTextFile(video.name) ||
+        MediaHelpers.isHtmlFile(video.name);
+      if (isReader) return readerUrl(video);
+      return watchUrl(video);
     }
 
     function renderCollectionsGrid() {
@@ -3149,12 +3269,12 @@
           e.preventDefault();
           return;
         }
-        location.href = watchUrl(video);
+        location.href = itemUrl(video);
       });
       link.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          if (!PressRadialMenu.isOpen()) location.href = watchUrl(video);
+          if (!PressRadialMenu.isOpen()) location.href = itemUrl(video);
         }
       });
 
@@ -3178,7 +3298,22 @@
       const play = document.createElement("div");
       play.className = "play-badge";
       const isImage = video.mediaType === "image" || MediaHelpers.isImageFile(video.name);
-      if (!isImage) {
+      const isText = video.mediaType === "text" || MediaHelpers.isTextFile(video.name);
+      const isHtml = video.mediaType === "html" || MediaHelpers.isHtmlFile(video.name);
+      const isPdf = video.mediaType === "pdf" || MediaHelpers.isPdfFile(video.name);
+      if (isText) {
+        play.classList.add("text-badge");
+        play.textContent = "Aa";
+        wrap.appendChild(play);
+      } else if (isHtml) {
+        play.classList.add("text-badge");
+        play.textContent = "HTML";
+        wrap.appendChild(play);
+      } else if (isPdf) {
+        play.classList.add("pdf-badge");
+        play.textContent = "PDF";
+        wrap.appendChild(play);
+      } else if (!isImage) {
         play.textContent = "▶";
         wrap.appendChild(play);
       }
@@ -4104,7 +4239,7 @@
           updateToolbarBtns();
           closeMenus();
         },
-        buildWatchUrl: (video) => watchUrl(video),
+        buildWatchUrl: (video) => itemUrl(video),
       });
 
       document.getElementById("sync-merge-btn")?.addEventListener("click", async () => {

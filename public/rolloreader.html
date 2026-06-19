@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rollo">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+  <title>Reader — Rollo</title>
+  <link rel="stylesheet" href="/a11y.css">
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/rolloreader.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { height: 100%; touch-action: manipulation; }
+    body.page-reader {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="page-reader">
+  <div id="app-scroll">
+    <header class="reader-header">
+      <button type="button" class="reader-back" id="reader-back">← Back</button>
+      <div class="reader-title-wrap">
+        <h1 class="reader-title" id="reader-title">Reader</h1>
+        <p class="reader-subtitle" id="reader-subtitle"></p>
+      </div>
+      <button type="button" class="reader-settings-btn" id="reader-settings-btn" aria-expanded="false" aria-controls="reader-panel" title="Reading settings">Aa</button>
+    </header>
+
+    <div class="reader-scroll-host">
+      <main class="reader-body-wrap" id="reader-scroll">
+        <p class="reader-status" id="reader-status">Loading…</p>
+        <div class="reader-content" id="reader-content" hidden></div>
+      </main>
+    </div>
+  </div>
+
+  <button type="button" class="reader-find-fab" id="reader-find-fab" aria-expanded="false" aria-controls="reader-find-bar" title="Find in file" aria-label="Find in file">
+    <span class="reader-find-fab-icon" aria-hidden="true">⌕</span>
+    <span class="reader-find-fab-label" id="reader-find-fab-label" hidden></span>
+  </button>
+
+  <div class="reader-find-panel" id="reader-find-bar" hidden role="search" aria-label="Find in file">
+    <input type="search" class="reader-find-input" id="reader-find-input" placeholder="Find in file" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Search text">
+    <span class="reader-find-count" id="reader-find-count" aria-live="polite"></span>
+    <button type="button" class="reader-find-nav" id="reader-find-prev" aria-label="Previous match">↑</button>
+    <button type="button" class="reader-find-nav" id="reader-find-next" aria-label="Next match">↓</button>
+    <button type="button" class="reader-find-close" id="reader-find-close" aria-label="Close find">×</button>
+  </div>
+
+  <button type="button" class="reader-fab" id="reader-fab" aria-expanded="false" aria-controls="reader-panel" title="Reading settings">Aa</button>
+
+  <div class="reader-panel-backdrop" id="reader-panel-backdrop" hidden></div>
+  <div class="reader-panel" id="reader-panel" role="dialog" aria-modal="true" aria-label="Reading settings" hidden>
+    <div class="reader-panel-handle" aria-hidden="true"></div>
+    <h2 class="reader-panel-title">Reading settings</h2>
+
+    <label class="reader-slider-row reader-text-only">
+      <span class="reader-slider-head">
+        <span class="reader-slider-label">Size</span>
+        <output id="reader-font-size-val" for="reader-font-size">18px</output>
+      </span>
+      <input type="range" id="reader-font-size" min="14" max="28" step="1" value="18">
+    </label>
+
+    <label class="reader-slider-row reader-text-only">
+      <span class="reader-slider-head">
+        <span class="reader-slider-label">Line spacing</span>
+        <output id="reader-line-height-val" for="reader-line-height">1.75</output>
+      </span>
+      <input type="range" id="reader-line-height" min="135" max="220" step="5" value="175">
+    </label>
+
+    <label class="reader-slider-row reader-text-only">
+      <span class="reader-slider-head">
+        <span class="reader-slider-label">Column width</span>
+        <output id="reader-width-val" for="reader-width">Medium</output>
+      </span>
+      <input type="range" id="reader-width" min="0" max="100" step="1" value="50">
+    </label>
+
+    <div class="reader-panel-row reader-text-only">
+      <label for="reader-font">Font</label>
+      <select id="reader-font" aria-label="Font style">
+        <option value="sans">Sans</option>
+        <option value="serif">Serif</option>
+        <option value="mono">Mono</option>
+      </select>
+    </div>
+
+    <div class="reader-panel-row reader-text-only">
+      <label for="reader-theme">Paper</label>
+      <select id="reader-theme" aria-label="Reader theme">
+        <option value="default">Match app</option>
+        <option value="sepia">Sepia</option>
+        <option value="contrast">High contrast</option>
+      </select>
+    </div>
+
+    <label class="reader-panel-toggle reader-text-only">
+      <input type="checkbox" id="reader-message-spacing" checked>
+      <span>Message spacing</span>
+    </label>
+
+    <button type="button" class="reader-panel-done" id="reader-panel-done">Done</button>
+  </div>
+
+  <script src="/theme.js"></script>
+  <script src="/groups.js"></script>
+  <script src="/media-helpers.js"></script>
+  <script src="/media-helpers-fallback.js"></script>
+  <script src="/rolloreader.js"></script>
+  <script>
+    RolloTheme.init();
+    RolloReader.initPage();
+  </script>
+</body>
+</html>

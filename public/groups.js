@@ -222,6 +222,15 @@ window.VideoGroups = {
     return new URL(`/watch.html?${params}`, location.origin).href;
   },
 
+  readerUrl(video, groupId, back) {
+    groupId = groupId || video?.group || this.getActive();
+    const params = new URLSearchParams();
+    if (groupId) params.set("group", groupId);
+    if (video?.name) params.set("file", video.name);
+    if (back) params.set("back", back);
+    return `/rolloreader.html?${params.toString()}`;
+  },
+
   async shareNative({ title, url }) {
     const payload = { title: title || "Rollo", url };
     try {

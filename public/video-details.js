@@ -61,13 +61,16 @@ window.RolloVideoDetails = (function () {
 
     const D = window.RolloDuration;
     const isImage = video.mediaType === "image";
+    const isText = video.mediaType === "text";
+    const isHtml = video.mediaType === "html";
+    const isPdf = video.mediaType === "pdf";
     const esc = (s) => hooks.escapeHtml?.(String(s ?? "")) ?? String(s ?? "");
 
     bodyEl.replaceChildren();
     bodyEl.appendChild(row("Filename", esc(video.name)));
     bodyEl.appendChild(row("Display name", esc(video.displayName || hooks.stripExt?.(video.name) || "—")));
     bodyEl.appendChild(row("Size", esc(D?.formatBytes?.(video.size) || "—")));
-    if (!isImage) {
+    if (!isImage && !isText && !isHtml && !isPdf) {
       bodyEl.appendChild(row("Duration", esc(D?.format?.(video.durationSec) || "—")));
       bodyEl.appendChild(row("Quality", esc(D?.qualityLabel?.(video.height) || "—")));
       if (video.width && video.height) {

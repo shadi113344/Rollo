@@ -8,7 +8,7 @@ const root = path.join(__dirname, "..");
 const publicDir = path.join(root, "public");
 const swPath = path.join(publicDir, "sw.js");
 
-const PAGES = ["index.html", "watch.html", "download.html", "connect.html", "settings.html", "x-login.html"];
+const PAGES = ["index.html", "watch.html", "rolloreader.html", "download.html", "connect.html", "settings.html", "x-login.html"];
 
 const STATIC_ASSETS = [
   "/manifest.json",

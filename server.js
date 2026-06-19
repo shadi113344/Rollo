@@ -918,7 +918,7 @@ app.post("/api/videos/:filename/probe", async (req, res) => {
   if (!listVideoFilesCached(groupId).includes(filename)) {
     return res.status(404).json({ error: "Video not found" });
   }
-  if (mediaTypeFor(filename) === "image") {
+  if (mediaTypeFor(filename) === "image" || mediaTypeFor(filename) === "text" || mediaTypeFor(filename) === "html" || mediaTypeFor(filename) === "pdf") {
     return res.json({ durationSec: null, width: null, height: null });
   }
 

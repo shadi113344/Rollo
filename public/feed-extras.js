@@ -45,7 +45,7 @@ window.RolloFeedExtras = (function () {
 
   function bindDoubleTapLike(card, video, onLike) {
     card.addEventListener("click", (e) => {
-      if (e.target.closest("button, a, input, .card-tag")) return;
+      if (e.target.closest("button, a, input, .card-tag, .text-open-card")) return;
       const now = Date.now();
       const index = Number(card.dataset.index);
       if (now - lastTapAt < 320 && lastTapIndex === index) {

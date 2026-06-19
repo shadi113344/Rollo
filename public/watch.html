@@ -375,7 +375,110 @@
     .video-card.is-image .speed-overlay,
     .video-card.is-image .progress,
     .video-card.is-image .time-label,
-    .video-card.is-image .mute-btn-hide { display: none !important; }
+    .video-card.is-image .mute-btn-hide,
+    .video-card.is-text .play-hint,
+    .video-card.is-text .speed-hint,
+    .video-card.is-text .speed-overlay,
+    .video-card.is-text .progress,
+    .video-card.is-text .time-label,
+    .video-card.is-text .mute-btn-hide,
+    .video-card.is-pdf .play-hint,
+    .video-card.is-pdf .speed-hint,
+    .video-card.is-pdf .speed-overlay,
+    .video-card.is-pdf .progress,
+    .video-card.is-pdf .time-label,
+    .video-card.is-pdf .mute-btn-hide { display: none !important; }
+
+    .text-viewer {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: calc(var(--top-ui-inset) + 16px) 16px calc(var(--bottom-ui-inset) + 16px);
+      background: #0a0a0a;
+      box-sizing: border-box;
+    }
+
+    .text-content {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(255,255,255,0.92);
+    }
+
+    .text-content.loading {
+      color: rgba(255,255,255,0.45);
+      font-style: italic;
+    }
+
+    .text-open-card {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      margin: 0;
+      padding: 32px 24px calc(var(--bottom-ui-inset) + 32px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      background: linear-gradient(165deg, #101820, #0a0a0a 55%);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .text-open-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      font-weight: 700;
+      font-family: Georgia, "Times New Roman", serif;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .text-open-title {
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.35;
+      max-width: 18em;
+      word-break: break-word;
+    }
+
+    .text-open-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: rgba(110, 181, 255, 0.18);
+      border: 1px solid rgba(110, 181, 255, 0.45);
+      color: #aad4ff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .pdf-viewer {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #111;
+    }
 
     .overlay {
       position: absolute;
@@ -1123,6 +1226,67 @@
       return item.mediaType === "image" || MediaHelpers.isImageFile(item.name);
     }
 
+    function isTextItem(item) {
+      return item.mediaType === "text" || MediaHelpers.isTextFile(item.name);
+    }
+
+    function isHtmlItem(item) {
+      return item.mediaType === "html" || MediaHelpers.isHtmlFile(item.name);
+    }
+
+    function isReaderItem(item) {
+      return isTextItem(item) || isHtmlItem(item);
+    }
+
+    function isPdfItem(item) {
+      return item.mediaType === "pdf" || MediaHelpers.isPdfFile(item.name);
+    }
+
+    function isStaticItem(item) {
+      return isImageItem(item) || isReaderItem(item) || isPdfItem(item);
+    }
+
+    function readerUrl(video) {
+      const groupId = VideoGroups.getActive() || video?.group || "";
+      if (typeof VideoGroups.readerUrl === "function") {
+        return VideoGroups.readerUrl(video, groupId, "feed");
+      }
+      const params = new URLSearchParams();
+      if (groupId) params.set("group", groupId);
+      if (video?.name) params.set("file", video.name);
+      params.set("back", "feed");
+      return `/rolloreader.html?${params.toString()}`;
+    }
+
+    function openReader(video) {
+      if (!video?.name) return;
+      location.assign(readerUrl(video));
+    }
+
+    function bindReaderOpen(el, video) {
+      let armed = false;
+      el.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        e.stopPropagation();
+        armed = true;
+      });
+      el.addEventListener("pointerup", (e) => {
+        e.stopPropagation();
+        if (!armed) return;
+        armed = false;
+        openReader(video);
+      });
+      el.addEventListener("pointercancel", () => {
+        armed = false;
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        openReader(video);
+      });
+    }
+
     function formatTime(sec) {
       if (!Number.isFinite(sec)) return "0:00";
       const m = Math.floor(sec / 60);
@@ -1148,7 +1312,7 @@
       if (visible && autoHide) {
         chromeHideTimer = setTimeout(() => {
           const card = cards[activeIndex];
-          if (card?.isImage) {
+          if (card?.isImage || card?.isReader || card?.isPdf) {
             setChromeVisible(false);
             return;
           }
@@ -1401,7 +1565,7 @@
     function seekFromClientX(clientX) {
       const card = cards[activeIndex];
       const video = card?.video;
-      if (!video?.duration || card?.isImage) return;
+      if (!video?.duration || card?.isImage || card?.isReader || card?.isPdf) return;
       const rect = seekTrack.getBoundingClientRect();
       const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       video.currentTime = ratio * video.duration;
@@ -1457,7 +1621,7 @@
       if (seekBar.classList.contains("hidden")) return;
       const card = cards[activeIndex];
       const video = card?.video;
-      if (!video?.duration || card?.isImage) return;
+      if (!video?.duration || card?.isImage || card?.isReader || card?.isPdf) return;
       const step = e.shiftKey ? 0.1 : 0.02;
       let ratio = video.currentTime / video.duration;
       if (e.key === "ArrowRight" || e.key === "ArrowUp") {
@@ -1481,7 +1645,7 @@
     });
 
     function stopSpeed(card) {
-      if (!card || card.isImage) return;
+      if (!card || card.isImage || card.isReader || card.isPdf) return;
       clearInterval(rewindTimer);
       rewindTimer = null;
       card.video.playbackRate = 1;
@@ -1493,7 +1657,7 @@
     }
 
     function startForward(card) {
-      if (card.isImage) return;
+      if (card.isImage || card.isReader || card.isPdf) return;
       stopSpeed(card);
       speedMode = "forward";
       card.video.play()?.catch(() => {});
@@ -1504,7 +1668,7 @@
     }
 
     function startRewind(card) {
-      if (card.isImage) return;
+      if (card.isImage || card.isReader || card.isPdf) return;
       stopSpeed(card);
       speedMode = "rewind";
       card.video.play()?.catch(() => {});
@@ -1533,7 +1697,9 @@
         if (g.active) {
           stopSpeed(card);
         } else if (!g.moved && !g.scrollCancelled && elapsed < TAP_MAX_MS) {
-          if (card.isImage) {
+          if (card.isReader) {
+            openReader(card.videoData);
+          } else if (card.isImage || card.isPdf) {
             const hidden = card.overlay?.classList.contains("hidden");
             setChromeVisible(hidden, true);
           } else {
@@ -1546,6 +1712,7 @@
 
       el.addEventListener("pointerdown", (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (e.target.closest(".text-open-card")) return;
         if (e.target.closest(".controls") || e.target.closest(".btn")) return;
         if (e.target.closest("#seek-bar")) return;
         if (card._gesture) return;
@@ -1563,7 +1730,7 @@
           holdTimer: null,
         };
 
-        if (side !== "center" && !card.isImage) {
+        if (side !== "center" && !card.isImage && !card.isReader && !card.isPdf) {
           card._gesture.holdTimer = setTimeout(() => {
             const g = card._gesture;
             if (!g || g.moved || g.scrollCancelled) return;
@@ -1644,7 +1811,7 @@
 
     function schedulePlayCard(index, immediate = false) {
       clearTimeout(playCardTimer);
-      if (cards[index] && !cards[index].isImage) {
+      if (cards[index] && !cards[index].isImage && !cards[index].isReader && !cards[index].isPdf) {
         ensureCardSrc(cards[index], "auto");
       }
       if (immediate) {
@@ -1799,7 +1966,7 @@
         feed.scrollTop = startIndex * h;
         requestAnimationFrame(() => {
           feed.scrollTop = startIndex * h;
-          if (cards[startIndex] && !cards[startIndex].isImage) {
+          if (cards[startIndex] && !cards[startIndex].isImage && !cards[startIndex].isReader && !cards[startIndex].isPdf) {
             ensureCardSrc(cards[startIndex], "auto");
           }
           playCard(startIndex);
@@ -1848,6 +2015,11 @@
           card.el.setAttribute("aria-hidden", "true");
         }
         if (dist <= keepRadius) return;
+        if (card.isReader) return;
+        if (card.isPdf) {
+          card.video.removeAttribute("src");
+          return;
+        }
         const media = card.video;
         if (!media?.src) return;
         if (!card.isImage) {
@@ -1861,7 +2033,14 @@
     }
 
     function ensureCardSrc(card, preload) {
+      if (card.isReader) return;
       const media = card.video;
+      if (card.isPdf) {
+        if (!media.src && card.videoData?.url) {
+          media.src = VideoGroups.mediaUrl(card.videoData.url, card.videoData.group);
+        }
+        return;
+      }
       if (card.isImage) {
         if (!media.src && card.videoData?.url) media.src = VideoGroups.mediaUrl(card.videoData.url, card.videoData.group);
         return;
@@ -1917,7 +2096,7 @@
     }
 
     async function probeFeedVideoMeta(video) {
-      if (!video || video.mediaType === "image" || video.durationSec) return;
+      if (!video || isStaticItem(video) || video.durationSec) return;
       try {
         const res = await VideoGroups.apiFetch(`/api/videos/${encodeURIComponent(video.name)}/probe`, {
           method: "POST",
@@ -2001,6 +2180,13 @@
             card.el.classList.remove("is-buffering");
             ensureCardSrc(card);
             card.hint.classList.remove("visible");
+          } else if (card.isPdf) {
+            card.el.classList.remove("is-buffering");
+            ensureCardSrc(card);
+            card.hint.classList.remove("visible");
+          } else if (card.isReader) {
+            card.el.classList.remove("is-buffering");
+            card.hint.classList.remove("visible");
           } else {
             card.el.classList.add("is-buffering");
             ensureCardSrc(card, "auto");
@@ -2014,7 +2200,7 @@
         } else {
           card.el.classList.remove("is-buffering");
           stopSpeed(card);
-          if (!card.isImage) {
+          if (!card.isImage && !card.isReader && !card.isPdf) {
             card.video.pause();
             card.video.playbackRate = 1;
           }
@@ -2025,8 +2211,8 @@
       activeIndex = index;
       saveFeedResume(index);
       const active = cards[index];
-      seekBar.classList.toggle("hidden", !!active?.isImage);
-      syncSeekBar(active?.isImage ? null : active?.video);
+      seekBar.classList.toggle("hidden", !!(active?.isImage || active?.isReader || active?.isPdf));
+      syncSeekBar(active?.isImage || active?.isReader || active?.isPdf ? null : active?.video);
       updateCounter();
       updateFeedMeta(active?.videoData);
       if (active?.videoData) probeFeedVideoMeta(active.videoData);
@@ -2044,11 +2230,15 @@
       localStorage.setItem("watchMuted", globalMuted ? "1" : "0");
       setMuteBtnIcon(btn);
       const card = cards[activeIndex];
-      if (card && !card.isImage) card.video.muted = globalMuted;
+      if (card && !card.isImage && !card.isReader && !card.isPdf) card.video.muted = globalMuted;
     }
 
     function togglePlay(card) {
-      if (card.isImage) {
+      if (card.isReader) {
+        openReader(card.videoData);
+        return;
+      }
+      if (card.isImage || card.isPdf) {
         const hidden = card.overlay?.classList.contains("hidden");
         setChromeVisible(hidden, true);
         return;
@@ -2100,16 +2290,39 @@
 
     function createCard(video, index) {
       const isImage = isImageItem(video);
+      const isReader = isReaderItem(video);
+      const isHtml = isHtmlItem(video);
+      const isPdf = isPdfItem(video);
       const el = document.createElement("div");
-      el.className = "video-card" + (isImage ? " is-image" : "");
+      el.className = "video-card"
+        + (isImage ? " is-image" : "")
+        + (isReader ? " is-text" : "")
+        + (isPdf ? " is-pdf" : "");
       el.dataset.index = index;
 
-      const media = isImage ? document.createElement("img") : document.createElement("video");
+      let media;
       if (isImage) {
+        media = document.createElement("img");
         media.className = "card-media";
         media.alt = "";
         media.decoding = "async";
+      } else if (isReader) {
+        media = document.createElement("button");
+        media.type = "button";
+        media.className = "text-open-card";
+        media.innerHTML = `
+          <span class="text-open-icon" aria-hidden="true">${isHtml ? "⌁" : "Aa"}</span>
+          <span class="text-open-title"></span>
+          <span class="text-open-action">${isHtml ? "Open page" : "Open in Reader"}</span>
+        `;
+        media.querySelector(".text-open-title").textContent = feedDisplayName(video);
+        bindReaderOpen(media, video);
+      } else if (isPdf) {
+        media = document.createElement("iframe");
+        media.className = "pdf-viewer";
+        media.title = feedDisplayName(video);
       } else {
+        media = document.createElement("video");
         media.playsInline = true;
         media.setAttribute("playsinline", "");
         media.setAttribute("webkit-playsinline", "");
@@ -2166,13 +2379,14 @@
       tagBtn.title = "Edit tags";
 
       const muteBtn = document.createElement("button");
-      muteBtn.className = "btn" + (isImage ? " mute-btn-hide" : "");
+      muteBtn.className = "btn" + (isImage || isReader || isPdf ? " mute-btn-hide" : "");
       muteBtn.title = "Mute / unmute";
       setMuteBtnIcon(muteBtn);
-      if (isImage) muteBtn.hidden = true;
+      if (isImage || isReader || isPdf) muteBtn.hidden = true;
 
       const controlButtons = [aspectBtn, favBtn, tagBtn, muteBtn];
-      if (!isImage && document.pictureInPictureEnabled) {
+      if (isReader || isPdf) aspectBtn.hidden = true;
+      if (!isImage && !isReader && !isPdf && document.pictureInPictureEnabled) {
         const pipBtn = document.createElement("button");
         pipBtn.type = "button";
         pipBtn.className = "btn pip-btn";
@@ -2203,7 +2417,8 @@
       feed.appendChild(el);
 
       const card = {
-        el, video: media, isImage, hint, progress, muteBtn, favBtn, aspectBtn, tagsEl, timeEl, overlay,
+        el, video: media, isImage, isReader, isPdf,
+        hint, progress, muteBtn, favBtn, aspectBtn, tagsEl, timeEl, overlay,
         leftHint, rightHint, leftOverlay, rightOverlay, videoData: video,
       };
 
@@ -2228,7 +2443,7 @@
 
       feedExtrasApi?.bindDoubleTapLike?.(el, video, () => toggleFavorite(card));
 
-      if (!isImage) {
+      if (!isImage && !isReader && !isPdf) {
         media.addEventListener("playing", () => {
           card.el.classList.remove("is-buffering");
           card.hint.classList.remove("visible");

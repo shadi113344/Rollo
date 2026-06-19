@@ -1,5 +1,5 @@
 /* Rollo PWA — cache app shell only; never cache media or API responses */
-const CACHE = "rollo-shell-v30";
+const CACHE = "rollo-shell-v41";
 
 const PRECACHE = [
   "/",
@@ -37,6 +37,9 @@ const PRECACHE = [
   "/profile-extras.css",
   "/profile-extras.js",
   "/pwa.js",
+  "/rolloreader.css",
+  "/rolloreader.html",
+  "/rolloreader.js",
   "/servers.js",
   "/settings.css",
   "/settings.html",
